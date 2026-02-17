@@ -29,6 +29,20 @@
       "name": "@contello/rich-text",
       "version": "8.21.0",
     },
+    "packages/sdk-client": {
+      "name": "@contello/sdk-client",
+      "version": "8.21.0",
+      "devDependencies": {
+        "graphql": "^16.11.0",
+        "graphql-ws": "^6.0.6",
+        "rxjs": "^7.8.2",
+      },
+      "peerDependencies": {
+        "graphql": ">=16.0.0",
+        "graphql-ws": ">=5.0.0",
+        "rxjs": ">=5.0.0",
+      },
+    },
     "packages/uploader": {
       "name": "@contello/uploader",
       "version": "8.21.0",
@@ -83,6 +97,8 @@
     "@changesets/write": ["@changesets/write@0.4.0", "", { "dependencies": { "@changesets/types": "^6.1.0", "fs-extra": "^7.0.1", "human-id": "^4.1.1", "prettier": "^2.7.1" } }, "sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q=="],
 
     "@contello/rich-text": ["@contello/rich-text@workspace:packages/rich-text"],
+
+    "@contello/sdk-client": ["@contello/sdk-client@workspace:packages/sdk-client"],
 
     "@contello/uploader": ["@contello/uploader@workspace:packages/uploader"],
 
@@ -537,6 +553,10 @@
     "gopd": ["gopd@1.2.0", "", {}, "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg=="],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
+
+    "graphql": ["graphql@16.12.0", "", {}, "sha512-DKKrynuQRne0PNpEbzuEdHlYOMksHSUI8Zc9Unei5gTsMNA2/vMpoMz/yKba50pejK56qj98qM0SjYxAKi13gQ=="],
+
+    "graphql-ws": ["graphql-ws@6.0.7", "", { "peerDependencies": { "@fastify/websocket": "^10 || ^11", "crossws": "~0.3", "graphql": "^15.10.1 || ^16", "ws": "^8" }, "optionalPeers": ["@fastify/websocket", "crossws", "ws"] }, "sha512-yoLRW+KRlDmnnROdAu7sX77VNLC0bsFoZyGQJLy1cF+X/SkLg/fWkRGrEEYQK8o2cafJ2wmEaMqMEZB3U3DYDg=="],
 
     "has-bigints": ["has-bigints@1.1.0", "", {}, "sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg=="],
 

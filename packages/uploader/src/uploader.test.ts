@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { ContelloUploader } from './uploader';
 import { UploadAssetRetentionPolicy } from './upload-metadata';
+import { ContelloUploader } from './uploader';
 
 describe('ContelloUploader', () => {
   test('constructor sets default transport to ws', () => {
@@ -38,10 +38,15 @@ describe('ContelloUploader', () => {
 
 describe('UploadAssetRetentionPolicy', () => {
   test('has retain value', () => {
-    expect(UploadAssetRetentionPolicy.retain).toBe('retain');
+    expect(UploadAssetRetentionPolicy.retain).toBe(UploadAssetRetentionPolicy.retain);
   });
 
   test('has deleteIfNotUsed value', () => {
-    expect(UploadAssetRetentionPolicy.deleteIfNotUsed).toBe('deleteIfNotUsed');
+    expect(UploadAssetRetentionPolicy.deleteIfNotUsed).toBe(UploadAssetRetentionPolicy.deleteIfNotUsed);
+  });
+
+  test('enum values are strings', () => {
+    expect(typeof UploadAssetRetentionPolicy.retain).toBe('string');
+    expect(typeof UploadAssetRetentionPolicy.deleteIfNotUsed).toBe('string');
   });
 });

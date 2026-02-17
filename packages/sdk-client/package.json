@@ -1,0 +1,38 @@
+{
+  "name": "@contello/sdk-client",
+  "version": "8.21.0",
+  "description": "GraphQL SDK client for Contello CMS with WebSocket transport and connection pooling",
+  "type": "module",
+  "license": "MIT",
+  "author": "admin@entwico.com",
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "rxjs": ">=5.0.0",
+    "graphql": ">=16.0.0",
+    "graphql-ws": ">=5.0.0"
+  },
+  "devDependencies": {
+    "rxjs": "^7.8.2",
+    "graphql": "^16.11.0",
+    "graphql-ws": "^6.0.6"
+  },
+  "files": [
+    "dist"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

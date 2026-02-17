@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import type { RichTextDocument, RichTextNode } from './types';
 import {
   createRichTextDocumentFromString,
   isRichTextDocumentEmpty,
@@ -8,6 +7,7 @@ import {
   richTextNodeToString,
   richTextNodesToString,
 } from './helpers';
+import type { RichTextDocument, RichTextNode } from './types';
 
 describe('richTextNodeToString', () => {
   test('text node', () => {
