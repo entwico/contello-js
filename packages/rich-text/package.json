@@ -5,6 +5,11 @@
   "type": "module",
   "license": "MIT",
   "author": "admin@entwico.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/entwico/contello-js",
+    "directory": "packages/rich-text"
+  },
   "scripts": {
     "build": "tsup",
     "lint": "eslint .",
