@@ -93,12 +93,10 @@ export class ContelloSdkClient<T> {
   }
 
   public async connect() {
-    // TODO wait for the pool to be ready
-    this._pool.connect();
+    await this._pool.connect();
   }
 
   public async disconnect() {
-    // TODO wait for the pool to be offline
-    this._pool.disconnect();
+    await this._pool.disconnect();
   }
 }

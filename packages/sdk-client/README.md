@@ -45,7 +45,9 @@ const client = new ContelloSdkClient(getSdk, {
 To disable pooling:
 
 ```ts
-pooling: { enabled: false }
+pooling: {
+  enabled: false;
+}
 ```
 
 ### Middleware
@@ -93,27 +95,29 @@ const client = new ContelloSdkClient(getSdk, {
 await client.disconnect();
 ```
 
+> `connect()` resolves once all WebSocket connections in the pool have been acknowledged by the server. The underlying transport retries automatically on transient failures, so the promise will stay pending until every connection succeeds. If retries are exhausted the promise will remain unresolved.
+
 ## API
 
 ### `ContelloSdkClient`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `url` | `string` | — | Base URL of the Contello server |
-| `project` | `string` | — | Project identifier |
-| `token` | `string` | — | Authentication token |
-| `middlewares` | `ContelloSdkClientMiddleware[]` | `[]` | Request/message middlewares |
-| `pooling.enabled` | `boolean` | `true` | Enable connection pooling |
-| `pooling.size` | `number` | `5` | Number of WebSocket connections |
-| `client.retryAttempts` | `number` | `3` | Retry attempts on connection failure |
+| Option                 | Type                            | Default | Description                          |
+| ---------------------- | ------------------------------- | ------- | ------------------------------------ |
+| `url`                  | `string`                        | —       | Base URL of the Contello server      |
+| `project`              | `string`                        | —       | Project identifier                   |
+| `token`                | `string`                        | —       | Authentication token                 |
+| `middlewares`          | `ContelloSdkClientMiddleware[]` | `[]`    | Request/message middlewares          |
+| `pooling.enabled`      | `boolean`                       | `true`  | Enable connection pooling            |
+| `pooling.size`         | `number`                        | `5`     | Number of WebSocket connections      |
+| `client.retryAttempts` | `number`                        | `3`     | Retry attempts on connection failure |
 
 ### Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `sdk` | `T` | The generated SDK instance |
-| `connect()` | `Promise<void>` | Open WebSocket connections |
-| `disconnect()` | `Promise<void>` | Close all connections |
+| Method         | Returns         | Description                |
+| -------------- | --------------- | -------------------------- |
+| `sdk`          | `T`             | The generated SDK instance |
+| `connect()`    | `Promise<void>` | Open WebSocket connections |
+| `disconnect()` | `Promise<void>` | Close all connections      |
 
 ## License
 

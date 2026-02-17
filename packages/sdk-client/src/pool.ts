@@ -9,10 +9,24 @@ export class ConnectionPool {
     private poolSize: number,
   ) {}
 
-  connect() {
+  async connect() {
+    const connected: Promise<void>[] = [];
+
     for (let i = 0; i < this.poolSize; i++) {
-      this.clients.push(this.createClient(`${i + 1}`));
+      const client = this.createClient(`${i + 1}`);
+      this.clients.push(client);
+
+      connected.push(
+        new Promise<void>((resolve) => {
+          const unsubscribe = client.on('connected', () => {
+            unsubscribe();
+            resolve();
+          });
+        }),
+      );
     }
+
+    await Promise.all(connected);
   }
 
   get() {
@@ -31,8 +45,21 @@ export class ConnectionPool {
     return client;
   }
 
-  disconnect() {
-    this.clients.forEach((client) => client.dispose());
+  async disconnect() {
+    const closed = this.clients.map(
+      (client) =>
+        new Promise<void>((resolve) => {
+          const unsubscribe = client.on('closed', () => {
+            unsubscribe();
+            resolve();
+          });
+
+          client.dispose();
+        }),
+    );
+
     this.clients = [];
+
+    await Promise.all(closed);
   }
 }
