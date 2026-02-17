@@ -27,15 +27,15 @@
     },
     "packages/extension": {
       "name": "@contello/extension",
-      "version": "8.21.0",
+      "version": "8.21.1",
     },
     "packages/rich-text": {
       "name": "@contello/rich-text",
-      "version": "8.21.0",
+      "version": "8.21.1",
     },
     "packages/sdk-client": {
       "name": "@contello/sdk-client",
-      "version": "8.21.0",
+      "version": "8.21.1",
       "devDependencies": {
         "graphql": "^16.11.0",
         "graphql-ws": "^6.0.6",
@@ -49,7 +49,7 @@
     },
     "packages/uploader": {
       "name": "@contello/uploader",
-      "version": "8.21.0",
+      "version": "8.21.1",
       "devDependencies": {
         "rxjs": "^7.8.2",
       },
