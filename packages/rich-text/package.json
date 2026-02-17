@@ -1,6 +1,6 @@
 {
   "name": "@contello/rich-text",
-  "version": "8.21.0",
+  "version": "8.21.1",
   "description": "TypeScript types and helpers for working with Contello CMS rich text documents (TipTap/ProseMirror JSON format)",
   "type": "module",
   "license": "MIT",

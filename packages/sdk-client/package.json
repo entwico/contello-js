@@ -1,6 +1,6 @@
 {
   "name": "@contello/sdk-client",
-  "version": "8.21.0",
+  "version": "8.21.1",
   "description": "GraphQL SDK client for Contello CMS with WebSocket transport and connection pooling",
   "type": "module",
   "license": "MIT",
