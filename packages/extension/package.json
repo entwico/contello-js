@@ -1,0 +1,28 @@
+{
+  "name": "@contello/extension",
+  "version": "8.21.0",
+  "description": "Client SDK for building Contello CMS extensions and custom properties",
+  "type": "module",
+  "license": "MIT",
+  "author": "admin@entwico.com",
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "dist"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

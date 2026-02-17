@@ -25,6 +25,10 @@
         "typescript-eslint": "^8.56.0",
       },
     },
+    "packages/extension": {
+      "name": "@contello/extension",
+      "version": "8.21.0",
+    },
     "packages/rich-text": {
       "name": "@contello/rich-text",
       "version": "8.21.0",
@@ -95,6 +99,8 @@
     "@changesets/types": ["@changesets/types@6.1.0", "", {}, "sha512-rKQcJ+o1nKNgeoYRHKOS07tAMNd3YSN0uHaJOZYjBAgxfV7TUE7JE+z4BzZdQwb5hKaYbayKN5KrYV7ODb2rAA=="],
 
     "@changesets/write": ["@changesets/write@0.4.0", "", { "dependencies": { "@changesets/types": "^6.1.0", "fs-extra": "^7.0.1", "human-id": "^4.1.1", "prettier": "^2.7.1" } }, "sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q=="],
+
+    "@contello/extension": ["@contello/extension@workspace:packages/extension"],
 
     "@contello/rich-text": ["@contello/rich-text@workspace:packages/rich-text"],
 
