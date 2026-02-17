@@ -1,6 +1,6 @@
 {
   "name": "@contello/uploader",
-  "version": "8.21.1",
+  "version": "8.21.2",
   "description": "File uploader for Contello CMS with WebSocket and HTTP transports",
   "type": "module",
   "license": "MIT",

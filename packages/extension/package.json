@@ -1,6 +1,6 @@
 {
   "name": "@contello/extension",
-  "version": "8.21.1",
+  "version": "8.21.2",
   "description": "Client SDK for building Contello CMS extensions and custom properties",
   "type": "module",
   "license": "MIT",
