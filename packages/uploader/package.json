@@ -1,7 +1,7 @@
 {
-  "name": "@contello/rich-text",
+  "name": "@contello/uploader",
   "version": "8.21.0",
-  "description": "TypeScript types and helpers for working with Contello CMS rich text documents (TipTap/ProseMirror JSON format)",
+  "description": "File uploader for Contello CMS with WebSocket and HTTP transports",
   "type": "module",
   "license": "MIT",
   "author": "admin@entwico.com",
@@ -10,6 +10,12 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "rxjs": ">=5.0.0"
+  },
+  "devDependencies": {
+    "rxjs": "^7.8.2"
   },
   "files": [
     "dist"
