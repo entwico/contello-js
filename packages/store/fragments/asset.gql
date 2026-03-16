@@ -1,0 +1,27 @@
+fragment StoreFile on ContelloFile {
+  uid
+  mimeType
+  metadata {
+    ... on ContelloImageMetadata {
+      width
+      height
+    }
+    ... on ContelloVideoMetadata {
+      width
+      height
+    }
+  }
+}
+
+fragment StoreAsset on ContelloAsset {
+  id
+  original {
+    ...StoreFile
+  }
+  preview {
+    ...StoreFile
+  }
+  optimized {
+    ...StoreFile
+  }
+}

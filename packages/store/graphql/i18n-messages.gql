@@ -1,0 +1,10 @@
+subscription StoreGetI18nMessages($collection: String!) {
+  contelloI18nMessagesBatch(collectionReferenceName: $collection) {
+    id
+    token
+    translations {
+      language
+      value
+    }
+  }
+}

@@ -1,0 +1,33 @@
+#import '../fragments/route.gql'
+
+subscription StoreWatchUpdates {
+  contelloUpdatesBatch {
+    events {
+      target {
+        __typename
+        ... on ContelloEntityBase {
+          id
+        }
+        ... on ContelloRoute {
+          ...StoreRoute
+        }
+        ... on ContelloAsset {
+          id
+        }
+        ... on ContelloI18nMessage {
+          id
+          token
+        }
+      }
+      prev {
+        __typename
+        ... on ContelloRoute {
+          ...StoreRoute
+        }
+      }
+      mutation {
+        type
+      }
+    }
+  }
+}

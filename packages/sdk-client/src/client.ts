@@ -1,5 +1,7 @@
 import { createClient } from 'graphql-ws';
-import type { ContelloSdkClientMiddleware } from './middleware';
+import { Observable, firstValueFrom, map } from 'rxjs';
+
+import { decorateMessage, getWrap } from './diagnostics';
 import { ConnectionPool } from './pool';
 import { type Requester, createSdk } from './sdk';
 
@@ -12,7 +14,6 @@ export type ContelloSdkClientParams = {
   url: string;
   project: string;
   token: string;
-  middlewares?: ContelloSdkClientMiddleware[] | undefined;
   pooling?:
     | {
         enabled?: boolean | undefined;
@@ -56,15 +57,7 @@ export class ContelloSdkClient<T> {
           shouldRetry: () => true,
           jsonMessageReplacer: (key, value) => {
             if (!key) {
-              let message = value;
-
-              for (const middleware of params.middlewares ?? []) {
-                if (middleware.onOutgoingMessage) {
-                  message = middleware.onOutgoingMessage(message);
-                }
-              }
-
-              return message;
+              return decorateMessage(value);
             }
 
             return value;
@@ -85,7 +78,7 @@ export class ContelloSdkClient<T> {
       pooling?.enabled === false ? 1 : (pooling?.size ?? 5),
     );
 
-    this._sdk = { sdk: createSdk(() => this._pool.get(), params.middlewares ?? [], getSdk) };
+    this._sdk = { sdk: createSdk(() => this._pool.get(), getSdk) };
   }
 
   public get sdk() {
@@ -98,5 +91,29 @@ export class ContelloSdkClient<T> {
 
   public async disconnect() {
     await this._pool.disconnect();
+  }
+
+  /**
+   * Subscribes to a raw GraphQL operation against the connection pool.
+   * Returns an Observable that emits each result's data.
+   */
+  public subscribe<TData>(query: string, variables?: Record<string, unknown> | undefined): Observable<TData> {
+    const wsClient = this._pool.get();
+
+    return new Observable<{ data: TData }>((obs) => wsClient.subscribe({ query, variables }, obs)).pipe(
+      map((r) => r.data),
+    );
+  }
+
+  /**
+   * Executes a raw GraphQL query/mutation and returns the first result.
+   * Convenience wrapper around subscribe + firstValueFrom.
+   */
+  public execute<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData> {
+    const fn = () => firstValueFrom(this.subscribe<TData>(query, variables));
+
+    const wrap = getWrap();
+
+    return wrap ? wrap('sdk:execute', fn) : fn();
   }
 }

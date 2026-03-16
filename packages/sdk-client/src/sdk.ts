@@ -1,7 +1,8 @@
 import type { DocumentNode, ExecutionResult, OperationDefinitionNode } from 'graphql';
 import type { Client } from 'graphql-ws';
 import { Observable, firstValueFrom } from 'rxjs';
-import type { ContelloSdkClientMiddleware } from './middleware';
+
+import { getWrap } from './diagnostics';
 
 export type Requester<C = any, E = unknown> = <R, V>(
   doc: DocumentNode,
@@ -11,7 +12,7 @@ export type Requester<C = any, E = unknown> = <R, V>(
 
 export type GetSdk<T, C = any, E = unknown> = (requester: Requester<C, E>) => T;
 
-export const createSdk = <T>(client: () => Client, middlewares: ContelloSdkClientMiddleware[], getSdk: GetSdk<T>) => {
+export const createSdk = <T>(client: () => Client, getSdk: GetSdk<T>) => {
   return getSdk((doc: DocumentNode, vars?: any, options?: any) => {
     if (options) {
       console.warn('options are not supported yet');
@@ -37,35 +38,19 @@ export const createSdk = <T>(client: () => Client, middlewares: ContelloSdkClien
 
     const kind = operationDef.operation;
 
-    const executeRequest = () => {
+    const execute = () => {
       const wsClient = client();
+      const res = new Observable<any>((obs) => wsClient.subscribe({ query, variables: vars as any }, obs));
 
-      return new Observable<any>((obs) => wsClient.subscribe({ query, variables: vars as any }, obs));
+      return kind !== 'subscription' ? firstValueFrom(res) : res;
     };
 
-    const request = {
-      kind,
-      operationName: operationDef.name?.value ?? '',
-      query,
-      variables: vars || {},
-    };
+    const wrapFn = getWrap();
 
-    const executeWithMiddlewares = (middlewares: ContelloSdkClientMiddleware[], index: number): Observable<any> => {
-      if (index >= middlewares.length) {
-        return executeRequest();
-      }
+    if (wrapFn && kind !== 'subscription') {
+      return wrapFn(`sdk:${operationDef.name?.value ?? ''}`, execute);
+    }
 
-      const middleware = middlewares[index];
-
-      if (middleware?.onRequest) {
-        return middleware.onRequest(request, () => executeWithMiddlewares(middlewares, index + 1));
-      }
-
-      return executeWithMiddlewares(middlewares, index + 1);
-    };
-
-    const res = executeWithMiddlewares(middlewares, 0);
-
-    return kind !== 'subscription' ? firstValueFrom(res) : res;
+    return execute();
   }) as T;
 };

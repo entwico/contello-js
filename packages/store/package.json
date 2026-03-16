@@ -1,0 +1,54 @@
+{
+  "name": "@contello/store",
+  "version": "1.0.0",
+  "description": "Framework-agnostic store for Contello CMS with reactive collections and automatic dependency tracking",
+  "type": "module",
+  "license": "MIT",
+  "author": "admin@entwico.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/entwico/contello-js",
+    "directory": "packages/store"
+  },
+  "scripts": {
+    "build": "tsup",
+    "generate": "graphql-codegen",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@contello/sdk-client": ">=8.22.0",
+    "projected": ">=2.0.0",
+    "rxjs": ">=7.0.0"
+  },
+  "dependencies": {
+    "backoff-rxjs": "^7.0.0",
+    "lru-cache": "^11.2.7"
+  },
+  "devDependencies": {
+    "@contello/sdk-client": "workspace:*",
+    "@graphql-codegen/add": "^6.0.0",
+    "@graphql-codegen/cli": "^6.2.1",
+    "@graphql-codegen/typescript": "^5.0.9",
+    "@graphql-codegen/typescript-operations": "^5.0.9",
+    "graphql": "^16.13.1",
+    "projected": "^2.2.0",
+    "rxjs": "^7.8.2"
+  },
+  "files": [
+    "dist",
+    "fragments"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

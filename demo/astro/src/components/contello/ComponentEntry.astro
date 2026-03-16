@@ -1,0 +1,18 @@
+---
+import CCSection from './components/CCSection.astro';
+import CCText from './components/CCText.astro';
+import type { Component } from '@/server/components';
+
+type Props = { component: Component };
+
+const { component } = Astro.props;
+
+const registry = {
+  text: CCText,
+  section: CCSection,
+} satisfies Record<Component['type'], unknown>;
+
+const Entry = registry[component.type];
+---
+
+<Entry {...(component as any)} />

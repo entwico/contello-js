@@ -1,0 +1,9 @@
+mutation StoreRegisterI18nMessages($collection: String!, $messages: [ContelloI18nMessageInput!]!) {
+  registerContelloI18nMessages(
+    collectionReferenceName: $collection
+    messages: $messages
+    deprecateUnmentioned: true
+  ) {
+    ids
+  }
+}

@@ -1,0 +1,37 @@
+fragment StoreRoute on ContelloRoute {
+  id
+  path
+  target {
+    __typename
+    ... on ContelloRouteTargetEntity {
+      entity {
+        __typename
+        ... on ContelloEntityBase {
+          id
+        }
+      }
+    }
+    ... on ContelloRouteTargetAsset {
+      asset {
+        id
+        original {
+          uid
+          mimeType
+        }
+      }
+      contentDisposition
+    }
+    ... on ContelloRouteTargetRedirect {
+      location
+      responseCode
+    }
+    ... on ContelloRouteTargetText {
+      content
+      mimeType
+    }
+  }
+  customHeaders {
+    name
+    value
+  }
+}

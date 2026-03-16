@@ -1,0 +1,11 @@
+---
+import type { Component } from '@/server/components';
+
+type Props = Extract<Component, { type: 'text' }>;
+
+const { markdownData } = Astro.props;
+---
+
+<div>
+  <Fragment set:html={markdownData} />
+</div>

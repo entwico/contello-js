@@ -1,0 +1,41 @@
+{
+  "name": "demo-astro",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "astro dev",
+    "dev": "astro dev",
+    "build": "astro build",
+    "generate": "graphql-codegen",
+    "typecheck": "astro check && tsc --noEmit"
+  },
+  "dependencies": {
+    "@astrojs/node": "^10.0.1",
+    "@astroscope/boot": "^0.4.0",
+    "@astroscope/health": "^0.3.0",
+    "@astroscope/i18n": "^0.4.0",
+    "@astroscope/opentelemetry": "^0.3.0",
+    "@astroscope/pino": "^0.4.0",
+    "@contello/astro": "workspace:*",
+    "@contello/opentelemetry": "workspace:*",
+    "@contello/store": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.213.0",
+    "astro": "^6.0.4",
+    "graphql": "^16.13.1",
+    "graphql-tag": "^2.12.6",
+    "pino": "^10.3.1",
+    "rxjs": "^7.8.2",
+    "zod": "^4.3.6",
+    "zod-conf": "^1.1.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.7",
+    "@graphql-codegen/add": "^6.0.0",
+    "@graphql-codegen/cli": "^6.2.1",
+    "@graphql-codegen/typescript": "^5.0.9",
+    "@graphql-codegen/typescript-generic-sdk": "^5.0.0",
+    "@graphql-codegen/typescript-operations": "^5.0.9",
+    "typescript": "^5.9.3"
+  }
+}

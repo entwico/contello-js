@@ -1,5 +1,11 @@
 # @contello/sdk-client
 
+## 8.22.0
+
+### Minor Changes
+
+- add node diagnostics
+
 ## 8.21.2
 
 ### Patch Changes

@@ -1,0 +1,16 @@
+fragment Component on ContelloComponent {
+  ...FlatComponent
+
+  ... on TextComponent {
+    text {
+      markdownData
+    }
+  }
+
+  ... on SectionComponent {
+    headline
+    content {
+      ...FlatComponent
+    }
+  }
+}

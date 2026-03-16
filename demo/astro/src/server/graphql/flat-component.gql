@@ -1,0 +1,7 @@
+fragment FlatComponent on ContelloComponent {
+  __typename
+
+  ... on ContelloFlatComponent {
+    _flatId
+  }
+}

@@ -1,0 +1,14 @@
+---
+import ContentSection from '../ContentSection.astro';
+import type { Component } from '@/server/components';
+
+type Props = Extract<Component, { type: 'section' }>;
+
+const { headline, content } = Astro.props;
+---
+
+<section>
+  {headline && <h2>{headline}</h2>}
+
+  <ContentSection components={content} />
+</section>

@@ -1,0 +1,10 @@
+---
+import ComponentEntry from './ComponentEntry.astro';
+import type { Component } from '@/server/components';
+
+type Props = { components: Component[] };
+
+const { components } = Astro.props;
+---
+
+{components.map((component) => <ComponentEntry component={component} />)}

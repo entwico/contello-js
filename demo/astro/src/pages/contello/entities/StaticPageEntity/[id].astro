@@ -1,0 +1,17 @@
+---
+import ContentSection from '@/components/contello/ContentSection.astro';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { staticPages } from '@/server/static-pages';
+
+const page = await staticPages.get(Astro.params.id!);
+
+if (!page) {
+  return Astro.rewrite('/404');
+}
+---
+
+<BaseLayout title={page.name}>
+  <h1>{page.name}</h1>
+
+  <ContentSection components={page.content} />
+</BaseLayout>

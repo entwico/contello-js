@@ -1,0 +1,20 @@
+query GetStaticPages($request: StaticPagesRequestInput) {
+  staticPages(request: $request) {
+    entities {
+      id
+      internalName
+      routes {
+        path
+      }
+      attributes {
+        name
+        content {
+          ...FlatComponent
+        }
+        _flat_content {
+          ...Component
+        }
+      }
+    }
+  }
+}
