@@ -3,6 +3,7 @@ import type { Client } from 'graphql-ws';
 import { Observable, firstValueFrom } from 'rxjs';
 
 import { getWrap } from './diagnostics';
+import type { ContelloSdkClientMiddleware } from './middleware';
 
 export type Requester<C = any, E = unknown> = <R, V>(
   doc: DocumentNode,
@@ -12,7 +13,7 @@ export type Requester<C = any, E = unknown> = <R, V>(
 
 export type GetSdk<T, C = any, E = unknown> = (requester: Requester<C, E>) => T;
 
-export const createSdk = <T>(client: () => Client, getSdk: GetSdk<T>) => {
+export const createSdk = <T>(client: () => Client, middlewares: ContelloSdkClientMiddleware[], getSdk: GetSdk<T>) => {
   return getSdk((doc: DocumentNode, vars?: any, options?: any) => {
     if (options) {
       console.warn('options are not supported yet');
@@ -38,9 +39,35 @@ export const createSdk = <T>(client: () => Client, getSdk: GetSdk<T>) => {
 
     const kind = operationDef.operation;
 
-    const execute = () => {
+    const executeRequest = () => {
       const wsClient = client();
-      const res = new Observable<any>((obs) => wsClient.subscribe({ query, variables: vars as any }, obs));
+
+      return new Observable<any>((obs) => wsClient.subscribe({ query, variables: vars as any }, obs));
+    };
+
+    const request = {
+      kind,
+      operationName: operationDef.name?.value ?? '',
+      query,
+      variables: vars || {},
+    };
+
+    const executeWithMiddlewares = (mws: ContelloSdkClientMiddleware[], index: number): Observable<any> => {
+      if (index >= mws.length) {
+        return executeRequest();
+      }
+
+      const middleware = mws[index];
+
+      if (middleware?.onRequest) {
+        return middleware.onRequest(request, () => executeWithMiddlewares(mws, index + 1));
+      }
+
+      return executeWithMiddlewares(mws, index + 1);
+    };
+
+    const execute = () => {
+      const res = executeWithMiddlewares(middlewares, 0);
 
       return kind !== 'subscription' ? firstValueFrom(res) : res;
     };

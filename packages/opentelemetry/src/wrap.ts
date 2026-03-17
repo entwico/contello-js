@@ -53,6 +53,8 @@ export class ContelloInstrumentation extends InstrumentationBase<ContelloInstrum
   }
 
   override enable() {
+    this._subscriptions ??= [];
+
     if (this._subscriptions.length > 0) {
       return;
     }

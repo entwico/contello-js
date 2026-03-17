@@ -2,6 +2,7 @@ import { createClient } from 'graphql-ws';
 import { Observable, firstValueFrom, map } from 'rxjs';
 
 import { decorateMessage, getWrap } from './diagnostics';
+import type { ContelloSdkClientMiddleware } from './middleware';
 import { ConnectionPool } from './pool';
 import { type Requester, createSdk } from './sdk';
 
@@ -14,6 +15,7 @@ export type ContelloSdkClientParams = {
   url: string;
   project: string;
   token: string;
+  middlewares?: ContelloSdkClientMiddleware[] | undefined;
   pooling?:
     | {
         enabled?: boolean | undefined;
@@ -57,7 +59,15 @@ export class ContelloSdkClient<T> {
           shouldRetry: () => true,
           jsonMessageReplacer: (key, value) => {
             if (!key) {
-              return decorateMessage(value);
+              let message = decorateMessage(value);
+
+              for (const middleware of params.middlewares ?? []) {
+                if (middleware.onOutgoingMessage) {
+                  message = middleware.onOutgoingMessage(message);
+                }
+              }
+
+              return message;
             }
 
             return value;
@@ -78,7 +88,7 @@ export class ContelloSdkClient<T> {
       pooling?.enabled === false ? 1 : (pooling?.size ?? 5),
     );
 
-    this._sdk = { sdk: createSdk(() => this._pool.get(), getSdk) };
+    this._sdk = { sdk: createSdk(() => this._pool.get(), params.middlewares ?? [], getSdk) };
   }
 
   public get sdk() {

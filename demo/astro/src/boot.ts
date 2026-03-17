@@ -11,14 +11,14 @@ const sdk = new NodeSDK({
   instrumentations: [new ContelloInstrumentation()],
 });
 
-log.configure({
-  level: Config.logger.level,
-  formatters: { level: (label: string) => ({ level: label }) },
-  timestamp: Config.logger.withTimestamp ? stdTimeFunctions.isoTime : false,
-  ...(!Config.logger.withDefaultBindings ? { base: null } : {}),
-});
-
 export async function onStartup({ host, port }: BootContext) {
+  log.configure({
+    level: Config.logger.level,
+    formatters: { level: (label: string) => ({ level: label }) },
+    timestamp: Config.logger.withTimestamp ? stdTimeFunctions.isoTime : false,
+    ...(!Config.logger.withDefaultBindings ? { base: null } : {}),
+  });
+
   sdk.start();
 
   checks.register('contello', () => contello.ping());
