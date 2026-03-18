@@ -1,5 +1,11 @@
 # @contello/store
 
+## 1.0.2
+
+### Patch Changes
+
+- d44143f: fix workspace version
+
 ## 1.0.1
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @contello/astro
 
+## 1.0.2
+
+### Patch Changes
+
+- d44143f: fix workspace version
+- Updated dependencies [d44143f]
+  - @contello/store@1.0.2
+
 ## 1.0.1
 
 ### Patch Changes
