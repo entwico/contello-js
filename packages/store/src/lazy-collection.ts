@@ -1,23 +1,25 @@
+import type { ContelloClient, OperationMap } from '@contello/client';
 import { ProjectedLazyMap, maybeThen } from 'projected';
 import { type Observable, Subject } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import { createLruCache } from './lru';
+import type { ModelResolver } from './model-resolver';
 import type { LazyCollection, LazyCollectionDef } from './types';
 import { resolveFetchable } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createLazyCollection<
-  TSdk,
+  TOps extends OperationMap | undefined,
   TModel extends string,
   TRaw,
   TMapped extends { id: string },
-  TEntityTypes extends string = string,
+  TModels extends string = string,
 >(
-  def: LazyCollectionDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
-  sdk: TSdk,
+  def: LazyCollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
+  client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
-  entityTypes: ReadonlySet<string> | undefined,
+  resolver: ModelResolver,
 ): LazyCollection<TMapped> {
   const _def = {
     name: def.name ?? def.model,
@@ -28,7 +30,7 @@ export function createLazyCollection<
     },
   };
 
-  const dependencyCollector = new DependencyCollector<string, TEntityTypes>(_def.model, entityTypes);
+  const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
   const cache = createLruCache<string, TMapped>({
     max: _def.cache.max,
     ttl: _def.cache.ttl,
@@ -39,7 +41,7 @@ export function createLazyCollection<
     key: (item) => item.id,
     values: (keys) =>
       wrap(`lazy-collection:${_def.name}`, () =>
-        maybeThen(resolveFetchable(def.fetch(keys, sdk)), (rawItems) =>
+        maybeThen(resolveFetchable(def.fetch(keys, client)), (rawItems) =>
           Promise.all(
             rawItems.map((item) =>
               dependencyCollector.createContext((ref, register) =>

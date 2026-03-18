@@ -5,9 +5,9 @@ import dc from 'node:diagnostics_channel';
 // ---------------------------------------------------------------------------
 
 export const channels = {
-  start: 'contello:store.start',
-  end: 'contello:store.end',
-  error: 'contello:store.error',
+  start: '@contello/store:start',
+  end: '@contello/store:end',
+  error: '@contello/store:error',
 } as const;
 
 // ---------------------------------------------------------------------------

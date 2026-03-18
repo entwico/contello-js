@@ -1,10 +1,10 @@
-import type { ContelloSdkClient } from '@contello/sdk-client';
+import type { ContelloClient } from '@contello/client';
 import { ProjectedLazyMap, type ProjectedMapCache } from 'projected';
 import { type Observable, Subject } from 'rxjs';
-import ROUTES_QUERY from '../graphql/routes.gql';
 import { wrap } from './diagnostics';
-import type { StoreGetRoutesQuery } from './generated/graphql';
+import { type StoreGetRoutesQuery, storeGetRoutesDocument } from './generated/graphql';
 import { createLruCache } from './lru';
+import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import type { LazyCacheOptions } from './types';
 import type { UpdateBatch } from './watcher';
@@ -31,13 +31,17 @@ const PATH_PREFIX = '2\0';
 // so the key() function can return the right prefixed key for projected to match results back
 const CACHE_KEY = Symbol('cacheKey');
 
-function collectRoutes(data: StoreGetRoutesQuery, keyFn: (route: StoreRoute) => string): StoreRoute[] {
+function collectRoutes(
+  data: StoreGetRoutesQuery,
+  keyFn: (route: StoreRoute) => string,
+  resolver: ModelResolver,
+): StoreRoute[] {
   return (data.contelloRoutes ?? []).reduce<StoreRoute[]>((acc, raw) => {
     if (!raw) {
       return acc;
     }
 
-    const mapped = mapRoute(raw);
+    const mapped = mapRoute(raw, resolver);
 
     if (mapped) {
       (mapped as Record<symbol, string>)[CACHE_KEY] = keyFn(mapped);
@@ -111,8 +115,9 @@ function createRoutesCache(max: number, ttl: number | undefined): ProjectedMapCa
 
 export function createRoutesCollection(
   def: RouteCollectionOptions | undefined,
-  client: ContelloSdkClient<unknown>,
+  client: ContelloClient<any>,
   updates$: Observable<UpdateBatch>,
+  resolver: ModelResolver,
 ): Routes {
   const _def = {
     cache: {
@@ -143,13 +148,13 @@ export function createRoutesCollection(
         return Promise.all([
           ids.length > 0
             ? client
-                .execute<StoreGetRoutesQuery>(ROUTES_QUERY, { request: { ids } })
-                .then((data) => collectRoutes(data, (r) => ID_PREFIX + r.id))
+                .execute<StoreGetRoutesQuery>(storeGetRoutesDocument, { request: { ids } })
+                .then((data) => collectRoutes(data, (r) => ID_PREFIX + r.id, resolver))
             : Promise.resolve([]),
           paths.length > 0
             ? client
-                .execute<StoreGetRoutesQuery>(ROUTES_QUERY, { request: { paths } })
-                .then((data) => collectRoutes(data, (r) => PATH_PREFIX + r.path))
+                .execute<StoreGetRoutesQuery>(storeGetRoutesDocument, { request: { paths } })
+                .then((data) => collectRoutes(data, (r) => PATH_PREFIX + r.path, resolver))
             : Promise.resolve([]),
         ]).then(([byIds, byPaths]) => [...byIds, ...byPaths]);
       }),

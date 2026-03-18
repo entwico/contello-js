@@ -1,9 +1,14 @@
-import type { ContelloSdkClient } from '@contello/sdk-client';
+import type { ContelloClient } from '@contello/client';
 import { type Observable, Subject, filter, map, share } from 'rxjs';
 
-import UPDATES_SUBSCRIPTION from '../graphql/updates.gql';
 import { wrap } from './diagnostics';
-import type { StoreRouteFragment, StoreWatchUpdatesSubscription } from './generated/graphql';
+import {
+  type ContelloMutationType,
+  type StoreRouteFragment,
+  type StoreWatchUpdatesSubscription,
+  storeWatchUpdatesDocument,
+} from './generated/graphql';
+import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import { keepalive } from './utils';
 
@@ -58,11 +63,11 @@ function createUpdateBatch(events: UpdateEvent[]): UpdateBatch {
         route.push(event);
 
         if ('after' in event && event.after.type === 'entity') {
-          addRouteByModel(routeByEntityModel, event.after.entityType, event);
+          addRouteByModel(routeByEntityModel, event.after.model, event);
         }
 
         if ('before' in event && event.before.type === 'entity') {
-          addRouteByModel(routeByEntityModel, event.before.entityType, event);
+          addRouteByModel(routeByEntityModel, event.before.model, event);
         }
 
         break;
@@ -92,18 +97,29 @@ function createUpdateBatch(events: UpdateEvent[]): UpdateBatch {
 type RawBatch = NonNullable<StoreWatchUpdatesSubscription['contelloUpdatesBatch']>;
 type RawEvent = RawBatch['events'][number];
 
-function mapEvent(raw: RawEvent, entityTypes: ReadonlySet<string> | undefined): UpdateEvent | undefined {
-  const target = raw.target;
-  const id = 'id' in target ? (target.id as string) : '';
-  const mutation = raw.mutation.type.toLowerCase() as UpdateMutationType;
+function castMutationType(type: ContelloMutationType): UpdateMutationType {
+  switch (type) {
+    case 'CREATE':
+      return 'create';
+    case 'UPDATE':
+      return 'update';
+    case 'DELETE':
+      return 'delete';
+  }
+}
 
-  switch (target.__typename) {
+function mapEvent(raw: RawEvent, resolver: ModelResolver): UpdateEvent | undefined {
+  const mutation = castMutationType(raw.mutation.type);
+  const target = raw.target;
+  const { id, __typename } = target;
+
+  switch (__typename) {
     case 'ContelloRoute': {
       if (mutation === 'delete') {
         return { id, mutation: 'delete', target: 'route' };
       }
 
-      const after = mapRoute(target as StoreRouteFragment);
+      const after = mapRoute(target as StoreRouteFragment, resolver);
 
       if (!after) {
         return undefined;
@@ -114,7 +130,9 @@ function mapEvent(raw: RawEvent, entityTypes: ReadonlySet<string> | undefined): 
       }
 
       const before =
-        raw.prev?.__typename === 'ContelloRoute' ? (mapRoute(raw.prev as StoreRouteFragment) ?? undefined) : undefined;
+        raw.prev?.__typename === 'ContelloRoute'
+          ? (mapRoute(raw.prev as StoreRouteFragment, resolver) ?? undefined)
+          : undefined;
 
       if (!before) {
         return undefined;
@@ -129,12 +147,13 @@ function mapEvent(raw: RawEvent, entityTypes: ReadonlySet<string> | undefined): 
     case 'ContelloI18nMessage':
       return { id, mutation, target: 'i18nMessage', token: target.token };
 
-    default:
-      if (!target.__typename || (entityTypes && !entityTypes.has(target.__typename))) {
+    default: {
+      if (!__typename || !resolver.hasTypeName(__typename)) {
         return undefined;
       }
 
-      return { id, mutation, target: 'entity', model: target.__typename };
+      return { id, mutation, target: 'entity', model: resolver.resolveModel(__typename) };
+    }
   }
 }
 
@@ -144,10 +163,7 @@ export type InternalWatcher = {
   stop(): void;
 };
 
-export function createInternalWatcher(
-  client: ContelloSdkClient<unknown>,
-  entityTypes: ReadonlySet<string> | undefined,
-): InternalWatcher {
+export function createInternalWatcher(client: ContelloClient<any>, resolver: ModelResolver): InternalWatcher {
   const subject = new Subject<UpdateBatch>();
   let subscription: { unsubscribe(): void } | undefined;
 
@@ -161,11 +177,11 @@ export function createInternalWatcher(
         return;
       }
 
-      const source$ = client.subscribe<StoreWatchUpdatesSubscription>(UPDATES_SUBSCRIPTION).pipe(
+      const source$ = client.subscribe<StoreWatchUpdatesSubscription>(storeWatchUpdatesDocument).pipe(
         keepalive(),
         map((data) =>
           (data.contelloUpdatesBatch?.events ?? [])
-            .map((e) => mapEvent(e, entityTypes))
+            .map((e) => mapEvent(e, resolver))
             .filter((e): e is UpdateEvent => e !== undefined),
         ),
         filter((events) => events.length > 0),

@@ -5,11 +5,11 @@ import dc from 'node:diagnostics_channel';
 // ---------------------------------------------------------------------------
 
 export const channels = {
-  start: 'contello:sdk.start',
-  end: 'contello:sdk.end',
-  error: 'contello:sdk.error',
+  start: '@contello/client:start',
+  end: '@contello/client:end',
+  error: '@contello/client:error',
   /** subscribe to decorate outgoing GraphQL WebSocket messages (e.g. inject traceparent) */
-  message: 'contello:sdk.message',
+  message: '@contello/client:message',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -49,48 +49,46 @@ function hasOperationSubscribers(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// wrap — used by client.ts for sdk:execute
+// wrap — used by client.ts for instrumented operations
 // ---------------------------------------------------------------------------
 
-export function getWrap(): (<T>(name: string, fn: () => T) => T) | undefined {
+export function wrap<T>(name: string, fn: () => T): T {
   if (!hasOperationSubscribers()) {
-    return undefined;
+    return fn();
   }
 
-  return <T>(name: string, fn: () => T): T => {
-    const start = performance.now();
+  const start = performance.now();
 
-    onStart.publish({ name } satisfies OperationStartMessage);
+  onStart.publish({ name } satisfies OperationStartMessage);
 
-    let result: T;
+  let result: T;
 
-    try {
-      result = fn();
-    } catch (error) {
-      onError.publish({ name, error, durationMs: performance.now() - start } satisfies OperationErrorMessage);
+  try {
+    result = fn();
+  } catch (error) {
+    onError.publish({ name, error, durationMs: performance.now() - start } satisfies OperationErrorMessage);
 
-      throw error;
-    }
+    throw error;
+  }
 
-    if (result instanceof Promise) {
-      return result.then(
-        (r) => {
-          onEnd.publish({ name, durationMs: performance.now() - start } satisfies OperationEndMessage);
+  if (result instanceof Promise) {
+    return result.then(
+      (r) => {
+        onEnd.publish({ name, durationMs: performance.now() - start } satisfies OperationEndMessage);
 
-          return r;
-        },
-        (error) => {
-          onError.publish({ name, error, durationMs: performance.now() - start } satisfies OperationErrorMessage);
+        return r;
+      },
+      (error) => {
+        onError.publish({ name, error, durationMs: performance.now() - start } satisfies OperationErrorMessage);
 
-          throw error;
-        },
-      ) as T;
-    }
+        throw error;
+      },
+    ) as T;
+  }
 
-    onEnd.publish({ name, durationMs: performance.now() - start } satisfies OperationEndMessage);
+  onEnd.publish({ name, durationMs: performance.now() - start } satisfies OperationEndMessage);
 
-    return result;
-  };
+  return result;
 }
 
 // ---------------------------------------------------------------------------

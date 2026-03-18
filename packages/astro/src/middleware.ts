@@ -73,20 +73,25 @@ export function createRoutingMiddleware(instance: Contello<any, any>, options?: 
       case 'asset':
         return instance[runRequest]({ url, route, rewritten: false }, () =>
           wrap('route:asset', async () => {
-            const response = await instance.assets.download(route.fileId);
+            const result = await instance.assets.download(route.fileId);
+            const headers = new Headers({ 'content-type': result.mimeType });
 
-            for (const { name, value } of route.customHeaders) {
-              response.headers.set(name, value);
+            if (result.size) {
+              headers.set('content-length', String(result.size));
             }
 
-            return response;
+            for (const { name, value } of route.customHeaders) {
+              headers.set(name, value);
+            }
+
+            return new Response(result.stream(), { headers });
           }),
         );
 
       case 'entity':
         return instance[runRequest]({ url, route, rewritten: true }, () =>
-          wrap(`route:entity:${route.entityType}`, async () => {
-            const response = await next(`/contello/entities/${route.entityType}/${route.entityId}${url.search}`);
+          wrap(`route:entity:${route.model}`, async () => {
+            const response = await next(`/contello/entities/${route.model}/${route.entityId}${url.search}`);
 
             for (const { name, value } of route.customHeaders) {
               response.headers.set(name, value);

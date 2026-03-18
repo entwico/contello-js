@@ -1,7 +1,9 @@
+import type { ContelloClient, OperationMap } from '@contello/client';
 import { type MaybePromise, ProjectedValue, maybeThen } from 'projected';
 import { type Observable, Subject } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
+import type { ModelResolver } from './model-resolver';
 import type { Singleton, SingletonDef, SingletonSync, SingletonSyncDef } from './types';
 import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
@@ -10,11 +12,17 @@ export type InternalSingleton<T> = Singleton<T>;
 
 export type InternalSingletonSync<T> = SingletonSync<T>;
 
-export function createSingleton<TSdk, TModel extends string, TRaw, TMapped, TEntityTypes extends string = string>(
-  def: SingletonDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
-  sdk: TSdk,
+export function createSingleton<
+  TOps extends OperationMap | undefined,
+  TModel extends string,
+  TRaw,
+  TMapped,
+  TModels extends string = string,
+>(
+  def: SingletonDef<TOps, TModel, TRaw, TMapped, TModels>,
+  client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
-  entityTypes: ReadonlySet<string> | undefined,
+  resolver: ModelResolver,
 ): InternalSingleton<TMapped> {
   const _def = {
     name: def.name ?? def.model,
@@ -25,14 +33,14 @@ export function createSingleton<TSdk, TModel extends string, TRaw, TMapped, TEnt
     },
   };
 
-  const dependencyCollector = new DependencyCollector<string, TEntityTypes>(_def.model, entityTypes);
+  const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
   const itemKey = `singleton:${_def.name}`;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const projected = new ProjectedValue<TMapped>({
     value: () =>
       wrap(`singleton:${_def.name}`, () =>
-        maybeThen(def.fetch(sdk), (raw) =>
+        maybeThen(def.fetch(client), (raw) =>
           dependencyCollector.createContext((ref, register) =>
             maybeThen(def.map(raw, ref), (mapped) => {
               register(itemKey);
@@ -98,13 +106,19 @@ export function createSingleton<TSdk, TModel extends string, TRaw, TMapped, TEnt
   };
 }
 
-export function createSingletonSync<TSdk, TModel extends string, TRaw, TMapped, TEntityTypes extends string = string>(
-  def: SingletonSyncDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
-  sdk: TSdk,
+export function createSingletonSync<
+  TOps extends OperationMap | undefined,
+  TModel extends string,
+  TRaw,
+  TMapped,
+  TModels extends string = string,
+>(
+  def: SingletonSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
+  client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
-  entityTypes: ReadonlySet<string> | undefined,
+  resolver: ModelResolver,
 ): InternalSingletonSync<TMapped> {
-  const base = createSingleton(def, sdk, updates$, entityTypes);
+  const base = createSingleton(def, client, updates$, resolver);
 
   return {
     ...base,

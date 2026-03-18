@@ -9,9 +9,6 @@ query GetStaticPages($request: StaticPagesRequestInput) {
       attributes {
         name
         content {
-          ...FlatComponent
-        }
-        _flat_content {
           ...Component
         }
       }

@@ -1,4 +1,5 @@
 import type { StoreRouteFragment } from './generated/graphql';
+import type { ModelResolver } from './model-resolver';
 
 export type StoreRouteCustomHeader = {
   name: string;
@@ -13,10 +14,10 @@ export type StoreRoute = {
   | { type: 'redirect'; location: string; status: number }
   | { type: 'text'; content: string; mimeType: string }
   | { type: 'asset'; assetId: string; fileId: string; contentDisposition: 'inline' | 'attachment'; mimeType: string }
-  | { type: 'entity'; entityType: string; entityId: string }
+  | { type: 'entity'; model: string; entityType: string; entityId: string }
 );
 
-export function mapRoute(raw: StoreRouteFragment): StoreRoute | undefined {
+export function mapRoute(raw: StoreRouteFragment, resolver: ModelResolver): StoreRoute | undefined {
   const base = {
     id: raw.id,
     path: raw.path,
@@ -55,10 +56,13 @@ export function mapRoute(raw: StoreRouteFragment): StoreRoute | undefined {
         return undefined;
       }
 
+      const entityType = raw.target.entity.__typename;
+
       return {
         ...base,
         type: 'entity',
-        entityType: raw.target.entity.__typename,
+        model: resolver.resolveModel(entityType),
+        entityType,
         entityId: raw.target.entity.id,
       };
     }

@@ -1,7 +1,5 @@
 export { createStore, Store } from './store';
 
-export { ComponentMapper, NO_MATCH } from './component-mapper';
-
 export type { AssetCollectionOptions, Assets, StoreAsset, StoreFile, StoreFileMetadata } from './assets';
 
 export type {

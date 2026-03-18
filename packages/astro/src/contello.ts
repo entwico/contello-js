@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
+import type { OperationMap } from '@contello/client';
 import {
   type AssetCollectionOptions,
   type Assets,
@@ -36,7 +37,10 @@ export type ContelloI18nOptions = {
   load?: boolean | undefined;
 };
 
-export type ContelloOptions<TSdk, TEntityTypes extends string = string> = CreateStoreOptions<TSdk, TEntityTypes> & {
+export type ContelloOptions<
+  TOps extends OperationMap | undefined = undefined,
+  TModels extends string = string,
+> = CreateStoreOptions<TOps, TModels> & {
   assets?: AssetCollectionOptions | undefined;
   i18n?: ContelloI18nOptions | undefined;
   routes?: RouteCollectionOptions | undefined;
@@ -85,16 +89,16 @@ async function applyTranslations(messages: I18nMessages): Promise<void> {
   }
 }
 
-export class Contello<TSdk, TEntityTypes extends string = string> {
-  private readonly _store: Store<TSdk, TEntityTypes>;
-  private readonly _options: ContelloOptions<TSdk, TEntityTypes>;
+export class Contello<TOps extends OperationMap | undefined = undefined, TModels extends string = string> {
+  private readonly _store: Store<TOps, TModels>;
+  private readonly _options: ContelloOptions<TOps, TModels>;
   private _assets: Assets | undefined;
   private _routes: Routes | undefined;
   private _i18nMessages: I18nMessages | undefined;
   private _i18nSubscription: { unsubscribe(): void } | undefined;
   private readonly _als = new AsyncLocalStorage<ContelloRequestContext>();
 
-  constructor(options: ContelloOptions<TSdk, TEntityTypes>) {
+  constructor(options: ContelloOptions<TOps, TModels>) {
     this._options = options;
     this._store = createStore(options);
   }
@@ -187,32 +191,32 @@ export class Contello<TSdk, TEntityTypes extends string = string> {
 
   // --- store delegation ---
 
-  defineSingleton<TModel extends TEntityTypes, TRaw, TMapped>(
-    def: SingletonDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  defineSingleton<TModel extends TModels, TRaw, TMapped>(
+    def: SingletonDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): Singleton<TMapped> {
     return this._store.defineSingleton(def);
   }
 
-  defineSingletonSync<TModel extends TEntityTypes, TRaw, TMapped>(
-    def: SingletonSyncDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  defineSingletonSync<TModel extends TModels, TRaw, TMapped>(
+    def: SingletonSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): SingletonSync<TMapped> {
     return this._store.defineSingletonSync(def);
   }
 
-  defineCollection<TModel extends TEntityTypes, TRaw, TMapped extends { id: string }>(
-    def: CollectionDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  defineCollection<TModel extends TModels, TRaw, TMapped extends { id: string }>(
+    def: CollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): Collection<TMapped> {
     return this._store.defineCollection(def);
   }
 
-  defineCollectionSync<TModel extends TEntityTypes, TRaw, TMapped extends { id: string }>(
-    def: CollectionSyncDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  defineCollectionSync<TModel extends TModels, TRaw, TMapped extends { id: string }>(
+    def: CollectionSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): CollectionSync<TMapped> {
     return this._store.defineCollectionSync(def);
   }
 
-  defineLazyCollection<TModel extends TEntityTypes, TRaw, TMapped extends { id: string }>(
-    def: LazyCollectionDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  defineLazyCollection<TModel extends TModels, TRaw, TMapped extends { id: string }>(
+    def: LazyCollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): LazyCollection<TMapped> {
     return this._store.defineLazyCollection(def);
   }
@@ -224,8 +228,8 @@ export class Contello<TSdk, TEntityTypes extends string = string> {
   }
 }
 
-export function createContello<TSdk, TEntityTypes extends string = string>(
-  options: ContelloOptions<TSdk, TEntityTypes>,
-): Contello<TSdk, TEntityTypes> {
+export function createContello<TOps extends OperationMap | undefined = undefined, TModels extends string = string>(
+  options: ContelloOptions<TOps, TModels>,
+): Contello<TOps, TModels> {
   return new Contello(options);
 }

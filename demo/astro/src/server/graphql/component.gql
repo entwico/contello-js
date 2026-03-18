@@ -1,5 +1,10 @@
 fragment Component on ContelloComponent {
-  ...FlatComponent
+  ... on ProductListComponent {
+    headline
+    products {
+      id
+    }
+  }
 
   ... on TextComponent {
     text {
@@ -10,7 +15,7 @@ fragment Component on ContelloComponent {
   ... on SectionComponent {
     headline
     content {
-      ...FlatComponent
+      ...Component
     }
   }
 }

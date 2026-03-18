@@ -1,9 +1,13 @@
-import type { ContelloSdkClient } from '@contello/sdk-client';
+import type { ContelloClient, DownloadResult, UploadData, UploadMetadata, UploadOptions } from '@contello/client';
 import { ProjectedLazyMap } from 'projected';
 import { type Observable, Subject } from 'rxjs';
-import ASSETS_QUERY from '../graphql/assets.gql';
 import { wrap } from './diagnostics';
-import type { StoreAssetFragment, StoreFileFragment, StoreGetAssetsQuery } from './generated/graphql';
+import {
+  type StoreAssetFragment,
+  type StoreFileFragment,
+  type StoreGetAssetsQuery,
+  storeGetAssetsDocument,
+} from './generated/graphql';
 import { createLruCache } from './lru';
 import type { LazyCacheOptions } from './types';
 import type { UpdateBatch } from './watcher';
@@ -16,13 +20,13 @@ export type StoreFileMetadata = {
 export type StoreFile = {
   uid: string;
   mimeType: string;
-  metadata: StoreFileMetadata | null;
+  metadata: StoreFileMetadata | undefined;
 };
 
 export type StoreAsset = {
   id: string;
   original: StoreFile;
-  preview: StoreFile | null;
+  preview: StoreFile | undefined;
   optimized: StoreFile[];
 };
 
@@ -34,14 +38,15 @@ export type Assets = {
   readonly refresh$: Observable<string[]>;
   get(id: string): Promise<StoreAsset | undefined>;
   get(ids: string[]): Promise<StoreAsset[]>;
-  download(fileId: string): Promise<Response>;
+  upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
+  download(fileId: string): Promise<DownloadResult>;
 };
 
 function mapFile(raw: StoreFileFragment): StoreFile {
   return {
     uid: raw.uid,
     mimeType: raw.mimeType,
-    metadata: raw.metadata ? { width: raw.metadata.width, height: raw.metadata.height } : null,
+    metadata: raw.metadata ? { width: raw.metadata.width, height: raw.metadata.height } : undefined,
   };
 }
 
@@ -49,15 +54,14 @@ function mapAsset(raw: StoreAssetFragment): StoreAsset {
   return {
     id: raw.id,
     original: mapFile(raw.original),
-    preview: raw.preview ? mapFile(raw.preview) : null,
+    preview: raw.preview ? mapFile(raw.preview) : undefined,
     optimized: raw.optimized.map(mapFile),
   };
 }
 
 export function createAssetsCollection(
   def: AssetCollectionOptions | undefined,
-  client: ContelloSdkClient<unknown>,
-  baseUrl: string,
+  client: ContelloClient<any>,
   updates$: Observable<UpdateBatch>,
 ): Assets {
   const _def = {
@@ -71,7 +75,7 @@ export function createAssetsCollection(
     key: (asset) => asset.id,
     values: (ids) =>
       wrap('assets', () =>
-        client.execute<StoreGetAssetsQuery>(ASSETS_QUERY, { filter: { ids } }).then((data) =>
+        client.execute<StoreGetAssetsQuery>(storeGetAssetsDocument, { filter: { ids } }).then((data) =>
           (data.contelloAssets ?? []).reduce<StoreAsset[]>((acc, raw) => {
             if (raw) {
               acc.push(mapAsset(raw));
@@ -104,8 +108,12 @@ export function createAssetsCollection(
       return projected.get(idOrIds as string);
     },
 
-    download(fileId: string): Promise<Response> {
-      return fetch(`${baseUrl}/api/v1/assets/files/${fileId}`);
+    upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string> {
+      return client.upload(data, meta, options);
+    },
+
+    download(fileId: string): Promise<DownloadResult> {
+      return client.download(fileId);
     },
   };
 }

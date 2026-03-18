@@ -1,3 +1,4 @@
+import type { ModelResolver } from './model-resolver';
 import type { UpdateEvent } from './watcher';
 
 type NonEntityTarget = Exclude<UpdateEvent['target'], 'entity'>;
@@ -16,9 +17,9 @@ type NonEntityTarget = Exclude<UpdateEvent['target'], 'entity'>;
  * explicit methods (`trackEntity`, `trackAsset`, `trackRoute`) are available
  * for cases where only an id is known without the full GraphQL object.
  */
-export type MapperContext<TEntityTypes extends string = string> = {
+export type MapperContext<TModels extends string = string> = {
   track(obj: { __typename: string; id: string }): void;
-  trackEntity(typename: TEntityTypes, id: string): void;
+  trackEntity(typename: TModels, id: string): void;
   trackAsset(id: string): void;
   trackRoute(id: string): void;
 };
@@ -58,17 +59,17 @@ function createRouteTargetKey(typename: string, id: string): string {
  *   2. fn calls map(raw, ctx)  — mapper runs, calls track methods, fills deps array
  *   3. fn calls register(key)  — real item key is known, deps written into both maps
  */
-export class DependencyCollector<TKey, TEntityTypes extends string = string> {
+export class DependencyCollector<TKey, TModels extends string = string> {
   /** dep key -> item keys that declared a dependency on it */
   private reverseIndex = new Map<string, Set<TKey>>();
   /** item key -> dep keys it currently declares */
   private forwardIndex = new Map<TKey, Set<string>>();
 
   constructor(
-    /** the model typename of the owning collection, used to form route-target dep keys */
+    /** the model name of the owning collection, used to form route-target dep keys */
     private readonly model: string,
-    /** known entity types — used to warn when tracking an entity type that the watcher ignores */
-    private readonly entityTypes: ReadonlySet<string> | undefined,
+    /** resolver for mapping between model names and __typename */
+    private readonly resolver: ModelResolver,
   ) {}
 
   /**
@@ -77,10 +78,10 @@ export class DependencyCollector<TKey, TEntityTypes extends string = string> {
    * that must be called once the item key is known — it writes all declared deps into the index.
    * returns whatever `fn` returns, preserving MaybePromise semantics.
    */
-  createContext<T>(fn: (ctx: MapperContext<TEntityTypes>, register: (key: TKey) => void) => T): T {
+  createContext<T>(fn: (ctx: MapperContext<TModels>, register: (key: TKey) => void) => T): T {
     const deps: string[] = [];
 
-    const ctx: MapperContext<TEntityTypes> = {
+    const ctx: MapperContext<TModels> = {
       track: (obj) => {
         if (!obj.id) {
           throw new Error(`track(): object with __typename "${obj.__typename}" has no "id" field`);
@@ -93,20 +94,22 @@ export class DependencyCollector<TKey, TEntityTypes extends string = string> {
           case 'ContelloRoute':
             deps.push(createDependencyKey('route', obj.id));
             break;
-          default:
-            if (!obj.__typename.endsWith('Entity')) {
+          default: {
+            const model = this.resolver.getModel(obj.__typename);
+
+            if (!model) {
               throw new Error(
-                `track(): unexpected __typename "${obj.__typename}" — expected ContelloAsset, ContelloRoute, or *Entity`,
+                `track(): unexpected __typename "${obj.__typename}" — expected ContelloAsset, ContelloRoute, or a known entity model`,
               );
             }
 
-            this.warnIfUnknownEntityType(obj.__typename);
-            deps.push(createEntityDependencyKey(obj.__typename, obj.id));
+            deps.push(createEntityDependencyKey(model, obj.id));
+          }
         }
       },
-      trackEntity: (typename, id) => {
-        this.warnIfUnknownEntityType(typename);
-        deps.push(createEntityDependencyKey(typename, id));
+      trackEntity: (model, id) => {
+        this.warnIfUnknownModel(model);
+        deps.push(createEntityDependencyKey(model, id));
       },
       trackAsset: (id) => deps.push(createDependencyKey('asset', id)),
       trackRoute: (id) => deps.push(createDependencyKey('route', id)),
@@ -153,11 +156,11 @@ export class DependencyCollector<TKey, TEntityTypes extends string = string> {
 
     if (event.target === 'route') {
       if ('after' in event && event.after.type === 'entity') {
-        affected = this.mergeRouteTargetKeys(affected, event.after.entityType, event.after.entityId);
+        affected = this.mergeRouteTargetKeys(affected, event.after.model, event.after.entityId);
       }
 
       if ('before' in event && event.before.type === 'entity') {
-        affected = this.mergeRouteTargetKeys(affected, event.before.entityType, event.before.entityId);
+        affected = this.mergeRouteTargetKeys(affected, event.before.model, event.before.entityId);
       }
     }
 
@@ -201,10 +204,10 @@ export class DependencyCollector<TKey, TEntityTypes extends string = string> {
     }
   }
 
-  private warnIfUnknownEntityType(typename: string): void {
-    if (this.entityTypes && !this.entityTypes.has(typename)) {
+  private warnIfUnknownModel(model: string): void {
+    if (!this.resolver.hasModel(model)) {
       console.warn(
-        `[contello/store] tracking entity type "${typename}" which is not in entityTypes — updates for this type will be ignored`,
+        `[contello/store] tracking model "${model}" which is not in models — updates for this model will be ignored`,
       );
     }
   }

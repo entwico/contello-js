@@ -1,7 +1,9 @@
+import type { ContelloClient, OperationMap } from '@contello/client';
 import { type MaybePromise, ProjectedMap, maybeThen } from 'projected';
 import { type Observable, Subject } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
+import type { ModelResolver } from './model-resolver';
 import type { Collection, CollectionDef, CollectionSync, CollectionSyncDef } from './types';
 import { createRefresher, resolveFetchable } from './utils';
 import type { UpdateBatch } from './watcher';
@@ -11,16 +13,16 @@ export type InternalCollection<T> = Collection<T>;
 export type InternalCollectionSync<T> = CollectionSync<T>;
 
 export function createCollection<
-  TSdk,
+  TOps extends OperationMap | undefined,
   TModel extends string,
   TRaw,
   TMapped extends { id: string },
-  TEntityTypes extends string = string,
+  TModels extends string = string,
 >(
-  def: CollectionDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
-  sdk: TSdk,
+  def: CollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
+  client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
-  entityTypes: ReadonlySet<string> | undefined,
+  resolver: ModelResolver,
 ): InternalCollection<TMapped> {
   const _def = {
     name: def.name ?? def.model,
@@ -30,14 +32,14 @@ export function createCollection<
       eviction: def.cache?.eviction ?? 'refresh',
     },
   };
-  const dependencyCollector = new DependencyCollector<string, TEntityTypes>(_def.model, entityTypes);
+  const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const projected = new ProjectedMap<string, TMapped>({
     key: (item) => item.id,
     values: () =>
       wrap(`collection:${_def.name}`, () =>
-        maybeThen(resolveFetchable(def.fetch(sdk)), (rawItems) =>
+        maybeThen(resolveFetchable(def.fetch(client)), (rawItems) =>
           // maybeAll one day?
           Promise.all(
             rawItems.map((item) =>
@@ -125,18 +127,18 @@ export function createCollection<
 }
 
 export function createCollectionSync<
-  TSdk,
+  TOps extends OperationMap | undefined,
   TModel extends string,
   TRaw,
   TMapped extends { id: string },
-  TEntityTypes extends string = string,
+  TModels extends string = string,
 >(
-  def: CollectionSyncDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
-  sdk: TSdk,
+  def: CollectionSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
+  client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
-  entityTypes: ReadonlySet<string> | undefined,
+  resolver: ModelResolver,
 ): InternalCollectionSync<TMapped> {
-  const base = createCollection(def, sdk, updates$, entityTypes);
+  const base = createCollection(def, client, updates$, resolver);
 
   function assertSync<T>(value: MaybePromise<T>, method: string): T {
     if (value instanceof Promise) {

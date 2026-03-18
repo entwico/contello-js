@@ -2,7 +2,6 @@ import type { DocumentNode, ExecutionResult, OperationDefinitionNode } from 'gra
 import type { Client } from 'graphql-ws';
 import { Observable, firstValueFrom } from 'rxjs';
 
-import { getWrap } from './diagnostics';
 import type { ContelloSdkClientMiddleware } from './middleware';
 
 export type Requester<C = any, E = unknown> = <R, V>(
@@ -66,18 +65,8 @@ export const createSdk = <T>(client: () => Client, middlewares: ContelloSdkClien
       return executeWithMiddlewares(mws, index + 1);
     };
 
-    const execute = () => {
-      const res = executeWithMiddlewares(middlewares, 0);
+    const res = executeWithMiddlewares(middlewares, 0);
 
-      return kind !== 'subscription' ? firstValueFrom(res) : res;
-    };
-
-    const wrapFn = getWrap();
-
-    if (wrapFn && kind !== 'subscription') {
-      return wrapFn(`sdk:${operationDef.name?.value ?? ''}`, execute);
-    }
-
-    return execute();
+    return kind !== 'subscription' ? firstValueFrom(res) : res;
   }) as T;
 };

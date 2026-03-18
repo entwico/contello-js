@@ -12,27 +12,21 @@
   },
   "scripts": {
     "build": "tsup",
-    "generate": "graphql-codegen",
+    "generate": "node --env-file=../../.env ../client/dist/cli.js generate",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@contello/sdk-client": ">=8.22.0",
-    "projected": ">=2.0.0",
-    "rxjs": ">=7.0.0"
+    "projected": "^2.0.0",
+    "rxjs": "^7.0.0"
   },
   "dependencies": {
+    "@contello/client": "workspace:*",
     "backoff-rxjs": "^7.0.0",
     "lru-cache": "^11.2.7"
   },
   "devDependencies": {
-    "@contello/sdk-client": "workspace:*",
-    "@graphql-codegen/add": "^6.0.0",
-    "@graphql-codegen/cli": "^6.2.1",
-    "@graphql-codegen/typescript": "^5.0.9",
-    "@graphql-codegen/typescript-operations": "^5.0.9",
-    "graphql": "^16.13.1",
     "projected": "^2.2.0",
     "rxjs": "^7.8.2"
   },

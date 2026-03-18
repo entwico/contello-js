@@ -5,9 +5,9 @@ import dc from 'node:diagnostics_channel';
 // ---------------------------------------------------------------------------
 
 export const channels = {
-  start: 'contello:astro.start',
-  end: 'contello:astro.end',
-  error: 'contello:astro.error',
+  start: '@contello/astro:start',
+  end: '@contello/astro:end',
+  error: '@contello/astro:error',
 } as const;
 
 // ---------------------------------------------------------------------------

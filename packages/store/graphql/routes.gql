@@ -1,5 +1,3 @@
-#import '../fragments/route.gql'
-
 query StoreGetRoutes($request: ContelloRoutesRequestInput!) {
   contelloRoutes(request: $request) {
     ...StoreRoute

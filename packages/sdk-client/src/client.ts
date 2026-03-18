@@ -1,7 +1,6 @@
 import { createClient } from 'graphql-ws';
 import { Observable, firstValueFrom, map } from 'rxjs';
 
-import { decorateMessage, getWrap } from './diagnostics';
 import type { ContelloSdkClientMiddleware } from './middleware';
 import { ConnectionPool } from './pool';
 import { type Requester, createSdk } from './sdk';
@@ -59,7 +58,7 @@ export class ContelloSdkClient<T> {
           shouldRetry: () => true,
           jsonMessageReplacer: (key, value) => {
             if (!key) {
-              let message = decorateMessage(value);
+              let message = value;
 
               for (const middleware of params.middlewares ?? []) {
                 if (middleware.onOutgoingMessage) {
@@ -103,10 +102,6 @@ export class ContelloSdkClient<T> {
     await this._pool.disconnect();
   }
 
-  /**
-   * Subscribes to a raw GraphQL operation against the connection pool.
-   * Returns an Observable that emits each result's data.
-   */
   public subscribe<TData>(query: string, variables?: Record<string, unknown> | undefined): Observable<TData> {
     const wsClient = this._pool.get();
 
@@ -115,15 +110,7 @@ export class ContelloSdkClient<T> {
     );
   }
 
-  /**
-   * Executes a raw GraphQL query/mutation and returns the first result.
-   * Convenience wrapper around subscribe + firstValueFrom.
-   */
   public execute<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData> {
-    const fn = () => firstValueFrom(this.subscribe<TData>(query, variables));
-
-    const wrap = getWrap();
-
-    return wrap ? wrap('sdk:execute', fn) : fn();
+    return firstValueFrom(this.subscribe<TData>(query, variables));
   }
 }

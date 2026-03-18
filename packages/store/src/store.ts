@@ -1,4 +1,4 @@
-import { ContelloSdkClient } from '@contello/sdk-client';
+import { type ContelloClient, type OperationMap, createContelloClient } from '@contello/client';
 import type { Observable } from 'rxjs';
 
 import { type AssetCollectionOptions, type Assets, createAssetsCollection } from './assets';
@@ -6,11 +6,10 @@ import { createCollection, createCollectionSync } from './collection';
 import { wrap } from './diagnostics';
 import { type I18nMessageDef, type I18nMessages, createI18nMessagesCollection } from './i18n';
 import { createLazyCollection } from './lazy-collection';
-import { createPing } from './ping';
+import { ModelResolver } from './model-resolver';
 import { type RouteCollectionOptions, type Routes, createRoutesCollection } from './routes';
 import { createSingleton, createSingletonSync } from './singleton';
 import type {
-  ClientConfig,
   Collection,
   CollectionDef,
   CollectionSync,
@@ -25,45 +24,36 @@ import type {
 } from './types';
 import { type InternalWatcher, type UpdateBatch, createInternalWatcher } from './watcher';
 
-function isClientConfig<TSdk>(client: CreateStoreOptions<TSdk, string>['client']): client is ClientConfig<TSdk> {
-  return 'getSdk' in client;
-}
-
-export class Store<TSdk, TEntityTypes extends string = string> {
-  private _sdkClient: ContelloSdkClient<TSdk>;
-  private _url: string;
-  private _entityTypes: ReadonlySet<string> | undefined;
+export class Store<TOps extends OperationMap | undefined = undefined, TModels extends string = string> {
+  private _client: ContelloClient<TOps>;
+  private _resolver: ModelResolver;
   private _watcher: InternalWatcher;
 
   public readonly updates$: Observable<UpdateBatch>;
 
-  constructor(options: CreateStoreOptions<TSdk, TEntityTypes>) {
-    const { url, project, token, client: clientOption } = options;
+  constructor(options: CreateStoreOptions<TOps, TModels>) {
+    const { url, project, token, operations } = options;
 
-    if (isClientConfig(clientOption)) {
-      this._sdkClient = new ContelloSdkClient(clientOption.getSdk, {
-        url,
-        project,
-        token,
-        pooling: clientOption.pooling,
-      });
-    } else {
-      this._sdkClient = clientOption;
-    }
+    this._client = createContelloClient({
+      url,
+      project,
+      token,
+      operations,
+      connections: options.connections,
+      onConnected: options.onConnected,
+      onReconnecting: options.onReconnecting,
+      onError: options.onError,
+      connectionEvents: options.connectionEvents,
+    });
 
-    this._url = url;
-    this._entityTypes = options.entityTypes ? new Set(options.entityTypes) : undefined;
-    this._watcher = createInternalWatcher(this._sdkClient, this._entityTypes);
+    this._resolver = new ModelResolver(options.models);
+    this._watcher = createInternalWatcher(this._client, this._resolver);
     this.updates$ = this._watcher.updates$;
-    this.ping = createPing(this._sdkClient);
-  }
-
-  private get sdk() {
-    return this._sdkClient.sdk;
+    this.ping = () => this._client.ping();
   }
 
   public async init() {
-    await wrap('store:init', () => this._sdkClient.connect());
+    await wrap('store:init', () => this._client.init());
 
     this._watcher.start();
   }
@@ -71,56 +61,56 @@ export class Store<TSdk, TEntityTypes extends string = string> {
   public async destroy() {
     this._watcher.stop();
 
-    await wrap('store:destroy', () => this._sdkClient.disconnect());
+    await wrap('store:destroy', () => this._client.destroy());
   }
 
-  public defineSingleton<TModel extends TEntityTypes, TRaw, TMapped>(
-    def: SingletonDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  public defineSingleton<TModel extends TModels, TRaw, TMapped>(
+    def: SingletonDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): Singleton<TMapped> {
-    return createSingleton(def, this.sdk, this._watcher.updates$, this._entityTypes);
+    return createSingleton(def, this._client, this._watcher.updates$, this._resolver);
   }
 
-  public defineSingletonSync<TModel extends TEntityTypes, TRaw, TMapped>(
-    def: SingletonSyncDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  public defineSingletonSync<TModel extends TModels, TRaw, TMapped>(
+    def: SingletonSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): SingletonSync<TMapped> {
-    return createSingletonSync(def, this.sdk, this._watcher.updates$, this._entityTypes);
+    return createSingletonSync(def, this._client, this._watcher.updates$, this._resolver);
   }
 
-  public defineCollection<TModel extends TEntityTypes, TRaw, TMapped extends { id: string }>(
-    def: CollectionDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  public defineCollection<TModel extends TModels, TRaw, TMapped extends { id: string }>(
+    def: CollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): Collection<TMapped> {
-    return createCollection(def, this.sdk, this._watcher.updates$, this._entityTypes);
+    return createCollection(def, this._client, this._watcher.updates$, this._resolver);
   }
 
-  public defineCollectionSync<TModel extends TEntityTypes, TRaw, TMapped extends { id: string }>(
-    def: CollectionSyncDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  public defineCollectionSync<TModel extends TModels, TRaw, TMapped extends { id: string }>(
+    def: CollectionSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): CollectionSync<TMapped> {
-    return createCollectionSync(def, this.sdk, this._watcher.updates$, this._entityTypes);
+    return createCollectionSync(def, this._client, this._watcher.updates$, this._resolver);
   }
 
-  public defineLazyCollection<TModel extends TEntityTypes, TRaw, TMapped extends { id: string }>(
-    def: LazyCollectionDef<TSdk, TModel, TRaw, TMapped, TEntityTypes>,
+  public defineLazyCollection<TModel extends TModels, TRaw, TMapped extends { id: string }>(
+    def: LazyCollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
   ): LazyCollection<TMapped> {
-    return createLazyCollection(def, this.sdk, this._watcher.updates$, this._entityTypes);
+    return createLazyCollection(def, this._client, this._watcher.updates$, this._resolver);
   }
 
   public defineAssets(options?: AssetCollectionOptions | undefined): Assets {
-    return createAssetsCollection(options, this._sdkClient, this._url, this._watcher.updates$);
+    return createAssetsCollection(options, this._client, this._watcher.updates$);
   }
 
   public defineRoutes(options?: RouteCollectionOptions | undefined): Routes {
-    return createRoutesCollection(options, this._sdkClient, this._watcher.updates$);
+    return createRoutesCollection(options, this._client, this._watcher.updates$, this._resolver);
   }
 
   public defineI18nMessages(def: I18nMessageDef): I18nMessages {
-    return createI18nMessagesCollection(def, this._sdkClient, this._watcher.updates$);
+    return createI18nMessagesCollection(def, this._client, this._watcher.updates$);
   }
 
   public ping: () => Promise<void>;
 }
 
-export function createStore<TSdk, TEntityTypes extends string = string>(
-  options: CreateStoreOptions<TSdk, TEntityTypes>,
-): Store<TSdk, TEntityTypes> {
+export function createStore<TOps extends OperationMap | undefined = undefined, TModels extends string = string>(
+  options: CreateStoreOptions<TOps, TModels>,
+): Store<TOps, TModels> {
   return new Store(options);
 }

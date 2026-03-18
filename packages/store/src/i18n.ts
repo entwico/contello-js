@@ -1,13 +1,13 @@
-import type { ContelloSdkClient } from '@contello/sdk-client';
+import type { ContelloClient } from '@contello/client';
 import { type MaybePromise, ProjectedMap, maybeThen } from 'projected';
 import { type Observable, Subject, map } from 'rxjs';
-import I18N_SUBSCRIPTION from '../graphql/i18n-messages.gql';
-import I18N_REGISTER_MUTATION from '../graphql/i18n-register.gql';
 import { wrap } from './diagnostics';
-import type {
-  ContelloI18nMessageInput,
-  StoreGetI18nMessagesSubscription,
-  StoreRegisterI18nMessagesMutation,
+import {
+  type ContelloI18nMessageInput,
+  type StoreGetI18nMessagesSubscription,
+  type StoreRegisterI18nMessagesMutation,
+  storeGetI18nMessagesDocument,
+  storeRegisterI18nMessagesDocument,
 } from './generated/graphql';
 
 import { collect, createRefresher } from './utils';
@@ -61,17 +61,17 @@ export type I18nMessages = {
 function toGqlMessageInput(msg: I18nMessageRegistrationDefinition): ContelloI18nMessageInput {
   return {
     token: msg.token,
-    example: msg.example ?? null,
-    description: msg.description ?? null,
-    variables: msg.variables?.map((v) => ({ name: v.name, description: v.description, example: v.example })) ?? null,
-    translations: msg.translations?.map((t) => ({ language: t.language, message: t.message })) ?? null,
-    initialTranslations: msg.initialTranslations?.map((t) => ({ language: t.language, message: t.message })) ?? null,
+    example: msg.example,
+    description: msg.description,
+    variables: msg.variables?.map((v) => ({ name: v.name, description: v.description, example: v.example })),
+    translations: msg.translations?.map((t) => ({ language: t.language, message: t.message })),
+    initialTranslations: msg.initialTranslations?.map((t) => ({ language: t.language, message: t.message })),
   };
 }
 
 export function createI18nMessagesCollection(
   def: I18nMessageDef,
-  client: ContelloSdkClient<unknown>,
+  client: ContelloClient<any>,
   updates$: Observable<UpdateBatch>,
 ): I18nMessages {
   const projected = new ProjectedMap<string, I18nMessage>({
@@ -80,7 +80,7 @@ export function createI18nMessagesCollection(
       wrap(`i18n:${def.collection}`, () =>
         collect(
           client
-            .subscribe<StoreGetI18nMessagesSubscription>(I18N_SUBSCRIPTION, { collection: def.collection })
+            .subscribe<StoreGetI18nMessagesSubscription>(storeGetI18nMessagesDocument, { collection: def.collection })
             .pipe(map((data) => data.contelloI18nMessagesBatch)),
         ).then((msgs) =>
           msgs.map((msg) => ({
@@ -125,7 +125,7 @@ export function createI18nMessagesCollection(
     register(messages: I18nMessageRegistrationDefinition[]) {
       return wrap(`i18n-register:${def.collection}`, () =>
         client
-          .execute<StoreRegisterI18nMessagesMutation>(I18N_REGISTER_MUTATION, {
+          .execute<StoreRegisterI18nMessagesMutation>(storeRegisterI18nMessagesDocument, {
             collection: def.collection,
             messages: messages.map(toGqlMessageInput),
           })

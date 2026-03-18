@@ -1,4 +1,4 @@
-import type { ContelloSdkClient } from '@contello/sdk-client';
+import type { ConnectionEvents, ContelloClient, OperationMap } from '@contello/client';
 import type { MaybePromise } from 'projected';
 import type { Observable } from 'rxjs';
 import type { MapperContext } from './dependency-collector';
@@ -9,18 +9,17 @@ export type Fetchable<T> = MaybePromise<T> | Observable<T>;
 // store
 // ---------------------------------------------------------------------------
 
-export type ClientConfig<TSdk> = {
-  getSdk: (requester: any) => TSdk;
-  pooling?: { size?: number | undefined } | undefined;
-};
-
-export type CreateStoreOptions<TSdk, TEntityTypes extends string = string> = {
+export type CreateStoreOptions<TOps extends OperationMap | undefined = undefined, TModels extends string = string> = {
   url: string;
   project: string;
   token: string;
-  client: ClientConfig<TSdk> | ContelloSdkClient<TSdk>;
-  /** Entity types this store cares about. Constrains `model` in `define*` methods and enables runtime filtering/warnings. */
-  entityTypes?: readonly TEntityTypes[] | undefined;
+  models?: Record<TModels, string> | undefined;
+  operations?: TOps | undefined;
+  connections?: number | undefined;
+  onConnected?: (() => void) | undefined;
+  onReconnecting?: (() => void) | undefined;
+  onError?: ((error: unknown) => void) | undefined;
+  connectionEvents?: ConnectionEvents | undefined;
 };
 
 // ---------------------------------------------------------------------------
@@ -57,21 +56,33 @@ export type LazyCacheOptions = {
 // singleton
 // ---------------------------------------------------------------------------
 
-export type SingletonDef<TSdk, TModel extends string, TRaw, TMapped, TEntityTypes extends string = string> = {
+export type SingletonDef<
+  TOps extends OperationMap | undefined,
+  TModel extends string,
+  TRaw,
+  TMapped,
+  TModels extends string = string,
+> = {
   name?: string | undefined;
   model: TModel;
-  fetch: (sdk: TSdk) => MaybePromise<TRaw>;
-  map: (item: TRaw, ref: MapperContext<TEntityTypes>) => MaybePromise<TMapped>;
+  fetch: (client: ContelloClient<TOps>) => MaybePromise<TRaw>;
+  map: (item: TRaw, ref: MapperContext<TModels>) => MaybePromise<TMapped>;
   cache?: CacheOptions | undefined;
   onLoad?: (() => void) | undefined;
   onRefresh?: (() => void) | undefined;
 };
 
-export type SingletonSyncDef<TSdk, TModel extends string, TRaw, TMapped, TEntityTypes extends string = string> = {
+export type SingletonSyncDef<
+  TOps extends OperationMap | undefined,
+  TModel extends string,
+  TRaw,
+  TMapped,
+  TModels extends string = string,
+> = {
   name?: string | undefined;
   model: TModel;
-  fetch: (sdk: TSdk) => MaybePromise<TRaw>;
-  map: (item: TRaw, ref: MapperContext<TEntityTypes>) => TMapped;
+  fetch: (client: ContelloClient<TOps>) => MaybePromise<TRaw>;
+  map: (item: TRaw, ref: MapperContext<TModels>) => TMapped;
   cache?: SyncCacheOptions | undefined;
   onLoad?: (() => void) | undefined;
   onRefresh?: (() => void) | undefined;
@@ -98,32 +109,32 @@ export type SingletonSync<T> = {
 // ---------------------------------------------------------------------------
 
 export type CollectionDef<
-  TSdk,
+  TOps extends OperationMap | undefined,
   TModel extends string,
   TRaw,
   TMapped extends { id: string },
-  TEntityTypes extends string = string,
+  TModels extends string = string,
 > = {
   name?: string | undefined;
   model: TModel;
-  fetch: (sdk: TSdk) => Fetchable<TRaw[]>;
-  map: (item: TRaw, ref: MapperContext<TEntityTypes>) => MaybePromise<TMapped>;
+  fetch: (client: ContelloClient<TOps>) => Fetchable<TRaw[]>;
+  map: (item: TRaw, ref: MapperContext<TModels>) => MaybePromise<TMapped>;
   cache?: CacheOptions | undefined;
   onLoad?: ((ids: string[]) => void) | undefined;
   onRefresh?: ((ids: string[]) => void) | undefined;
 };
 
 export type CollectionSyncDef<
-  TSdk,
+  TOps extends OperationMap | undefined,
   TModel extends string,
   TRaw,
   TMapped extends { id: string },
-  TEntityTypes extends string = string,
+  TModels extends string = string,
 > = {
   name?: string | undefined;
   model: TModel;
-  fetch: (sdk: TSdk) => Fetchable<TRaw[]>;
-  map: (item: TRaw, ref: MapperContext<TEntityTypes>) => TMapped;
+  fetch: (client: ContelloClient<TOps>) => Fetchable<TRaw[]>;
+  map: (item: TRaw, ref: MapperContext<TModels>) => TMapped;
   cache?: SyncCacheOptions | undefined;
   onLoad?: ((ids: string[]) => void) | undefined;
   onRefresh?: ((ids: string[]) => void) | undefined;
@@ -154,17 +165,17 @@ export type CollectionSync<T> = {
 // ---------------------------------------------------------------------------
 
 export type LazyCollectionDef<
-  TSdk,
+  TOps extends OperationMap | undefined,
   TModel extends string,
   TRaw,
   TMapped extends { id: string },
-  TEntityTypes extends string = string,
+  TModels extends string = string,
 > = {
   name?: string | undefined;
   model: TModel;
   cache?: LazyCacheOptions | undefined;
-  fetch: (ids: string[], sdk: TSdk) => Fetchable<TRaw[]>;
-  map: (item: TRaw, ref: MapperContext<TEntityTypes>) => MaybePromise<TMapped>;
+  fetch: (ids: string[], client: ContelloClient<TOps>) => Fetchable<TRaw[]>;
+  map: (item: TRaw, ref: MapperContext<TModels>) => MaybePromise<TMapped>;
   onRefresh?: ((ids: string[]) => void) | undefined;
 };
 

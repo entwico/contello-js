@@ -1,0 +1,46 @@
+{
+  "name": "@contello/client",
+  "version": "0.0.0",
+  "description": "GraphQL client for Contello CMS with WebSocket transport, connection pooling, and built-in codegen",
+  "type": "module",
+  "license": "MIT",
+  "author": "admin@entwico.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/entwico/contello-js",
+    "directory": "packages/client"
+  },
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "graphql": "^16.13.1",
+    "graphql-ws": "^6.0.7"
+  },
+  "peerDependencies": {
+    "rxjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "rxjs": "^7.8.2"
+  },
+  "bin": {
+    "contello-client": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

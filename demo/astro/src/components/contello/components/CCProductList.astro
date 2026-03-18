@@ -1,0 +1,21 @@
+---
+import { products } from '@/server/products';
+
+type Props = { headline: string; productIds: string[] };
+
+const { headline, productIds } = Astro.props;
+
+const items = await products.get(productIds);
+---
+
+<div>
+  <h2>{headline}</h2>
+  <ul>
+    {items.map((product) => (
+      <li>
+        <a href={product.path}>{product.name}</a>
+        {product.description && <p>{product.description}</p>}
+      </li>
+    ))}
+  </ul>
+</div>

@@ -1,5 +1,3 @@
-#import '../fragments/asset.gql'
-
 query StoreGetAssets($filter: ContelloAssetsFilterInput!) {
   contelloAssets(filter: $filter) {
     ...StoreAsset

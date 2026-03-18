@@ -32,7 +32,7 @@ function parseMetricAttrs(name: string, extra?: Record<string, unknown>): Attrib
   };
 }
 
-const CHANNEL_PREFIXES = ['contello:store', 'contello:sdk', 'contello:astro'] as const;
+const CHANNEL_PREFIXES = ['@contello/store', '@contello/client', '@contello/astro'] as const;
 
 type ChannelHandler = (message: unknown) => void;
 
@@ -74,8 +74,8 @@ export class ContelloInstrumentation extends InstrumentationBase<ContelloInstrum
     const userConfig = this.getConfig() as ContelloInstrumentationConfig;
 
     for (const prefix of CHANNEL_PREFIXES) {
-      const endChannel = dc.channel(`${prefix}.end`);
-      const errorChannel = dc.channel(`${prefix}.error`);
+      const endChannel = dc.channel(`${prefix}:end`);
+      const errorChannel = dc.channel(`${prefix}:error`);
 
       const onEnd: ChannelHandler = (message) => {
         const msg = message as { name: string; durationMs: number; cached?: boolean };
@@ -113,7 +113,7 @@ export class ContelloInstrumentation extends InstrumentationBase<ContelloInstrum
     }
 
     // message decorator for trace context propagation on WebSocket messages
-    const messageChannel = dc.channel('contello:sdk.message');
+    const messageChannel = dc.channel('@contello/client:message');
 
     const onMessage: ChannelHandler = (message) => {
       const msg = message as { message: any };
