@@ -27,8 +27,8 @@
     }
   },
   "dependencies": {
-    "@contello/client": "workspace:*",
-    "@contello/store": "workspace:*"
+    "@contello/client": "workspace:^",
+    "@contello/store": "workspace:^"
   },
   "devDependencies": {
     "@astroscope/excludes": "^0.3.0",
