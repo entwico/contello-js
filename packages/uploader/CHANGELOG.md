@@ -1,5 +1,11 @@
 # @contello/uploader
 
+## 8.21.3
+
+### Patch Changes
+
+- c5d485c: use stricter peer deps
+
 ## 8.21.2
 
 ### Patch Changes

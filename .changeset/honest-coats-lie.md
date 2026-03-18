@@ -1,5 +1,0 @@
----
-'@contello/client': major
----
-
-init

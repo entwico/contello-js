@@ -1,6 +1,6 @@
 {
   "name": "@contello/opentelemetry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "OpenTelemetry instrumentation for Contello packages",
   "type": "module",
   "license": "MIT",

@@ -1,5 +1,12 @@
 # @contello/sdk-client
 
+## 8.22.1
+
+### Patch Changes
+
+- 0c94e01: revert the middleware removal
+- c5d485c: use stricter peer deps
+
 ## 8.22.0
 
 ### Minor Changes
