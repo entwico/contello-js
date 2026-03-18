@@ -1,6 +1,6 @@
 {
   "name": "@contello/astro",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Astro integration for Contello CMS — route middleware and i18n bridge",
   "type": "module",
   "license": "MIT",
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@contello/client": "^1.0.0",
-    "@contello/store": "^1.0.0"
+    "@contello/store": "^1.0.3"
   },
   "devDependencies": {
     "@astroscope/excludes": "^0.3.0",
