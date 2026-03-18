@@ -1,6 +1,6 @@
 {
   "name": "@contello/store",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Framework-agnostic store for Contello CMS with reactive collections and automatic dependency tracking",
   "type": "module",
   "license": "MIT",

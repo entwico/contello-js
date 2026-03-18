@@ -1,5 +1,11 @@
 # @contello/store
 
+## 1.0.3
+
+### Patch Changes
+
+- 659f8f1: fix version
+
 ## 1.0.2
 
 ### Patch Changes
