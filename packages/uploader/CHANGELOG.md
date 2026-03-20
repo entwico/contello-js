@@ -1,5 +1,11 @@
 # @contello/uploader
 
+## 8.21.4
+
+### Patch Changes
+
+- f0fb00d: update deps & switch to pnpm
+
 ## 8.21.3
 
 ### Patch Changes
