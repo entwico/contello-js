@@ -1,5 +1,11 @@
 # @contello/sdk-client
 
+## 8.22.2
+
+### Patch Changes
+
+- f0fb00d: update deps & switch to pnpm
+
 ## 8.22.1
 
 ### Patch Changes

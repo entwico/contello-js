@@ -1,5 +1,14 @@
 # @contello/astro
 
+## 1.0.4
+
+### Patch Changes
+
+- f0fb00d: update deps & switch to pnpm
+- Updated dependencies [f0fb00d]
+  - @contello/client@1.0.1
+  - @contello/store@1.0.4
+
 ## 1.0.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @contello/rich-text
 
+## 8.21.3
+
+### Patch Changes
+
+- f0fb00d: update deps & switch to pnpm
+
 ## 8.21.2
 
 ### Patch Changes
