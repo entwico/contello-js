@@ -1,5 +1,13 @@
 # @contello/astro
 
+## 1.0.5
+
+### Patch Changes
+
+- ca7c5c4: fix version
+- Updated dependencies [ca7c5c4]
+  - @contello/store@1.0.5
+
 ## 1.0.4
 
 ### Patch Changes
