@@ -18,7 +18,7 @@
     "test": "vitest run",
     "validate": "turbo run test lint typecheck",
     "ci:version": "changeset version && pnpm install --no-frozen-lockfile",
-    "ci:publish": "for dir in packages/*; do (cd \"$dir\" && npm publish --access public --provenance || true); done && changeset tag"
+    "ci:publish": "changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
