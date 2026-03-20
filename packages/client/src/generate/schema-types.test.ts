@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
 import { buildSchema } from 'graphql';
+import { describe, expect, test } from 'vitest';
 
 import { generateSchemaTypes } from './schema-types';
 

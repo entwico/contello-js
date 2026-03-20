@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
 import { buildSchema, parse } from 'graphql';
+import { describe, expect, test } from 'vitest';
 
 import { collectFragments, collectOperations } from './documents';
 import { generateFragmentTypes, generateOperationTypes } from './operation-types';

@@ -1,14 +1,14 @@
-import { describe, expect, mock, test } from 'bun:test';
 import type { Client } from 'graphql-ws';
+import { type Mock, describe, expect, test, vi } from 'vitest';
 import { ConnectionPool } from './pool';
 
 const createMockClient = () => {
   const listeners = new Map<string, Set<(...args: any[]) => void>>();
 
   const client = {
-    subscribe: mock(() => () => {}),
-    iterate: mock(),
-    on: mock((event: string, listener: (...args: any[]) => void) => {
+    subscribe: vi.fn(() => () => {}),
+    iterate: vi.fn(),
+    on: vi.fn((event: string, listener: (...args: any[]) => void) => {
       if (!listeners.has(event)) {
         listeners.set(event, new Set());
       }
@@ -19,12 +19,12 @@ const createMockClient = () => {
         listeners.get(event)?.delete(listener);
       };
     }),
-    dispose: mock(() => {
+    dispose: vi.fn(() => {
       for (const listener of listeners.get('closed') ?? []) {
         queueMicrotask(() => listener(null));
       }
     }),
-    terminate: mock(() => {}),
+    terminate: vi.fn(() => {}),
     _emit: (event: string, ...args: any[]) => {
       for (const listener of listeners.get(event) ?? []) {
         listener(...args);
@@ -44,7 +44,7 @@ describe('ConnectionPool', () => {
 
   test('creates clients on connect and waits for connected events', async () => {
     const clients: ReturnType<typeof createMockClient>[] = [];
-    const factory = mock(() => {
+    const factory = vi.fn(() => {
       const client = createMockClient();
       clients.push(client);
 
@@ -62,7 +62,7 @@ describe('ConnectionPool', () => {
 
   test('connect resolves only after all clients are connected', async () => {
     const clients: ReturnType<typeof createMockClient>[] = [];
-    const factory = mock(() => {
+    const factory = vi.fn(() => {
       const client = createMockClient();
       clients.push(client);
 
@@ -126,8 +126,8 @@ describe('ConnectionPool', () => {
     await connectPromise;
     await pool.disconnect();
 
-    expect(a.dispose as ReturnType<typeof mock>).toHaveBeenCalledTimes(1);
-    expect(b.dispose as ReturnType<typeof mock>).toHaveBeenCalledTimes(1);
+    expect(a.dispose as Mock).toHaveBeenCalledTimes(1);
+    expect(b.dispose as Mock).toHaveBeenCalledTimes(1);
   });
 
   test('throws after disconnect', async () => {

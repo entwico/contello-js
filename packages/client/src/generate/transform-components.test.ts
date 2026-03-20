@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
 import { type FragmentDefinitionNode, type OperationDefinitionNode, buildSchema, parse, print } from 'graphql';
+import { describe, expect, test } from 'vitest';
 
 import { collectFragments, collectOperations } from './documents';
 import { transformFragment, transformOperation } from './transform-components';

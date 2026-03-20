@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 
 import { DEFAULT_CUSTOM_SCALAR, SCALAR_MAP, resolveScalarType } from './scalar-types';
 

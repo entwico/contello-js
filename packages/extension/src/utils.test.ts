@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { Deferred } from './utils';
 
 describe('Deferred', () => {
@@ -15,6 +15,6 @@ describe('Deferred', () => {
 
     deferred.reject(new Error('fail'));
 
-    expect(deferred.promise).rejects.toThrow('fail');
+    await expect(deferred.promise).rejects.toThrow('fail');
   });
 });

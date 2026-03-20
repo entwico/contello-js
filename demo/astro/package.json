@@ -10,7 +10,7 @@
     "typecheck": "astro check && tsc --noEmit"
   },
   "dependencies": {
-    "@astrojs/node": "^10.0.1",
+    "@astrojs/node": "^10.0.3",
     "@astroscope/boot": "^0.4.0",
     "@astroscope/health": "^0.3.0",
     "@astroscope/i18n": "^0.4.0",
@@ -21,7 +21,7 @@
     "@contello/store": "workspace:^",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.213.0",
-    "astro": "^6.0.4",
+    "astro": "^6.0.7",
     "graphql": "^16.13.1",
     "pino": "^10.3.1",
     "rxjs": "^7.8.2",
@@ -29,7 +29,7 @@
     "zod-conf": "^1.1.1"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.7",
+    "@astrojs/check": "^0.9.8",
     "typescript": "^5.9.3"
   }
 }

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { parseUrl } from './url-parser';
 
 // mock location.href for parseUrl

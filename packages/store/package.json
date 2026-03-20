@@ -22,7 +22,7 @@
     "rxjs": "^7.0.0"
   },
   "dependencies": {
-    "@contello/client": "^1.0.0",
+    "@contello/client": "workspace:^",
     "backoff-rxjs": "^7.0.0",
     "lru-cache": "^11.2.7"
   },

@@ -27,13 +27,13 @@
     }
   },
   "dependencies": {
-    "@contello/client": "^1.0.0",
-    "@contello/store": "^1.0.3"
+    "@contello/client": "workspace:^",
+    "@contello/store": "workspace:^"
   },
   "devDependencies": {
     "@astroscope/excludes": "^0.3.0",
     "@astroscope/i18n": "^0.4.0",
-    "astro": "^6.0.4"
+    "astro": "^6.0.7"
   },
   "files": [
     "dist"

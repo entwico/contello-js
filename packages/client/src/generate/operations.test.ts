@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
 import { parse } from 'graphql';
+import { describe, expect, test } from 'vitest';
 
 import { collectOperations } from './documents';
 import { generateOperationsObject } from './operations';
