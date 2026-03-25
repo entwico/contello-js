@@ -32,7 +32,7 @@ export type ContelloRequestContext = {
 
 export type ContelloI18nOptions = {
   collection: string;
-  locales: string[];
+  languages: string[];
   register?: boolean | undefined;
   load?: boolean | undefined;
 };
@@ -112,11 +112,11 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
     this._routes = this._store.defineRoutes(this._options.routes);
 
     if (this._options.i18n) {
-      const { collection, locales, register = true, load = true } = this._options.i18n;
+      const { collection, languages, register = true, load = true } = this._options.i18n;
 
       this._i18nMessages = this._store.defineI18nMessages({ collection });
 
-      await i18n.configure({ locales });
+      await i18n.configure({ locales: languages });
 
       if (register) {
         const registrations = buildI18nRegistrations();

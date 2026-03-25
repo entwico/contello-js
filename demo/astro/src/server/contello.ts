@@ -8,7 +8,7 @@ export const contello = createContello({
   url,
   project,
   token,
+  i18n: { collection, languages: ['en'] },
   operations,
   models,
-  i18n: { collection, locales: ['en'] },
 });
