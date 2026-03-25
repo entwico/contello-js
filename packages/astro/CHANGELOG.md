@@ -1,5 +1,20 @@
 # @contello/astro
 
+## 1.1.0
+
+### Minor Changes
+
+- cd3c71b: add load init parameter
+
+### Patch Changes
+
+- 172465e: locales => languages
+- Updated dependencies [c3bebfc]
+- Updated dependencies [172465e]
+- Updated dependencies [cd3c71b]
+  - @contello/client@1.0.2
+  - @contello/store@1.1.0
+
 ## 1.0.5
 
 ### Patch Changes
