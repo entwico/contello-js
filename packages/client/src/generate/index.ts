@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { glob } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { parse } from 'graphql';
 
 import { loadConfig } from './config';
@@ -12,12 +12,27 @@ import { generateSchemaTypes } from './schema-types';
 import { transformFragment, transformOperation } from './transform-components';
 import { uncapitalize } from './utils';
 
+const ctrlSeq = '\x1b[';
+const styled = (s: string, pre: string, post: string) => `${ctrlSeq}${pre}${s}${ctrlSeq}${post}`;
+
+const dim = (s: string) => styled(s, '2m', '22m');
+const bold = (s: string) => styled(s, '1m', '22m');
+const green = (s: string) => styled(s, '32m', '39m');
+const yellow = (s: string) => styled(s, '33m', '39m');
+const cyan = (s: string) => styled(s, '36m', '39m');
+
 async function main(): Promise<void> {
   const cwd = process.cwd();
   const config = await loadConfig(cwd);
 
+  console.log('');
+  console.log(`${bold('@contello/client')} ${dim('generate')}`);
+  console.log('');
+
   for (const project of config.projects) {
-    console.log(`generating types for project "${project.project}"...`);
+    const start = performance.now();
+
+    console.log(`${cyan('●')} ${bold(project.project)}`);
 
     // remove stale output before generating
     rmSync(resolve(cwd, project.output), { force: true });
@@ -30,7 +45,7 @@ async function main(): Promise<void> {
     const documentPaths = (await Promise.all(patterns.map((p) => Array.fromAsync(glob(p, { cwd }))))).flat().sort();
 
     if (documentPaths.length === 0) {
-      console.warn(`  no documents found matching "${project.documents}"`);
+      console.warn(`  ${yellow('⚠')} no documents found matching "${project.documents}"`);
 
       continue;
     }
@@ -38,8 +53,6 @@ async function main(): Promise<void> {
     const documents = documentPaths.map((p) => parse(readFileSync(resolve(cwd, p), 'utf-8')));
     const fragments = collectFragments(documents);
     const operations = collectOperations(documents);
-
-    console.log(`  found ${operations.length} operations, ${fragments.size} fragments`);
 
     // transform component fields (auto-inject _flat_ pattern)
     const transformedFragments = new Map(
@@ -95,10 +108,12 @@ async function main(): Promise<void> {
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath, output, 'utf-8');
 
-    console.log(`  wrote ${outputPath}`);
-  }
+    const elapsed = Math.round(performance.now() - start);
 
-  console.log('done');
+    console.log(`  ${green('✓')} ${relative(cwd, outputPath)} ${dim(`${elapsed}ms`)}`);
+    console.log(`      ${dim('operations')} ${operations.length}  ${dim('fragments')} ${fragments.size}`);
+    console.log('');
+  }
 }
 
 main().catch((err) => {
