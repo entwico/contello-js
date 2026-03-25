@@ -1,5 +1,11 @@
 # @contello/client
 
+## 1.0.2
+
+### Patch Changes
+
+- c3bebfc: better colored output in generator
+
 ## 1.0.1
 
 ### Patch Changes

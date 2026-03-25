@@ -1,5 +1,17 @@
 # @contello/store
 
+## 1.1.0
+
+### Minor Changes
+
+- cd3c71b: add load init parameter
+
+### Patch Changes
+
+- 172465e: fix onLoad event emitting onRefesh
+- Updated dependencies [c3bebfc]
+  - @contello/client@1.0.2
+
 ## 1.0.5
 
 ### Patch Changes
