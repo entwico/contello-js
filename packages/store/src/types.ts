@@ -88,6 +88,10 @@ export type SingletonSyncDef<
   onRefresh?: (() => void) | undefined;
 };
 
+export type Loadable = {
+  load(): Promise<void>;
+};
+
 export type Singleton<T> = {
   readonly name: string;
   readonly refresh$: Observable<void>;

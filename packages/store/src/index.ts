@@ -27,6 +27,7 @@ export type {
   CreateStoreOptions,
   Fetchable,
   LazyCacheOptions,
+  Loadable,
   LazyCollection,
   LazyCollectionDef,
   Singleton,

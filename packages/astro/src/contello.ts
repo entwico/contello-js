@@ -13,6 +13,7 @@ import {
   type I18nMessages,
   type LazyCollection,
   type LazyCollectionDef,
+  type Loadable,
   type RouteCollectionOptions,
   type Routes,
   type Singleton,
@@ -105,7 +106,7 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
 
   // --- lifecycle ---
 
-  async init(): Promise<void> {
+  async init(options?: { load?: Loadable[] | undefined } | undefined): Promise<void> {
     await this._store.init();
 
     this._assets = this._store.defineAssets(this._options.assets);
@@ -133,6 +134,10 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
 
         this._i18nSubscription = messages.refresh$.subscribe(() => applyTranslations(messages));
       }
+    }
+
+    if (options?.load) {
+      await Promise.all(options.load.map((l) => l.load()));
     }
   }
 
