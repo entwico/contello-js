@@ -8,6 +8,25 @@ export type ContelloContentDispositionEnum = 'ATTACHMENT' | 'AUTOMATIC' | 'INLIN
 export type ContelloDictionaryType = 'ENTITY' | 'STATIC';
 export type ContelloMutationType = 'CREATE' | 'DELETE' | 'UPDATE';
 export type ContelloRouteTargetTypeEnum = 'ENTITY' | 'FILE' | 'REDIRECT' | 'TEXT_RESPONSE';
+export type SectionAppearanceStaticDictionary = 'dark' | 'light';
+export type ShippingOptionsStaticDictionary = 'delivery' | 'selfPickup';
+
+export type CategoriesFilterInput = {
+  created?: DateTimeFilterInput | undefined;
+  ids?: (string | undefined)[] | undefined;
+  name?: StringFilterInput | undefined;
+  route?: StringFilterInput | undefined;
+  updated?: DateTimeFilterInput | undefined;
+};
+
+export type CategoriesRequestInput = {
+  filter?: CategoriesFilterInput | undefined;
+  pagination?: PaginationInput | undefined;
+};
+
+export type CategoryAttributesInput = {
+  name?: string | undefined;
+};
 
 export type ContelloAnnotationFilterInput = {
   key?: string | undefined;
@@ -95,6 +114,18 @@ export type ContelloRoutesRequestInput = {
   targetType?: ContelloRouteTargetTypeEnum | undefined;
 };
 
+export type CreateCategoryEntityInput = {
+  attributes: CategoryAttributesInput;
+  createdAt?: string | undefined;
+  id?: string | undefined;
+  route?: ContelloEntityRouteInput | undefined;
+  updatedAt?: string | undefined;
+};
+
+export type CreateCategoryRequestInput = {
+  entity: CreateCategoryEntityInput;
+};
+
 export type CreateProductEntityInput = {
   attributes: ProductAttributesInput;
   createdAt?: string | undefined;
@@ -154,9 +185,11 @@ export type PaginationInput = {
 };
 
 export type ProductAttributesInput = {
+  category?: string | undefined;
   description?: ContelloRichTextInput | undefined;
   image?: ContelloAssetInput | undefined;
   name?: string | undefined;
+  shipping?: (ShippingOptionsStaticDictionary | undefined)[] | undefined;
 };
 
 export type ProductListComponentInput = {
@@ -178,6 +211,7 @@ export type ProductsRequestInput = {
 };
 
 export type SectionComponentInput = {
+  appearance?: SectionAppearanceStaticDictionary | undefined;
   content?: (SectionContentMixedComponentArrayItemInput | undefined)[] | undefined;
   headline?: string | undefined;
 };
@@ -245,6 +279,18 @@ export type TextComponentInput = {
   text?: ContelloRichTextInput | undefined;
 };
 
+export type UpdateCategoryEntityInput = {
+  attributes: CategoryAttributesInput;
+  createdAt?: string | undefined;
+  id: string;
+  route?: ContelloEntityRouteInput | undefined;
+  updatedAt?: string | undefined;
+};
+
+export type UpdateCategoryRequestInput = {
+  entity: UpdateCategoryEntityInput;
+};
+
 export type UpdateProductEntityInput = {
   attributes: ProductAttributesInput;
   createdAt?: string | undefined;
@@ -267,6 +313,35 @@ export type UpdateStaticPageEntityInput = {
 
 export type UpdateStaticPageRequestInput = {
   entity: UpdateStaticPageEntityInput;
+};
+
+export type CategoriesResponseCollection = {
+  __typename?: 'CategoriesResponseCollection' | undefined;
+  entities: CategoryEntity[];
+  pagination: Pagination;
+};
+
+export type CategoryAttributes = {
+  __typename?: 'CategoryAttributes' | undefined;
+  name?: string | undefined;
+};
+
+export type CategoryEntity = {
+  __typename?: 'CategoryEntity' | undefined;
+  __model?: 'category' | undefined;
+  attributes: CategoryAttributes;
+  createdAt: string;
+  id: string;
+  internalName: string;
+  modelId: string;
+  routes: ContelloRoute[];
+  updatedAt: string;
+};
+
+export type CategoryEntityUpdate = {
+  __typename?: 'CategoryEntityUpdate' | undefined;
+  entity: CategoryEntity;
+  mutation: ContelloMutation;
 };
 
 export type ContelloAsset = {
@@ -496,9 +571,11 @@ export type PingResult = {
 
 export type ProductAttributes = {
   __typename?: 'ProductAttributes' | undefined;
+  category?: CategoryEntity | undefined;
   description?: ContelloRichText | undefined;
   image?: ContelloAsset | undefined;
   name?: string | undefined;
+  shipping?: ShippingOptionsStaticDictionary[] | undefined;
 };
 
 export type ProductEntity = {
@@ -535,12 +612,16 @@ export type ProductsResponseCollection = {
 
 export type RootMutation = {
   __typename?: 'RootMutation' | undefined;
+  createCategories?: CategoryEntity[] | undefined;
+  createCategory?: CategoryEntity | undefined;
   createContelloRoute?: ContelloRoute | undefined;
   createContelloRoutes?: ContelloRoute[] | undefined;
   createProduct?: ProductEntity | undefined;
   createProducts?: ProductEntity[] | undefined;
   createStaticPage?: StaticPageEntity | undefined;
   createStaticPages?: StaticPageEntity[] | undefined;
+  deleteCategories?: ContelloEntityDeleteResponse[] | undefined;
+  deleteCategory: ContelloEntityDeleteResponse;
   deleteContelloAsset: ContelloAssetDeleteResponse;
   deleteContelloRoute: string;
   deleteProduct: ContelloEntityDeleteResponse;
@@ -548,9 +629,12 @@ export type RootMutation = {
   deleteStaticPage: ContelloEntityDeleteResponse;
   deleteStaticPages?: ContelloEntityDeleteResponse[] | undefined;
   registerContelloI18nMessages?: ContelloI18nMessageRegisterResponse | undefined;
+  truncateCategories?: ContelloBatchOperationResponse | undefined;
   truncateContelloRoutes?: ContelloBatchOperationResponse | undefined;
   truncateProducts?: ContelloBatchOperationResponse | undefined;
   truncateStaticPages?: ContelloBatchOperationResponse | undefined;
+  updateCategories?: CategoryEntity[] | undefined;
+  updateCategory?: CategoryEntity | undefined;
   updateContelloRoute?: ContelloRoute | undefined;
   updateProduct?: ProductEntity | undefined;
   updateProducts?: ProductEntity[] | undefined;
@@ -560,6 +644,8 @@ export type RootMutation = {
 
 export type RootQuery = {
   __typename?: 'RootQuery' | undefined;
+  categories: CategoriesResponseCollection;
+  category?: CategoryEntity | undefined;
   contelloAsset?: ContelloAsset | undefined;
   contelloAssets?: (ContelloAsset | undefined)[] | undefined;
   contelloDictionaries?: (ContelloDictionary | undefined)[] | undefined;
@@ -577,6 +663,9 @@ export type RootQuery = {
 
 export type RootSubscription = {
   __typename?: 'RootSubscription' | undefined;
+  categories?: CategoryEntity | undefined;
+  categoriesBatch: CategoryEntity[];
+  categoryUpdates?: CategoryEntityUpdate | undefined;
   contelloAssets?: ContelloAsset | undefined;
   contelloAssetsBatch: ContelloAsset[];
   contelloI18nMessages?: ContelloI18nMessage | undefined;
@@ -600,6 +689,7 @@ export type SectionComponent = {
   __model?: 'section' | undefined;
   _flat_content?: ContelloComponent[] | undefined;
   _flatId?: string | undefined;
+  appearance?: SectionAppearanceStaticDictionary | undefined;
   content?: ContelloComponent[] | undefined;
   headline?: string | undefined;
 };
@@ -663,16 +753,17 @@ export type ContelloFlatComponent = {
 };
 
 export type ContelloComponent = ProductListComponent | SectionComponent | TextComponent;
-export type ContelloEntity = ProductEntity | StaticPageEntity;
+export type ContelloEntity = CategoryEntity | ProductEntity | StaticPageEntity;
 export type ContelloFileMetadata = ContelloImageMetadata | ContelloVideoMetadata;
 export type ContelloOptimizationConfig = ContelloImageOptimizationConfig | ContelloVideoOptimizationConfig;
 export type ContelloRouteTarget = ContelloRouteTargetAsset | ContelloRouteTargetEntity | ContelloRouteTargetRedirect | ContelloRouteTargetText;
 export type ContelloUpdatePrev = ContelloRoute;
-export type ContelloUpdateTarget = ContelloAsset | ContelloI18nMessage | ContelloRoute | ProductEntity | StaticPageEntity;
+export type ContelloUpdateTarget = CategoryEntity | ContelloAsset | ContelloI18nMessage | ContelloRoute | ProductEntity | StaticPageEntity;
 
 export const models = {
-  staticPage: 'StaticPageEntity',
+  category: 'CategoryEntity',
   product: 'ProductEntity',
+  staticPage: 'StaticPageEntity',
 } as const;
 
 export type ModelType = keyof typeof models;
@@ -806,6 +897,21 @@ export type ComponentFragment = {
   })[] | undefined;
 };
 
+export type GetCategoriesQuery = {
+  categories: {
+    entities: ({
+      id: string;
+      attributes: {
+        name?: string | undefined;
+      };
+    })[];
+  };
+};
+
+export type GetCategoriesQueryVariables = {
+  request?: CategoriesRequestInput | undefined;
+};
+
 export type GetProductsQuery = {
   products: {
     entities: ({
@@ -861,6 +967,9 @@ export type GetProductsQuery = {
             } | undefined;
           })[];
         } | undefined;
+        category?: {
+          id: string;
+        } | undefined;
       };
     })[];
   };
@@ -908,6 +1017,17 @@ export type GetStaticPagesQueryVariables = {
   request?: StaticPagesRequestInput | undefined;
 };
 
+export const getCategoriesDocument = `query GetCategories($request: CategoriesRequestInput) {
+  categories(request: $request) {
+    entities {
+      id
+      attributes {
+        name
+      }
+    }
+  }
+}`;
+
 export const getProductsDocument = `fragment StoreFile on ContelloFile {
   uid
   mimeType
@@ -949,6 +1069,9 @@ query GetProducts($request: ProductsRequestInput) {
         }
         image {
           ...StoreAsset
+        }
+        category {
+          id
         }
       }
     }
@@ -1010,6 +1133,12 @@ query GetStaticPages($request: StaticPagesRequestInput) {
 }`;
 
 export type Operations = {
+  getCategories: {
+    document: string;
+    kind: 'query';
+    __result?: GetCategoriesQuery | undefined;
+    __variables?: GetCategoriesQueryVariables | undefined;
+  };
   getProducts: {
     document: string;
     kind: 'query';
@@ -1025,6 +1154,7 @@ export type Operations = {
 };
 
 export const operations: Operations = {
+  getCategories: { document: getCategoriesDocument, kind: 'query' },
   getProducts: { document: getProductsDocument, kind: 'query' },
   getStaticPages: { document: getStaticPagesDocument, kind: 'query' },
 } as Operations;

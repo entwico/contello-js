@@ -5,6 +5,7 @@ import { ContelloInstrumentation } from '@contello/opentelemetry';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { stdTimeFunctions } from 'pino';
 import { Config } from '@/config';
+import { categories } from '@/server/categories';
 import { contello } from '@/server/contello';
 
 const sdk = new NodeSDK({
@@ -24,6 +25,7 @@ export async function onStartup({ host, port }: BootContext) {
   checks.register('contello', () => contello.ping());
 
   await contello.init();
+  await categories.load();
 
   log.info({ host, port }, 'server ready');
 }

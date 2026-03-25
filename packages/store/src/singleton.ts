@@ -68,7 +68,13 @@ export function createSingleton<
     () => clearTimeout(timer),
   );
 
+  let loaded = false;
+
   updates$.subscribe((batch) => {
+    if (!loaded) {
+      return;
+    }
+
     const hasOwnModel = batch.entity.has(_def.model);
     const hasAffectedRefs = batch.events.some((event) => dependencyCollector.getAffectedKeys(event).size > 0);
 
@@ -99,8 +105,14 @@ export function createSingleton<
     },
 
     async load() {
-      scheduleRefresh(); // schedule ensures that timer is set properly
       await projected.get();
+
+      loaded = true;
+
+      if (_def.cache.ttl !== undefined) {
+        timer = setTimeout(scheduleRefresh, _def.cache.ttl);
+      }
+
       def.onLoad?.();
     },
   };

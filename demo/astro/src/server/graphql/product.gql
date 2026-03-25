@@ -14,6 +14,9 @@ query GetProducts($request: ProductsRequestInput) {
         image {
           ...StoreAsset
         }
+        category {
+          id
+        }
       }
     }
   }
