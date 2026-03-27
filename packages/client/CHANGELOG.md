@@ -1,5 +1,11 @@
 # @contello/client
 
+## 1.0.3
+
+### Patch Changes
+
+- d465577: check overlappings on fragment
+
 ## 1.0.2
 
 ### Patch Changes
