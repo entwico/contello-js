@@ -6,6 +6,7 @@ import {
   Kind,
   type OperationDefinitionNode,
   type SelectionSetNode,
+  doTypesOverlap as checkTypesOverlap,
   isCompositeType,
   isEnumType,
   isInterfaceType,
@@ -178,6 +179,12 @@ function resolveSelectionSet(
         const fragmentType = schema.getType(fragment.typeCondition.name.value);
 
         if (fragmentType && isCompositeType(fragmentType)) {
+          if (!checkTypesOverlap(schema, parentType, fragmentType)) {
+            throw new Error(
+              `fragment "${fragmentName}" (on ${fragmentType.name}) cannot be spread on type "${parentType.name}"`,
+            );
+          }
+
           const nextVisited = new Set(visited);
 
           nextVisited.add(fragmentName);

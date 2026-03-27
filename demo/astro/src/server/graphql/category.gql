@@ -1,10 +1,8 @@
-query GetCategories($request: CategoriesRequestInput) {
-  categories(request: $request) {
-    entities {
-      id
-      attributes {
-        name
-      }
+subscription GetAllCategories {
+  categoriesBatch {
+    id
+    attributes {
+      name
     }
   }
 }

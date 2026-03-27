@@ -897,20 +897,16 @@ export type ComponentFragment = {
   })[] | undefined;
 };
 
-export type GetCategoriesQuery = {
-  categories: {
-    entities: ({
-      id: string;
-      attributes: {
-        name?: string | undefined;
-      };
-    })[];
-  };
+export type GetAllCategoriesSubscription = {
+  categoriesBatch: ({
+    id: string;
+    attributes: {
+      name?: string | undefined;
+    };
+  })[];
 };
 
-export type GetCategoriesQueryVariables = {
-  request?: CategoriesRequestInput | undefined;
-};
+export type GetAllCategoriesSubscriptionVariables = Record<string, never>;
 
 export type GetProductsQuery = {
   products: {
@@ -1017,13 +1013,11 @@ export type GetStaticPagesQueryVariables = {
   request?: StaticPagesRequestInput | undefined;
 };
 
-export const getCategoriesDocument = `query GetCategories($request: CategoriesRequestInput) {
-  categories(request: $request) {
-    entities {
-      id
-      attributes {
-        name
-      }
+export const getAllCategoriesDocument = `subscription GetAllCategories {
+  categoriesBatch {
+    id
+    attributes {
+      name
     }
   }
 }`;
@@ -1133,11 +1127,11 @@ query GetStaticPages($request: StaticPagesRequestInput) {
 }`;
 
 export type Operations = {
-  getCategories: {
+  getAllCategories: {
     document: string;
-    kind: 'query';
-    __result?: GetCategoriesQuery | undefined;
-    __variables?: GetCategoriesQueryVariables | undefined;
+    kind: 'subscription';
+    __result?: GetAllCategoriesSubscription | undefined;
+    __variables?: GetAllCategoriesSubscriptionVariables | undefined;
   };
   getProducts: {
     document: string;
@@ -1154,7 +1148,7 @@ export type Operations = {
 };
 
 export const operations: Operations = {
-  getCategories: { document: getCategoriesDocument, kind: 'query' },
+  getAllCategories: { document: getAllCategoriesDocument, kind: 'subscription' },
   getProducts: { document: getProductsDocument, kind: 'query' },
   getStaticPages: { document: getStaticPagesDocument, kind: 'query' },
 } as Operations;

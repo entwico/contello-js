@@ -167,6 +167,79 @@ describe('generateOperationTypes', () => {
     expect(result).toContain('export type GetUserQuery = {');
   });
 
+  test('rejects fragment spread on incompatible object type', () => {
+    const sdl = `
+      type Query { user: User }
+      type User { id: ID! name: String! }
+      type Post { id: ID! title: String! }
+    `;
+
+    expect(() =>
+      generate(
+        sdl,
+        `
+          fragment PostFields on Post { id title }
+          query GetUser { user { ...PostFields } }
+        `,
+      ),
+    ).toThrow('fragment "PostFields" (on Post) cannot be spread on type "User"');
+  });
+
+  test('accepts fragment spread on union member', () => {
+    const sdl = `
+      type Query { search: SearchResult }
+      union SearchResult = User | Post
+      type User { id: ID! name: String! }
+      type Post { id: ID! title: String! }
+    `;
+    const result = generate(
+      sdl,
+      `
+        fragment UserFields on User { id name }
+        query Search { search { ...UserFields } }
+      `,
+    );
+
+    expect(result).toContain('export type SearchQuery = {');
+  });
+
+  test('accepts fragment spread on interface implementor', () => {
+    const sdl = `
+      type Query { node: Node }
+      interface Node { id: ID! }
+      type User implements Node { id: ID! name: String! }
+    `;
+    const result = generate(
+      sdl,
+      `
+        fragment UserFields on User { id name }
+        query GetNode { node { ...UserFields } }
+      `,
+    );
+
+    expect(result).toContain('export type GetNodeQuery = {');
+  });
+
+  test('rejects fragment spread on non-overlapping union', () => {
+    const sdl = `
+      type Query { search: SearchResult }
+      union SearchResult = User | Post
+      type User { id: ID! name: String! }
+      type Post { id: ID! title: String! }
+      type Comment { id: ID! body: String! }
+    `;
+
+    expect(() =>
+      generate(
+        sdl,
+        `
+          fragment CommentFields on Comment { id body }
+          query Search { search { ...CommentFields } }
+        `,
+      ),
+    ).toThrow('fragment "CommentFields" (on Comment) cannot be spread on type "SearchResult"');
+  });
+
   test('handles aliased fields', () => {
     const sdl = `
       type Query { user: User }
