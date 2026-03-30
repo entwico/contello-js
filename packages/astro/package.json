@@ -45,9 +45,6 @@
       "require": "./dist/index.cjs"
     }
   },
-  "astro": {
-    "external": true
-  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
