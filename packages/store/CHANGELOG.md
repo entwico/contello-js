@@ -1,5 +1,13 @@
 # @contello/store
 
+## 1.1.1
+
+### Patch Changes
+
+- 831057c: allow async map on sync collections
+- Updated dependencies [d465577]
+  - @contello/client@1.0.3
+
 ## 1.1.0
 
 ### Minor Changes

@@ -1,5 +1,15 @@
 # @contello/astro
 
+## 1.1.1
+
+### Patch Changes
+
+- d465577: externalize from astro build
+- Updated dependencies [d465577]
+- Updated dependencies [831057c]
+  - @contello/client@1.0.3
+  - @contello/store@1.1.1
+
 ## 1.1.0
 
 ### Minor Changes
