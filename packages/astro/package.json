@@ -1,6 +1,6 @@
 {
   "name": "@contello/astro",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Astro integration for Contello CMS — route middleware and i18n bridge",
   "type": "module",
   "license": "MIT",

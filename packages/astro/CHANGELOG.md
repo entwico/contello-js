@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 1.1.2
+
+### Patch Changes
+
+- b705cfd: remove externalization
+
 ## 1.1.1
 
 ### Patch Changes
