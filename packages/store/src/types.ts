@@ -82,7 +82,7 @@ export type SingletonSyncDef<
   name?: string | undefined;
   model: TModel;
   fetch: (client: ContelloClient<TOps>) => MaybePromise<TRaw>;
-  map: (item: TRaw, ref: MapperContext<TModels>) => TMapped;
+  map: (item: TRaw, ref: MapperContext<TModels>) => MaybePromise<TMapped>;
   cache?: SyncCacheOptions | undefined;
   onLoad?: (() => void) | undefined;
   onRefresh?: (() => void) | undefined;
@@ -138,7 +138,7 @@ export type CollectionSyncDef<
   name?: string | undefined;
   model: TModel;
   fetch: (client: ContelloClient<TOps>) => Fetchable<TRaw[]>;
-  map: (item: TRaw, ref: MapperContext<TModels>) => TMapped;
+  map: (item: TRaw, ref: MapperContext<TModels>) => MaybePromise<TMapped>;
   cache?: SyncCacheOptions | undefined;
   onLoad?: ((ids: string[]) => void) | undefined;
   onRefresh?: ((ids: string[]) => void) | undefined;
