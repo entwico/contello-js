@@ -24,7 +24,7 @@
   "dependencies": {
     "@contello/client": "workspace:^",
     "backoff-rxjs": "^7.0.0",
-    "lru-cache": "^11.2.7"
+    "lru-cache": "^11.3.4"
   },
   "devDependencies": {
     "projected": "^2.2.0",

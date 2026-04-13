@@ -17,8 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "graphql": "^16.13.1",
-    "graphql-ws": "^6.0.7"
+    "graphql": "^16.13.2",
+    "graphql-ws": "^6.0.8"
   },
   "peerDependencies": {
     "rxjs": "^7.0.0"

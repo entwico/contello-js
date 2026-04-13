@@ -32,8 +32,8 @@
   },
   "devDependencies": {
     "@astroscope/excludes": "^0.3.0",
-    "@astroscope/i18n": "^0.4.0",
-    "astro": "^6.0.7"
+    "@astroscope/i18n": "^0.4.2",
+    "astro": "^6.1.5"
   },
   "files": [
     "dist"
