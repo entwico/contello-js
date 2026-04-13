@@ -107,6 +107,9 @@ importers:
       graphql:
         specifier: ^16.13.2
         version: 16.13.2
+      health-probes:
+        specifier: ^1.1.0
+        version: 1.1.0
       pino:
         specifier: ^10.3.1
         version: 10.3.1

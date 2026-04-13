@@ -1,8 +1,8 @@
 import type { BootContext } from '@astroscope/boot';
-import { checks } from '@astroscope/health';
 import { log } from '@astroscope/pino';
 import { ContelloInstrumentation } from '@contello/opentelemetry';
 import { NodeSDK } from '@opentelemetry/sdk-node';
+import { checks } from 'health-probes';
 import { stdTimeFunctions } from 'pino';
 import { Config } from '@/config';
 import { categories } from '@/server/categories';
