@@ -156,6 +156,10 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
     return this._store.ping();
   }
 
+  get isReady(): boolean {
+    return !!this._routes;
+  }
+
   // --- pre-wired collections ---
 
   get assets(): Assets {

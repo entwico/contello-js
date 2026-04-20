@@ -27,6 +27,12 @@ export function createRoutingMiddleware(instance: Contello<any, any>, options?: 
       return next();
     }
 
+    if (!instance.isReady) {
+      console.warn(`[@contello/astro] not initialized, passing through: ${ctx.url.pathname}`);
+
+      return next();
+    }
+
     const { url } = ctx;
 
     if (url.pathname.startsWith('/contello/entities/')) {

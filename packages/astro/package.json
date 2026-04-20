@@ -31,9 +31,9 @@
     "@contello/store": "workspace:^"
   },
   "devDependencies": {
-    "@astroscope/excludes": "^0.3.0",
-    "@astroscope/i18n": "^0.4.2",
-    "astro": "^6.1.5"
+    "@astroscope/excludes": "^0.3.1",
+    "@astroscope/i18n": "^0.4.4",
+    "astro": "^6.1.8"
   },
   "files": [
     "dist"
