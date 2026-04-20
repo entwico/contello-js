@@ -1,5 +1,11 @@
 # @contello/store
 
+## 1.2.0
+
+### Minor Changes
+
+- afd4330: add `refresh()` and `clear()` methods to lazy collections, routes, and assets
+
 ## 1.1.2
 
 ### Patch Changes
