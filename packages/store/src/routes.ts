@@ -1,12 +1,13 @@
 import type { ContelloClient } from '@contello/client';
-import { ProjectedLazyMap, type ProjectedMapCache } from 'projected';
+import { ProjectedLazyMap } from 'projected';
 import { type Observable, Subject } from 'rxjs';
 import { wrap } from './diagnostics';
 import { type StoreGetRoutesQuery, storeGetRoutesDocument } from './generated/graphql';
-import { createLruCache } from './lru';
+import { type LruCache, createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import type { LazyCacheOptions } from './types';
+import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type { StoreRoute, StoreRouteCustomHeader } from './routes-mapping';
@@ -21,6 +22,8 @@ export type Routes = {
   get(ids: string[]): Promise<StoreRoute[]>;
   getByPath(path: string): Promise<StoreRoute | undefined>;
   getByPath(paths: string[]): Promise<StoreRoute[]>;
+  refresh(): void;
+  clear(): void;
 };
 
 // cache key prefixes — short nullbyte-separated to allow slice(2) extraction without branching
@@ -59,7 +62,7 @@ function collectRoutes(
  * path -> id resolution is handled internally via a pathToId map kept in sync with the LRU
  * (populated on set, cleared on natural LRU eviction via onEvict, and on explicit delete).
  */
-function createRoutesCache(max: number, ttl: number | undefined): ProjectedMapCache<string, StoreRoute> {
+function createRoutesCache(max: number, ttl: number | undefined): LruCache<string, StoreRoute> {
   const pathToId = new Map<string, string>();
 
   const lru = createLruCache<string, StoreRoute>({
@@ -110,6 +113,8 @@ function createRoutesCache(max: number, ttl: number | undefined): ProjectedMapCa
       pathToId.clear();
       lru.clear();
     },
+
+    keys: () => lru.keys(),
   };
 }
 
@@ -164,6 +169,26 @@ export function createRoutesCollection(
 
   const refresh$ = new Subject<string[]>();
 
+  let lastRefreshKeys: string[] = [];
+
+  const scheduleRefresh = createRefresher(
+    async () => {
+      lastRefreshKeys = cache.keys();
+
+      if (lastRefreshKeys.length === 0) {
+        return;
+      }
+
+      await projected.refresh(lastRefreshKeys);
+    },
+    () => {
+      if (lastRefreshKeys.length > 0) {
+        refresh$.next(lastRefreshKeys.map((key) => key.slice(2)));
+      }
+    },
+    () => {},
+  );
+
   updates$.subscribe((batch) => {
     const evicted: string[] = [];
 
@@ -204,6 +229,14 @@ export function createRoutesCollection(
       }
 
       return projected.get(PATH_PREFIX + pathOrPaths);
+    },
+
+    refresh() {
+      scheduleRefresh();
+    },
+
+    clear() {
+      projected.clear();
     },
   };
 }

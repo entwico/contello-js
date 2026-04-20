@@ -10,6 +10,7 @@ import {
 } from './generated/graphql';
 import { createLruCache } from './lru';
 import type { LazyCacheOptions } from './types';
+import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type StoreFileMetadata = {
@@ -40,6 +41,8 @@ export type Assets = {
   get(ids: string[]): Promise<StoreAsset[]>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
   download(fileId: string): Promise<DownloadResult>;
+  refresh(): void;
+  clear(): void;
 };
 
 function mapFile(raw: StoreFileFragment): StoreFile {
@@ -71,6 +74,8 @@ export function createAssetsCollection(
     },
   };
 
+  const cache = createLruCache<string, StoreAsset>({ max: _def.cache.max, ttl: _def.cache.ttl, onEvict: undefined });
+
   const projected = new ProjectedLazyMap<string, StoreAsset>({
     key: (asset) => asset.id,
     values: (ids) =>
@@ -85,11 +90,31 @@ export function createAssetsCollection(
           }, []),
         ),
       ),
-    cache: createLruCache({ max: _def.cache.max, ttl: _def.cache.ttl, onEvict: undefined }),
+    cache,
     protection: 'freeze',
   });
 
   const refresh$ = new Subject<string[]>();
+
+  let lastRefreshKeys: string[] = [];
+
+  const scheduleRefresh = createRefresher(
+    async () => {
+      lastRefreshKeys = cache.keys();
+
+      if (lastRefreshKeys.length === 0) {
+        return;
+      }
+
+      await projected.refresh(lastRefreshKeys);
+    },
+    () => {
+      if (lastRefreshKeys.length > 0) {
+        refresh$.next(lastRefreshKeys);
+      }
+    },
+    () => {},
+  );
 
   updates$.subscribe((batch) => {
     if (batch.asset.length === 0) return;
@@ -114,6 +139,14 @@ export function createAssetsCollection(
 
     download(fileId: string): Promise<DownloadResult> {
       return client.download(fileId);
+    },
+
+    refresh() {
+      scheduleRefresh();
+    },
+
+    clear() {
+      projected.clear();
     },
   };
 }

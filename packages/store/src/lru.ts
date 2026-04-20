@@ -1,11 +1,15 @@
 import { LRUCache } from 'lru-cache';
 import type { ProjectedMapCache } from 'projected';
 
+export type LruCache<TKey, TValue> = ProjectedMapCache<TKey, TValue> & {
+  keys: () => TKey[];
+};
+
 export function createLruCache<TKey, TValue>(options: {
   max: number;
   ttl: number | undefined;
   onEvict: ((value: TValue, key: TKey) => void) | undefined;
-}): ProjectedMapCache<TKey, TValue> {
+}): LruCache<TKey, TValue> {
   const { max, ttl, onEvict: dispose } = options;
 
   const lru = new LRUCache<any, any>({
@@ -26,5 +30,6 @@ export function createLruCache<TKey, TValue>(options: {
     clear: () => {
       lru.clear();
     },
+    keys: () => [...lru.keys()],
   };
 }

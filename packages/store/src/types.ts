@@ -188,4 +188,6 @@ export type LazyCollection<T> = {
   readonly refresh$: Observable<string[]>;
   get(id: string): MaybePromise<T | undefined>;
   get(ids: string[]): MaybePromise<T[]>;
+  refresh(): void;
+  clear(): void;
 };

@@ -6,7 +6,7 @@ import { wrap } from './diagnostics';
 import { createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
 import type { LazyCollection, LazyCollectionDef } from './types';
-import { resolveFetchable } from './utils';
+import { createRefresher, resolveFetchable } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createLazyCollection<
@@ -61,6 +61,27 @@ export function createLazyCollection<
 
   const refresh$ = new Subject<string[]>();
 
+  let lastRefreshKeys: string[] = [];
+
+  const scheduleRefresh = createRefresher(
+    async () => {
+      lastRefreshKeys = cache.keys();
+
+      if (lastRefreshKeys.length === 0) {
+        return;
+      }
+
+      await projected.refresh(lastRefreshKeys);
+    },
+    () => {
+      if (lastRefreshKeys.length > 0) {
+        refresh$.next(lastRefreshKeys);
+        def.onRefresh?.(lastRefreshKeys);
+      }
+    },
+    () => {},
+  );
+
   updates$.subscribe((batch) => {
     const evicted = new Set<string>();
     const ownModelEvents = batch.entity.get(_def.model);
@@ -96,6 +117,15 @@ export function createLazyCollection<
 
     get(idOrIds: string | string[]): any {
       return projected.get(idOrIds as string);
+    },
+
+    refresh() {
+      scheduleRefresh();
+    },
+
+    clear() {
+      dependencyCollector.clear();
+      projected.clear();
     },
   };
 }
