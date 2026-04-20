@@ -12,7 +12,7 @@ const sdk = new NodeSDK({
   instrumentations: [new ContelloInstrumentation()],
 });
 
-export async function onStartup({ host, port }: BootContext) {
+export async function onStartup({ dev, host, port }: BootContext) {
   log.configure({
     level: Config.logger.level,
     formatters: { level: (label: string) => ({ level: label }) },
@@ -24,7 +24,10 @@ export async function onStartup({ host, port }: BootContext) {
 
   checks.register('contello', () => contello.ping());
 
-  await contello.init({ load: [categories] });
+  await contello.init({
+    load: [categories],
+    i18n: { register: !dev },
+  });
 
   log.info({ host, port }, 'server ready');
 }
