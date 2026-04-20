@@ -1,5 +1,11 @@
 # @contello/store
 
+## 1.1.2
+
+### Patch Changes
+
+- f6f7ceb: update deps
+
 ## 1.1.1
 
 ### Patch Changes

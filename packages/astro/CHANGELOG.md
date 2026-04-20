@@ -1,5 +1,15 @@
 # @contello/astro
 
+## 1.1.3
+
+### Patch Changes
+
+- f6f7ceb: update deps
+- f6f7ceb: change the throw to the log message on missing contello configuration
+- 8845af1: move i18n loading / registering to the init options
+- Updated dependencies [f6f7ceb]
+  - @contello/store@1.1.2
+
 ## 1.1.2
 
 ### Patch Changes

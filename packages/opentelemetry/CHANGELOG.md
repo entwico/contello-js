@@ -1,5 +1,11 @@
 # @contello/opentelemetry
 
+## 1.0.2
+
+### Patch Changes
+
+- f6f7ceb: update deps
+
 ## 1.0.1
 
 ### Patch Changes
