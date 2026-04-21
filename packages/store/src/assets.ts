@@ -1,4 +1,11 @@
-import type { ContelloClient, DownloadResult, UploadData, UploadMetadata, UploadOptions } from '@contello/client';
+import type {
+  ContelloClient,
+  DownloadResult,
+  ProxyResult,
+  UploadData,
+  UploadMetadata,
+  UploadOptions,
+} from '@contello/client';
 import { ProjectedLazyMap } from 'projected';
 import { type Observable, Subject } from 'rxjs';
 import { wrap } from './diagnostics';
@@ -41,6 +48,7 @@ export type Assets = {
   get(ids: string[]): Promise<StoreAsset[]>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
   download(fileId: string): Promise<DownloadResult>;
+  proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
   refresh(): void;
   clear(): void;
 };
@@ -139,6 +147,10 @@ export function createAssetsCollection(
 
     download(fileId: string): Promise<DownloadResult> {
       return client.download(fileId);
+    },
+
+    proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult> {
+      return client.proxyHls(path, signal);
     },
 
     refresh() {

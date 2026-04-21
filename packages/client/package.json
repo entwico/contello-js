@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "graphql": "^16.13.2",
-    "graphql-ws": "^6.0.8"
+    "graphql-ws": "^6.0.8",
+    "undici": "^8.1.0"
   },
   "peerDependencies": {
     "rxjs": "^7.0.0"

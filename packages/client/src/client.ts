@@ -1,8 +1,16 @@
 import { createClient } from 'graphql-ws';
 import { Observable, firstValueFrom, map } from 'rxjs';
+import type { Agent } from 'undici';
 
 import { decorateMessage, wrap } from './diagnostics';
-import { type DownloadResult, downloadFile } from './download';
+import {
+  type DownloadResult,
+  type HttpAgentOptions,
+  type ProxyResult,
+  createHttpAgent,
+  downloadFile,
+  proxyHls,
+} from './http';
 import { ping } from './ping';
 import { ConnectionPool } from './pool';
 import { buildRpc } from './rpc';
@@ -28,6 +36,7 @@ export type ContelloClientOptions<T extends OperationMap | undefined = undefined
   token: string;
   operations?: T | undefined;
   connections?: number | undefined;
+  http?: HttpAgentOptions | undefined;
   onConnected?: (() => void) | undefined;
   onReconnecting?: (() => void) | undefined;
   onError?: ((error: unknown) => void) | undefined;
@@ -42,6 +51,7 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
   private _url: string;
   private _project: string;
   private _token: string;
+  private _agent: Agent;
 
   constructor(options: ContelloClientOptions<T>) {
     const { url, project, token, operations, connections = 1, connectionEvents } = options;
@@ -49,6 +59,7 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
     this._url = url;
     this._project = project;
     this._token = token;
+    this._agent = createHttpAgent(options.http);
 
     const websocketUrl = `${url}/graphql/projects/${project}`.replace(/^http/i, 'ws');
 
@@ -135,6 +146,7 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
 
   async destroy(): Promise<void> {
     await this._pool.disconnect();
+    await this._agent.close();
   }
 
   async ping(): Promise<void> {
@@ -151,7 +163,11 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
   }
 
   download(fileId: string): Promise<DownloadResult> {
-    return wrap('@contello/client:download', () => downloadFile(this._url, this._token, fileId));
+    return wrap('@contello/client:download', () => downloadFile(this._agent, this._url, this._token, fileId));
+  }
+
+  proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult> {
+    return wrap('@contello/client:proxyHls', () => proxyHls(this._agent, this._url, this._token, path, signal));
   }
 
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string> {
