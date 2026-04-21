@@ -72,20 +72,20 @@ importers:
         specifier: ^10.0.5
         version: 10.0.5(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
       '@astroscope/boot':
-        specifier: ^0.6.6
-        version: 0.6.6(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2))
+        specifier: ^0.6.7
+        version: 0.6.7(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2))
       '@astroscope/health':
-        specifier: ^0.4.1
-        version: 0.4.1(@astroscope/boot@0.6.6(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(health-probes@1.1.1)
+        specifier: ^0.4.2
+        version: 0.4.2(@astroscope/boot@0.6.7(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(health-probes@1.1.1)
       '@astroscope/i18n':
-        specifier: ^0.4.4
-        version: 0.4.4(@astroscope/excludes@0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
-      '@astroscope/opentelemetry':
-        specifier: ^0.3.2
-        version: 0.3.2(@astroscope/excludes@0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.7.0(@opentelemetry/api@1.9.1))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
-      '@astroscope/pino':
         specifier: ^0.4.5
-        version: 0.4.5(@astroscope/excludes@0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(pino@10.3.1)
+        version: 0.4.5(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
+      '@astroscope/opentelemetry':
+        specifier: ^0.3.3
+        version: 0.3.3(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.7.0(@opentelemetry/api@1.9.1))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
+      '@astroscope/pino':
+        specifier: ^0.4.6
+        version: 0.4.6(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(pino@10.3.1)
       '@contello/astro':
         specifier: workspace:^
         version: link:../../packages/astro
@@ -140,11 +140,11 @@ importers:
         version: link:../store
     devDependencies:
       '@astroscope/excludes':
-        specifier: ^0.3.1
-        version: 0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
+        specifier: ^0.3.2
+        version: 0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
       '@astroscope/i18n':
-        specifier: ^0.4.4
-        version: 0.4.4(@astroscope/excludes@0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
+        specifier: ^0.4.5
+        version: 0.4.5(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
       astro:
         specifier: ^6.1.8
         version: 6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)
@@ -263,42 +263,42 @@ packages:
   '@astrojs/yaml2ts@0.2.3':
     resolution: {integrity: sha512-PJzRmgQzUxI2uwpdX2lXSHtP4G8ocp24/t+bZyf5Fy0SZLSF9f9KXZoMlFM/XCGue+B0nH/2IZ7FpBYQATBsCg==}
 
-  '@astroscope/boot@0.6.6':
-    resolution: {integrity: sha512-CQVnhBNpU25jMhNe445BBNw5Vm7P2GfdjeXAwG/JpHUgmvKbQ4Zl2E5cYUJPwIdR7pDW3UnHhxpgauGCJARfFA==}
+  '@astroscope/boot@0.6.7':
+    resolution: {integrity: sha512-5M4yZLMmvIuaaK83oAbe7YT59baZEB6mzWsS3VBVFFfiwGAzte6TH/ZSe40MpnCbLZD2dLjj/T7IGQxQqxxVQQ==}
     peerDependencies:
       astro: ^6.0.0
       vite: ^7.0.0
 
-  '@astroscope/excludes@0.3.1':
-    resolution: {integrity: sha512-lR1I63y7+9D4FDSa8C1aOms9QBa3BXdAM/jJW+o/wnCSdaOBYOu1XSf4mMU0qwTrvaRrEfQI9GhQR/Bj4BtuoA==}
+  '@astroscope/excludes@0.3.2':
+    resolution: {integrity: sha512-jyyYl4w/UdLi0IUA3EeymQq6fjB0kSF/GGbuQvrvJQF8c6NUmVkTpyXeBfDzyIGqMcdEptNATOaw3sr1P4o6Ew==}
     peerDependencies:
       astro: ^6.0.0
 
-  '@astroscope/health@0.4.1':
-    resolution: {integrity: sha512-kHiLiStF4trjTFiv/rVemPEgFtWSNOVbZhp9RjkiovYt0HEVC59phoBUKpUbCH4fdN6zTjtFDfzluguVnGaYYw==}
+  '@astroscope/health@0.4.2':
+    resolution: {integrity: sha512-cLNQO51c6OlRJ4H7tT0uZ1uTkc4X7J17yobkEWbX0MIo+Fv/VSGNZK24QVipiJUMB4GElLNC4SzRSUtXaU9/FA==}
     peerDependencies:
-      '@astroscope/boot': ^0.6.5
+      '@astroscope/boot': ^0.6.7
       astro: ^6.0.0
       health-probes: ^1.1.0
 
-  '@astroscope/i18n@0.4.4':
-    resolution: {integrity: sha512-3RFJJX48cCvWw9kB2rYVvhSSbtstmfVp7CRY2lqtwEjIUCcSy/n+2RRci+M+tTytCb4ZwUBnGqXqsbfoQ+NHQQ==}
+  '@astroscope/i18n@0.4.5':
+    resolution: {integrity: sha512-0ny1UC1mrFSrpvQe4qmmqWju7XitjpTzHGgF+cQt4368lcx4aB5BneNOo5sDV8rDcszHfc0LF/rg9wQXyMXwDQ==}
     peerDependencies:
-      '@astroscope/excludes': ^0.3.1
+      '@astroscope/excludes': ^0.3.2
       astro: ^6.0.0
 
-  '@astroscope/opentelemetry@0.3.2':
-    resolution: {integrity: sha512-iWtSOWT3UkvGIerRX43i4XqgVyoZHyksx/UUYOLVcOq+6JuW3jHvlayQtXmTSzkJQZmLxYgTv8q37S6owrHjjQ==}
+  '@astroscope/opentelemetry@0.3.3':
+    resolution: {integrity: sha512-m80Na7v8pKo/urzN4kZpoKXEwfm9ilfunF/Prvbu0KdoHk71Z3fJkYJXJif1IhQonojhnOQIYwNdLoy/EQml4Q==}
     peerDependencies:
-      '@astroscope/excludes': ^0.3.1
+      '@astroscope/excludes': ^0.3.2
       '@opentelemetry/api': ^1.0.0
       '@opentelemetry/core': ^2.0.0
       astro: ^6.0.0
 
-  '@astroscope/pino@0.4.5':
-    resolution: {integrity: sha512-ZpRK3PwWvM5SFDFK3eGG9AwQFlcJx7Xjznd93xQ9+pFHosBnjEXrMStiDN4Agj7HiCIZCYDLw2cRYYujwelOPA==}
+  '@astroscope/pino@0.4.6':
+    resolution: {integrity: sha512-t2GpA4wIsFMcEmnJKkt2QJoPzEwe8VIU4Q9wlo6w/YprjbYZNleho8zA1TzXSX6TgE5T9uPDdT76Lu9+UPfw+w==}
     peerDependencies:
-      '@astroscope/excludes': ^0.3.1
+      '@astroscope/excludes': ^0.3.2
       astro: ^6.0.0
       pino: ^10.0.0
 
@@ -4400,26 +4400,26 @@ snapshots:
     dependencies:
       yaml: 2.8.2
 
-  '@astroscope/boot@0.6.6(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2))':
+  '@astroscope/boot@0.6.7(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2))':
     dependencies:
       astro: 6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)
       magic-string: 0.30.21
       vite: 7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2)
 
-  '@astroscope/excludes@0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))':
+  '@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))':
     dependencies:
       astro: 6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)
 
-  '@astroscope/health@0.4.1(@astroscope/boot@0.6.6(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(health-probes@1.1.1)':
+  '@astroscope/health@0.4.2(@astroscope/boot@0.6.7(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(health-probes@1.1.1)':
     dependencies:
-      '@astroscope/boot': 0.6.6(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2))
+      '@astroscope/boot': 0.6.7(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.2))
       astro: 6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)
       health-probes: 1.1.1
 
-  '@astroscope/i18n@0.4.4(@astroscope/excludes@0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))':
+  '@astroscope/i18n@0.4.5(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))':
     dependencies:
       '@astrojs/compiler': 3.0.1
-      '@astroscope/excludes': 0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
+      '@astroscope/excludes': 0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
       '@babel/core': 7.29.0
       '@babel/preset-typescript': 7.28.5(@babel/core@7.29.0)
       astro: 6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)
@@ -4428,16 +4428,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astroscope/opentelemetry@0.3.2(@astroscope/excludes@0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.7.0(@opentelemetry/api@1.9.1))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))':
+  '@astroscope/opentelemetry@0.3.3(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.7.0(@opentelemetry/api@1.9.1))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))':
     dependencies:
-      '@astroscope/excludes': 0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
+      '@astroscope/excludes': 0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 2.7.0(@opentelemetry/api@1.9.1)
       astro: 6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)
 
-  '@astroscope/pino@0.4.5(@astroscope/excludes@0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(pino@10.3.1)':
+  '@astroscope/pino@0.4.6(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))(pino@10.3.1)':
     dependencies:
-      '@astroscope/excludes': 0.3.1(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
+      '@astroscope/excludes': 0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
       astro: 6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)
       pino: 10.3.1
 

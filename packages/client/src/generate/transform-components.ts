@@ -27,6 +27,20 @@ function isComponentUnion(schema: GraphQLSchema, typeName: string): boolean {
 }
 
 /**
+ * checks if a named object type is a member of the ContelloComponent union
+ * (i.e. a concrete component type like `TextComponent`, `SectionComponent`, `ContelloFlatComponent`).
+ */
+function isComponentSubtype(schema: GraphQLSchema, typeName: string): boolean {
+  const union = schema.getType(COMPONENT_UNION);
+
+  if (!union || !isUnionType(union)) {
+    return false;
+  }
+
+  return union.getTypes().some((t) => t.name === typeName);
+}
+
+/**
  * unwraps NonNull and List wrappers to get the named type.
  */
 function getNamedTypeName(type: any): string | undefined {
@@ -219,9 +233,15 @@ export function transformFragment(
     selectionSet = addFlatRefSelections(selectionSet);
   }
 
-  // transform any nested ContelloComponent fields within the fragment
+  // transform any nested ContelloComponent fields within the fragment.
+  // fragments on component subtypes emit refs only (the `_flat_<field>` companion
+  // belongs at the owning entity level, not inside a component). fragments on
+  // regular object types (entities, attributes, etc.) must emit the companion
+  // so runtime ref resolution can find it.
   if (isObjectType(type)) {
-    selectionSet = transformSelectionSet(schema, selectionSet, typeName, fragments, true);
+    const refsOnly = isComponentSubtype(schema, typeName);
+
+    selectionSet = transformSelectionSet(schema, selectionSet, typeName, fragments, refsOnly);
   } else if (isUnionType(type)) {
     // for union fragments, transform inline fragments inside (refs only — no _flat_ siblings)
     const newSelections = selectionSet.selections.map((sel) => {
