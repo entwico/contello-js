@@ -1,5 +1,15 @@
 # @contello/client
 
+## 1.1.0
+
+### Minor Changes
+
+- 7d27ca2: switch asset traffic to pooled undici HTTP/2 agent, add `proxyHls()`
+
+### Patch Changes
+
+- 3ac4fb8: emit `_flat_<field>` companion when a `ContelloComponent` field is populated through a fragment spread from an entity/attributes-level fragment
+
 ## 1.0.3
 
 ### Patch Changes

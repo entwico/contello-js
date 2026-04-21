@@ -1,5 +1,20 @@
 # @contello/astro
 
+## 1.2.0
+
+### Minor Changes
+
+- 7d27ca2: add `createAssetsMiddleware` for proxying Contello asset files
+
+### Patch Changes
+
+- 3ac4fb8: update deps
+- Updated dependencies [3ac4fb8]
+- Updated dependencies [7d27ca2]
+- Updated dependencies [7d27ca2]
+  - @contello/client@1.1.0
+  - @contello/store@1.3.0
+
 ## 1.1.3
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 # @contello/store
 
+## 1.3.0
+
+### Minor Changes
+
+- 7d27ca2: add `proxyHls()` to `Assets` for HLS pass-through
+
+### Patch Changes
+
+- Updated dependencies [3ac4fb8]
+- Updated dependencies [7d27ca2]
+  - @contello/client@1.1.0
+
 ## 1.2.0
 
 ### Minor Changes
