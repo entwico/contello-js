@@ -1,6 +1,6 @@
 {
   "name": "@contello/media",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Asset primitives and rendering helpers for Contello CMS (images, videos, files)",
   "type": "module",
   "license": "MIT",

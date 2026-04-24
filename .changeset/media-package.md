@@ -1,5 +1,0 @@
----
-'@contello/media': minor
----
-
-init

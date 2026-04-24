@@ -1,5 +1,18 @@
 # @contello/astro
 
+## 1.3.0
+
+### Minor Changes
+
+- d9daf99: integrate with `contello.media`
+
+### Patch Changes
+
+- Updated dependencies [d9daf99]
+- Updated dependencies [d9daf99]
+  - @contello/media@1.0.0
+  - @contello/store@1.4.0
+
 ## 1.2.0
 
 ### Minor Changes
