@@ -1,7 +1,7 @@
 # @contello/media
 
-## 0.1.0
+## 1.0.0
 
-### Minor Changes
+### Major Changes
 
 - d9daf99: init
