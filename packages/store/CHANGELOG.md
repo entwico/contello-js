@@ -1,5 +1,11 @@
 # @contello/store
 
+## 1.5.0
+
+### Minor Changes
+
+- de8edb4: switch to defineMediaResolver
+
 ## 1.4.2
 
 ### Patch Changes

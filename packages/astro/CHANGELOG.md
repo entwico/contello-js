@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 1.4.0
+
+### Minor Changes
+
+- de8edb4: switch to defineMediaResolver
+
 ## 1.3.1
 
 ### Patch Changes
