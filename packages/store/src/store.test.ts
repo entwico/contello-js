@@ -3,11 +3,9 @@ import { describe, expect, expectTypeOf, test } from 'vitest';
 
 import { createStore } from './store';
 
-// These tests exercise the generic narrowing and runtime behavior of store.media.
-// They construct Store instances with various `media` option shapes and verify that
-// the type of `store.media` narrows correctly, plus that accessing it without
-// configuration throws at runtime. Store isn't initialized (no network) — we're
-// only testing option plumbing + getter behavior.
+// verify that store.media is always available (MediaResolver has sensible defaults for
+// baseUrl and paths, so it can always be constructed). store isn't initialized — we're
+// only testing option plumbing + property availability.
 
 const baseOptions = {
   url: 'ws://unused',
@@ -20,46 +18,33 @@ const fallbackImage = {
   variants: [{ type: 'image/jpeg', url: '/fb.jpg', width: 100, height: 100 }],
 };
 
-describe('store.media integration', () => {
-  test('throws when media option was not provided', () => {
+describe('store.media', () => {
+  test('is always available, defaulting to empty baseUrl when media option is absent', () => {
     const store = createStore(baseOptions);
 
-    expect(() => store.media).toThrow(/media.*option/);
+    expect(store.media).toBeDefined();
+    expect(store.media.baseUrl).toBe('');
   });
 
-  test('returns a MediaResolver when media option is provided', () => {
+  test('honors explicit media options', () => {
     const store = createStore({ ...baseOptions, media: { baseUrl: 'https://cdn.test' } });
 
-    const media = store.media;
-
-    expect(media.baseUrl).toBe('https://cdn.test');
+    expect(store.media.baseUrl).toBe('https://cdn.test');
   });
 
-  test('MediaResolver narrows when fallback is configured', () => {
-    const store = createStore({
-      ...baseOptions,
-      media: { baseUrl: 'https://cdn.test', fallback: fallbackImage },
-    });
+  test('per-call fallback narrows image.def to ImageDef', () => {
+    const store = createStore({ ...baseOptions, media: { fallback: fallbackImage } });
 
-    // type: MediaResolver<true> — image.def(null) returns ImageDef, not ImageDef | undefined
-    expectTypeOf(store.media).toEqualTypeOf<MediaResolver<true>>();
-
-    const def = store.media.image.def(null);
+    // runtime: project-level fallback applies when source is null
+    const def = store.media.image.def(null, fallbackImage);
 
     expect(def).toBe(fallbackImage);
+    expectTypeOf(def).toEqualTypeOf<typeof fallbackImage>();
   });
 
-  test('store.media is typed as `never` when media option is absent (compile-time guard)', () => {
-    const _store = createStore(baseOptions);
+  test('store.media type is always MediaResolver (no narrowing)', () => {
+    const store = createStore(baseOptions);
 
-    // type-level check — don't evaluate the getter (which throws)
-    type MediaType = typeof _store.media;
-    expectTypeOf<MediaType>().toBeNever();
-  });
-
-  test('MediaResolver without fallback narrows to MediaResolver<false>', () => {
-    const store = createStore({ ...baseOptions, media: { baseUrl: 'https://cdn.test' } });
-
-    expectTypeOf(store.media).toEqualTypeOf<MediaResolver<false>>();
+    expectTypeOf(store.media).toEqualTypeOf<MediaResolver>();
   });
 });

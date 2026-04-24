@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
 import type { OperationMap } from '@contello/client';
-import type { ImageDef, MediaResolver, MediaResolverOptions } from '@contello/media';
+import type { MediaResolver, MediaResolverOptions } from '@contello/media';
 import {
   type AssetCollectionOptions,
   type Assets,
@@ -63,8 +63,6 @@ export type ContelloOptions<TOps extends OperationMap | undefined = undefined, T
   media?: ContelloMediaOptions | undefined;
 };
 
-type HasMediaFallback<O> = O extends { media: { fallback: ImageDef } } ? true : false;
-
 export const runRequest = Symbol('@contello/astro/runRequest');
 
 function buildI18nRegistrations(): I18nMessageRegistrationDefinition[] {
@@ -108,12 +106,8 @@ async function applyTranslations(messages: I18nMessages): Promise<void> {
   }
 }
 
-export class Contello<
-  TOps extends OperationMap | undefined = undefined,
-  TModels extends string = string,
-  THasMediaFallback extends boolean = false,
-> {
-  private readonly _store: Store<TOps, TModels, true, THasMediaFallback>;
+export class Contello<TOps extends OperationMap | undefined = undefined, TModels extends string = string> {
+  private readonly _store: Store<TOps, TModels>;
   private readonly _options: ContelloOptions<TOps, TModels>;
   private _assets: Assets | undefined;
   private _routes: Routes | undefined;
@@ -134,7 +128,7 @@ export class Contello<
       ...(options.media?.pictureFormats !== undefined ? { pictureFormats: options.media.pictureFormats } : {}),
     };
 
-    this._store = createStore({ ...options, media: mediaOptions }) as Store<TOps, TModels, true, THasMediaFallback>;
+    this._store = createStore({ ...options, media: mediaOptions });
   }
 
   // --- lifecycle ---
@@ -220,7 +214,7 @@ export class Contello<
     return this._i18nMessages;
   }
 
-  get media(): MediaResolver<THasMediaFallback> {
+  get media(): MediaResolver {
     return this._store.media;
   }
 
@@ -275,10 +269,8 @@ export class Contello<
   }
 }
 
-export function createContello<
-  TOps extends OperationMap | undefined = undefined,
-  TModels extends string = string,
-  O extends ContelloOptions<TOps, TModels> = ContelloOptions<TOps, TModels>,
->(options: O): Contello<TOps, TModels, HasMediaFallback<O>> {
-  return new Contello(options) as Contello<TOps, TModels, HasMediaFallback<O>>;
+export function createContello<TOps extends OperationMap | undefined = undefined, TModels extends string = string>(
+  options: ContelloOptions<TOps, TModels>,
+): Contello<TOps, TModels> {
+  return new Contello(options);
 }
