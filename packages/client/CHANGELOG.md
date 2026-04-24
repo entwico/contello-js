@@ -1,5 +1,11 @@
 # @contello/client
 
+## 1.1.1
+
+### Patch Changes
+
+- 081881a: fix: reword "connection pool is empty" error to reference the public `client.init()` method instead of the internal `connect()`
+
 ## 1.1.0
 
 ### Minor Changes

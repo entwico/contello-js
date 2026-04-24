@@ -1,5 +1,11 @@
 # @contello/store
 
+## 1.5.1
+
+### Patch Changes
+
+- 081881a: fix: use resolved name (falls back to model) in sync singleton/collection "not initialized" error — previously showed `"undefined"` when `name` was omitted from the definition
+
 ## 1.5.0
 
 ### Minor Changes
