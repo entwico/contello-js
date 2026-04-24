@@ -120,6 +120,7 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   private _routes: Routes | undefined;
   private _i18nMessages: I18nMessages | undefined;
   private _i18nSubscription: { unsubscribe(): void } | undefined;
+  private _initialized = false;
   private readonly _als = new AsyncLocalStorage<ContelloRequestContext>();
 
   readonly media: ContelloMediaConfig;
@@ -139,42 +140,52 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   // --- lifecycle ---
 
   async init(options?: ContelloInitOptions | undefined): Promise<void> {
-    await this._store.init();
+    try {
+      await this._store.init();
 
-    this._assets = this._store.defineAssets(this._options.assets);
-    this._routes = this._store.defineRoutes(this._options.routes);
+      this._assets = this._store.defineAssets(this._options.assets);
+      this._routes = this._store.defineRoutes(this._options.routes);
 
-    if (this._options.i18n) {
-      const { collection, languages } = this._options.i18n;
-      const { register = true, load = true } = options?.i18n ?? {};
+      if (this._options.i18n) {
+        const { collection, languages } = this._options.i18n;
+        const { register = true, load = true } = options?.i18n ?? {};
 
-      this._i18nMessages = this._store.defineI18nMessages({ collection });
+        this._i18nMessages = this._store.defineI18nMessages({ collection });
 
-      await i18n.configure({ locales: languages });
+        await i18n.configure({ locales: languages });
 
-      if (register) {
-        const registrations = buildI18nRegistrations();
+        if (register) {
+          const registrations = buildI18nRegistrations();
 
-        if (registrations.length > 0) {
-          await this._i18nMessages.register(registrations);
+          if (registrations.length > 0) {
+            await this._i18nMessages.register(registrations);
+          }
+        }
+
+        if (load) {
+          await applyTranslations(this._i18nMessages);
+
+          const messages = this._i18nMessages;
+
+          this._i18nSubscription = messages.refresh$.subscribe(() => applyTranslations(messages));
         }
       }
 
-      if (load) {
-        await applyTranslations(this._i18nMessages);
-
-        const messages = this._i18nMessages;
-
-        this._i18nSubscription = messages.refresh$.subscribe(() => applyTranslations(messages));
+      if (options?.load) {
+        await Promise.all(options.load.map((l) => l.load()));
       }
-    }
 
-    if (options?.load) {
-      await Promise.all(options.load.map((l) => l.load()));
+      this._initialized = true;
+    } catch (err) {
+      await this.destroy().catch(() => {});
+
+      throw err;
     }
   }
 
   async destroy(): Promise<void> {
+    this._initialized = false;
+
     this._i18nSubscription?.unsubscribe();
     this._i18nSubscription = undefined;
 
@@ -190,30 +201,30 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   }
 
   get isReady(): boolean {
-    return !!this._routes;
+    return this._initialized;
   }
 
   // --- pre-wired collections ---
 
   get assets(): Assets {
-    if (!this._assets) {
-      throw new Error('@contello/astro: .assets accessed before init()');
+    if (!this._initialized || !this._assets) {
+      throw new Error('@contello/astro: .assets accessed before init() completed');
     }
 
     return this._assets;
   }
 
   get routes(): Routes {
-    if (!this._routes) {
-      throw new Error('@contello/astro: .routes accessed before init()');
+    if (!this._initialized || !this._routes) {
+      throw new Error('@contello/astro: .routes accessed before init() completed');
     }
 
     return this._routes;
   }
 
   get i18nMessages(): I18nMessages {
-    if (!this._i18nMessages) {
-      throw new Error('@contello/astro: .i18nMessages accessed before init() with i18n config');
+    if (!this._initialized || !this._i18nMessages) {
+      throw new Error('@contello/astro: .i18nMessages accessed before init() completed (or i18n is not configured)');
     }
 
     return this._i18nMessages;
