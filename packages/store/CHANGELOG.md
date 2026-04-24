@@ -1,5 +1,11 @@
 # @contello/store
 
+## 1.4.2
+
+### Patch Changes
+
+- 4926944: move `@contello/*` from `dependencies` to `peerDependencies`
+
 ## 1.4.1
 
 ### Patch Changes

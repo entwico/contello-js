@@ -1,5 +1,13 @@
 # @contello/astro
 
+## 1.3.1
+
+### Patch Changes
+
+- 4926944: move `@contello/*` from `dependencies` to `peerDependencies`
+- Updated dependencies [4926944]
+  - @contello/store@1.4.2
+
 ## 1.3.0
 
 ### Minor Changes
