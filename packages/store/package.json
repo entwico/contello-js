@@ -18,16 +18,18 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@contello/client": "workspace:^",
+    "@contello/media": "workspace:^",
     "projected": "^2.0.0",
     "rxjs": "^7.0.0"
   },
   "dependencies": {
-    "@contello/client": "workspace:^",
-    "@contello/media": "workspace:^",
     "backoff-rxjs": "^7.0.0",
     "lru-cache": "^11.3.5"
   },
   "devDependencies": {
+    "@contello/client": "workspace:^",
+    "@contello/media": "workspace:^",
     "projected": "^2.2.1",
     "rxjs": "^7.8.2"
   },

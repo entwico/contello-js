@@ -19,6 +19,9 @@
   "peerDependencies": {
     "@astroscope/excludes": ">=0.1.0",
     "@astroscope/i18n": ">=0.3.0",
+    "@contello/client": "workspace:^",
+    "@contello/media": "workspace:^",
+    "@contello/store": "workspace:^",
     "astro": "^6.0.0"
   },
   "peerDependenciesMeta": {
@@ -26,14 +29,12 @@
       "optional": true
     }
   },
-  "dependencies": {
-    "@contello/client": "workspace:^",
-    "@contello/media": "workspace:^",
-    "@contello/store": "workspace:^"
-  },
   "devDependencies": {
     "@astroscope/excludes": "^0.3.2",
     "@astroscope/i18n": "^0.4.5",
+    "@contello/client": "workspace:^",
+    "@contello/media": "workspace:^",
+    "@contello/store": "workspace:^",
     "astro": "^6.1.8"
   },
   "files": [

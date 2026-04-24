@@ -131,7 +131,13 @@ importers:
         version: 5.9.3
 
   packages/astro:
-    dependencies:
+    devDependencies:
+      '@astroscope/excludes':
+        specifier: ^0.3.2
+        version: 0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
+      '@astroscope/i18n':
+        specifier: ^0.4.5
+        version: 0.4.5(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
       '@contello/client':
         specifier: workspace:^
         version: link:../client
@@ -141,13 +147,6 @@ importers:
       '@contello/store':
         specifier: workspace:^
         version: link:../store
-    devDependencies:
-      '@astroscope/excludes':
-        specifier: ^0.3.2
-        version: 0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
-      '@astroscope/i18n':
-        specifier: ^0.4.5
-        version: 0.4.5(@astroscope/excludes@0.3.2(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)))(astro@6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2))
       astro:
         specifier: ^6.1.8
         version: 6.1.8(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.59.0)(typescript@5.9.3)(yaml@2.8.2)
@@ -207,12 +206,6 @@ importers:
 
   packages/store:
     dependencies:
-      '@contello/client':
-        specifier: workspace:^
-        version: link:../client
-      '@contello/media':
-        specifier: workspace:^
-        version: link:../media
       backoff-rxjs:
         specifier: ^7.0.0
         version: 7.0.0(rxjs@7.8.2)
@@ -220,6 +213,12 @@ importers:
         specifier: ^11.3.5
         version: 11.3.5
     devDependencies:
+      '@contello/client':
+        specifier: workspace:^
+        version: link:../client
+      '@contello/media':
+        specifier: workspace:^
+        version: link:../media
       projected:
         specifier: ^2.2.1
         version: 2.2.1
