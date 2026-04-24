@@ -152,7 +152,7 @@ export function createCollectionSync<
 
   function assertSync<T>(value: MaybePromise<T>, method: string): T {
     if (value instanceof Promise) {
-      throw new Error(`collection "${def.name}".${method}() is not initialized yet — call collection.load() first`);
+      throw new Error(`collection "${base.name}".${method}() is not initialized yet — call collection.load() first`);
     }
 
     return value;

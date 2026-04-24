@@ -31,7 +31,7 @@ export class ConnectionPool {
 
   get() {
     if (this.clients.length === 0) {
-      throw new Error('Connection pool is empty. Please call connect() first.');
+      throw new Error('@contello/client: connection pool is empty — call client.init() first');
     }
 
     const client = this.clients[this.currentIndex];

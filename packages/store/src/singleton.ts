@@ -139,7 +139,7 @@ export function createSingletonSync<
       const result = base.get();
 
       if (result instanceof Promise) {
-        throw new Error(`singleton "${def.name}" is not initialized yet — call singleton.load() first`);
+        throw new Error(`singleton "${base.name}" is not initialized yet — call singleton.load() first`);
       }
 
       return result;
