@@ -3,18 +3,15 @@ import type { Contello } from './contello';
 import { wrap } from './diagnostics';
 
 export type ContelloAssetsImagesOptions = {
-  prefix?: string | undefined;
   cacheControl?: string | undefined;
 };
 
 export type ContelloAssetsFilesOptions = {
-  prefix?: string | undefined;
   cacheControl?: string | undefined;
 };
 
-export type ContelloAssetsVideoOptions = {
-  prefix?: string | undefined;
-};
+// eslint-disable-next-line
+export type ContelloAssetsVideoOptions = {};
 
 export type ContelloAssetsMiddlewareOptions = {
   images?: ContelloAssetsImagesOptions | undefined;
@@ -22,27 +19,25 @@ export type ContelloAssetsMiddlewareOptions = {
   video?: ContelloAssetsVideoOptions | undefined;
 };
 
-const DEFAULT_IMAGES_PREFIX = '/_contello/i/';
-const DEFAULT_FILES_PREFIX = '/_contello/f/';
-const DEFAULT_VIDEO_PREFIX = '/_contello/v/';
 const DEFAULT_IMAGES_CACHE_CONTROL = 'public, max-age=31536000';
 
 export function createAssetsMiddleware(
   instance: Contello<any, any>,
   options?: ContelloAssetsMiddlewareOptions | undefined,
 ) {
-  const imagesPrefix = options?.images?.prefix ?? DEFAULT_IMAGES_PREFIX;
+  const imagesPrefix = instance.media.imagesPath;
   const imagesCacheControl = options?.images?.cacheControl ?? DEFAULT_IMAGES_CACHE_CONTROL;
-  const filesPrefix = options?.files?.prefix ?? DEFAULT_FILES_PREFIX;
+  const filesPrefix = instance.media.filesPath;
   const filesCacheControl = options?.files?.cacheControl;
-  const videoPrefix = options?.video?.prefix ?? DEFAULT_VIDEO_PREFIX;
+  const videoPrefix = instance.media.videosPath;
 
   return defineMiddleware((ctx, next) => {
     const { pathname } = ctx.url;
-    const matches =
-      pathname.startsWith(imagesPrefix) || pathname.startsWith(filesPrefix) || pathname.startsWith(videoPrefix);
+    const isImage = pathname.startsWith(imagesPrefix);
+    const isFile = !isImage && pathname.startsWith(filesPrefix);
+    const isVideo = !isImage && !isFile && pathname.startsWith(videoPrefix);
 
-    if (!matches) {
+    if (!isImage && !isFile && !isVideo) {
       return next();
     }
 
@@ -52,11 +47,11 @@ export function createAssetsMiddleware(
       return next();
     }
 
-    if (pathname.startsWith(imagesPrefix)) {
+    if (isImage) {
       return handleFile(instance, next, pathname.slice(imagesPrefix.length), imagesCacheControl);
     }
 
-    if (pathname.startsWith(filesPrefix)) {
+    if (isFile) {
       return handleFile(instance, next, pathname.slice(filesPrefix.length), filesCacheControl);
     }
 

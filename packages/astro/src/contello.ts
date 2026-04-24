@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
 import type { OperationMap } from '@contello/client';
+import type { ImageDef, MediaResolver, MediaResolverOptions } from '@contello/media';
 import {
   type AssetCollectionOptions,
   type Assets,
@@ -25,6 +26,10 @@ import {
   createStore,
 } from '@contello/store';
 
+const DEFAULT_IMAGES_PREFIX = '/_contello/i/';
+const DEFAULT_FILES_PREFIX = '/_contello/f/';
+const DEFAULT_VIDEO_PREFIX = '/_contello/v/';
+
 export type ContelloRequestContext = {
   url: URL;
   route: StoreRoute | undefined;
@@ -46,14 +51,19 @@ export type ContelloInitOptions = {
     | undefined;
 };
 
-export type ContelloOptions<
-  TOps extends OperationMap | undefined = undefined,
-  TModels extends string = string,
-> = CreateStoreOptions<TOps, TModels> & {
+export type ContelloMediaOptions = Partial<MediaResolverOptions>;
+
+export type ContelloOptions<TOps extends OperationMap | undefined = undefined, TModels extends string = string> = Omit<
+  CreateStoreOptions<TOps, TModels>,
+  'media'
+> & {
   assets?: AssetCollectionOptions | undefined;
   i18n?: ContelloI18nOptions | undefined;
   routes?: RouteCollectionOptions | undefined;
+  media?: ContelloMediaOptions | undefined;
 };
+
+type HasMediaFallback<O> = O extends { media: { fallback: ImageDef } } ? true : false;
 
 export const runRequest = Symbol('@contello/astro/runRequest');
 
@@ -98,8 +108,12 @@ async function applyTranslations(messages: I18nMessages): Promise<void> {
   }
 }
 
-export class Contello<TOps extends OperationMap | undefined = undefined, TModels extends string = string> {
-  private readonly _store: Store<TOps, TModels>;
+export class Contello<
+  TOps extends OperationMap | undefined = undefined,
+  TModels extends string = string,
+  THasMediaFallback extends boolean = false,
+> {
+  private readonly _store: Store<TOps, TModels, true, THasMediaFallback>;
   private readonly _options: ContelloOptions<TOps, TModels>;
   private _assets: Assets | undefined;
   private _routes: Routes | undefined;
@@ -109,7 +123,18 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
 
   constructor(options: ContelloOptions<TOps, TModels>) {
     this._options = options;
-    this._store = createStore(options);
+
+    const mediaOptions: MediaResolverOptions = {
+      baseUrl: options.media?.baseUrl ?? '',
+      imagesPath: options.media?.imagesPath ?? DEFAULT_IMAGES_PREFIX,
+      videosPath: options.media?.videosPath ?? DEFAULT_VIDEO_PREFIX,
+      filesPath: options.media?.filesPath ?? DEFAULT_FILES_PREFIX,
+      ...(options.media?.fallback !== undefined ? { fallback: options.media.fallback } : {}),
+      ...(options.media?.breakpoints !== undefined ? { breakpoints: options.media.breakpoints } : {}),
+      ...(options.media?.pictureFormats !== undefined ? { pictureFormats: options.media.pictureFormats } : {}),
+    };
+
+    this._store = createStore({ ...options, media: mediaOptions }) as Store<TOps, TModels, true, THasMediaFallback>;
   }
 
   // --- lifecycle ---
@@ -195,6 +220,10 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
     return this._i18nMessages;
   }
 
+  get media(): MediaResolver<THasMediaFallback> {
+    return this._store.media;
+  }
+
   // --- ALS request context ---
 
   get request(): ContelloRequestContext {
@@ -246,8 +275,10 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   }
 }
 
-export function createContello<TOps extends OperationMap | undefined = undefined, TModels extends string = string>(
-  options: ContelloOptions<TOps, TModels>,
-): Contello<TOps, TModels> {
-  return new Contello(options);
+export function createContello<
+  TOps extends OperationMap | undefined = undefined,
+  TModels extends string = string,
+  O extends ContelloOptions<TOps, TModels> = ContelloOptions<TOps, TModels>,
+>(options: O): Contello<TOps, TModels, HasMediaFallback<O>> {
+  return new Contello(options) as Contello<TOps, TModels, HasMediaFallback<O>>;
 }

@@ -1,0 +1,34 @@
+fragment MediaFile on ContelloFile {
+  uid
+  mimeType
+  metadata {
+    ... on ContelloImageMetadata {
+      width
+      height
+    }
+    ... on ContelloVideoMetadata {
+      width
+      height
+    }
+  }
+}
+
+fragment MediaAsset on ContelloAsset {
+  id
+  original {
+    ...MediaFile
+  }
+  preview {
+    ...MediaFile
+  }
+  optimized {
+    ...MediaFile
+    ... on ContelloOptimizedFile {
+      optimizationConfig {
+        ... on ContelloImageOptimizationConfig {
+          name
+        }
+      }
+    }
+  }
+}

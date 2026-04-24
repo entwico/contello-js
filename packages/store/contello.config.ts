@@ -1,5 +1,7 @@
 import assert from 'assert';
 
+import { fragments as mediaFragments } from '@contello/media/fragments';
+
 const { CONTELLO_URL, CONTELLO_STORE_PROJECT, CONTELLO_TOKEN } = process.env;
 
 assert(CONTELLO_URL, 'CONTELLO_URL is required');
@@ -12,7 +14,7 @@ export default {
       url: CONTELLO_URL,
       project: CONTELLO_STORE_PROJECT,
       token: CONTELLO_TOKEN,
-      documents: '{fragments,graphql}/**/*.gql',
+      documents: [...mediaFragments, '{fragments,graphql}/**/*.gql'],
       output: 'src/generated/graphql.ts',
     },
   ],

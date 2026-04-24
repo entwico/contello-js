@@ -1,4 +1,5 @@
 import { type ContelloClient, type OperationMap, createContelloClient } from '@contello/client';
+import { type ImageDef, type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
 import type { Observable } from 'rxjs';
 
 import { type AssetCollectionOptions, type Assets, createAssetsCollection } from './assets';
@@ -24,10 +25,19 @@ import type {
 } from './types';
 import { type InternalWatcher, type UpdateBatch, createInternalWatcher } from './watcher';
 
-export class Store<TOps extends OperationMap | undefined = undefined, TModels extends string = string> {
+type HasMedia<O> = O extends { media: MediaResolverOptions } ? true : false;
+type HasMediaFallback<O> = O extends { media: { fallback: ImageDef } } ? true : false;
+
+export class Store<
+  TOps extends OperationMap | undefined = undefined,
+  TModels extends string = string,
+  THasMedia extends boolean = false,
+  THasMediaFallback extends boolean = false,
+> {
   private _client: ContelloClient<TOps>;
   private _resolver: ModelResolver;
   private _watcher: InternalWatcher;
+  private _media: MediaResolver | undefined;
 
   public readonly updates$: Observable<UpdateBatch>;
 
@@ -49,7 +59,18 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
     this._resolver = new ModelResolver(options.models);
     this._watcher = createInternalWatcher(this._client, this._resolver);
     this.updates$ = this._watcher.updates$;
+    this._media = options.media ? createMediaResolver(options.media) : undefined;
     this.ping = () => this._client.ping();
+  }
+
+  public get media(): THasMedia extends true ? MediaResolver<THasMediaFallback> : never {
+    if (!this._media) {
+      throw new Error('store.media requires the `media` option to be configured in createStore()');
+    }
+
+    return this._media as MediaResolver<THasMediaFallback> as THasMedia extends true
+      ? MediaResolver<THasMediaFallback>
+      : never;
   }
 
   public async init() {
@@ -109,8 +130,10 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
   public ping: () => Promise<void>;
 }
 
-export function createStore<TOps extends OperationMap | undefined = undefined, TModels extends string = string>(
-  options: CreateStoreOptions<TOps, TModels>,
-): Store<TOps, TModels> {
-  return new Store(options);
+export function createStore<
+  TOps extends OperationMap | undefined = undefined,
+  TModels extends string = string,
+  O extends CreateStoreOptions<TOps, TModels> = CreateStoreOptions<TOps, TModels>,
+>(options: O): Store<TOps, TModels, HasMedia<O>, HasMediaFallback<O>> {
+  return new Store(options) as Store<TOps, TModels, HasMedia<O>, HasMediaFallback<O>>;
 }

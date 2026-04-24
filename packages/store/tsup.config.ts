@@ -41,10 +41,18 @@ function gqlPlugin(): EsbuildPlugin {
   };
 }
 
-export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['esm', 'cjs'],
-  dts: true,
-  clean: true,
-  esbuildPlugins: [gqlPlugin()],
-});
+export default defineConfig([
+  {
+    entry: ['src/fragments.ts'],
+    format: ['esm'],
+    dts: true,
+    clean: true,
+  },
+  {
+    entry: ['src/index.ts'],
+    format: ['esm', 'cjs'],
+    dts: true,
+    clean: false,
+    esbuildPlugins: [gqlPlugin()],
+  },
+]);

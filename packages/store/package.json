@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@contello/client": "workspace:^",
+    "@contello/media": "workspace:^",
     "backoff-rxjs": "^7.0.0",
     "lru-cache": "^11.3.5"
   },
@@ -39,6 +40,10 @@
     ".": {
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./fragments": {
+      "import": "./dist/fragments.js",
+      "types": "./dist/fragments.d.ts"
     }
   },
   "publishConfig": {
