@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
 import type { OperationMap } from '@contello/client';
-import type { MediaResolver, MediaResolverOptions } from '@contello/media';
+import { type ImageDef, type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
 import {
   type AssetCollectionOptions,
   type Assets,
@@ -51,17 +51,24 @@ export type ContelloInitOptions = {
     | undefined;
 };
 
-export type ContelloMediaOptions = Partial<MediaResolverOptions>;
+export type ContelloMediaConfig = {
+  readonly baseUrl: string;
+  readonly imagesPath: string;
+  readonly videosPath: string;
+  readonly filesPath: string;
+};
 
-export type ContelloOptions<TOps extends OperationMap | undefined = undefined, TModels extends string = string> = Omit<
-  CreateStoreOptions<TOps, TModels>,
-  'media'
-> & {
+export type ContelloOptions<
+  TOps extends OperationMap | undefined = undefined,
+  TModels extends string = string,
+> = CreateStoreOptions<TOps, TModels> & {
   assets?: AssetCollectionOptions | undefined;
   i18n?: ContelloI18nOptions | undefined;
   routes?: RouteCollectionOptions | undefined;
-  media?: ContelloMediaOptions | undefined;
+  media?: Partial<ContelloMediaConfig> | undefined;
 };
+
+type HasFallback<O> = O extends { fallback: ImageDef } ? true : false;
 
 export const runRequest = Symbol('@contello/astro/runRequest');
 
@@ -115,20 +122,18 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   private _i18nSubscription: { unsubscribe(): void } | undefined;
   private readonly _als = new AsyncLocalStorage<ContelloRequestContext>();
 
+  readonly media: ContelloMediaConfig;
+
   constructor(options: ContelloOptions<TOps, TModels>) {
     this._options = options;
+    this._store = createStore(options);
 
-    const mediaOptions: MediaResolverOptions = {
+    this.media = {
       baseUrl: options.media?.baseUrl ?? '',
       imagesPath: options.media?.imagesPath ?? DEFAULT_IMAGES_PREFIX,
       videosPath: options.media?.videosPath ?? DEFAULT_VIDEO_PREFIX,
       filesPath: options.media?.filesPath ?? DEFAULT_FILES_PREFIX,
-      ...(options.media?.fallback !== undefined ? { fallback: options.media.fallback } : {}),
-      ...(options.media?.breakpoints !== undefined ? { breakpoints: options.media.breakpoints } : {}),
-      ...(options.media?.pictureFormats !== undefined ? { pictureFormats: options.media.pictureFormats } : {}),
     };
-
-    this._store = createStore({ ...options, media: mediaOptions });
   }
 
   // --- lifecycle ---
@@ -214,10 +219,6 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
     return this._i18nMessages;
   }
 
-  get media(): MediaResolver {
-    return this._store.media;
-  }
-
   // --- ALS request context ---
 
   get request(): ContelloRequestContext {
@@ -228,6 +229,15 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
     }
 
     return ctx;
+  }
+
+  // --- media resolvers (on-demand) ---
+
+  defineMediaResolver<O extends Partial<MediaResolverOptions>>(options?: O): MediaResolver<HasFallback<O>> {
+    return createMediaResolver({
+      ...this.media,
+      ...options,
+    }) as MediaResolver<HasFallback<O>>;
   }
 
   // --- store delegation ---

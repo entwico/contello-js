@@ -1,5 +1,4 @@
 import { type ContelloClient, type OperationMap, createContelloClient } from '@contello/client';
-import { type MediaResolver, createMediaResolver } from '@contello/media';
 import type { Observable } from 'rxjs';
 
 import { type AssetCollectionOptions, type Assets, createAssetsCollection } from './assets';
@@ -31,7 +30,6 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
   private _watcher: InternalWatcher;
 
   public readonly updates$: Observable<UpdateBatch>;
-  public readonly media: MediaResolver;
 
   constructor(options: CreateStoreOptions<TOps, TModels>) {
     const { url, project, token, operations } = options;
@@ -51,7 +49,6 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
     this._resolver = new ModelResolver(options.models);
     this._watcher = createInternalWatcher(this._client, this._resolver);
     this.updates$ = this._watcher.updates$;
-    this.media = createMediaResolver(options.media ?? {});
     this.ping = () => this._client.ping();
   }
 

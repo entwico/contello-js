@@ -1,5 +1,4 @@
 import type { ConnectionEvents, ContelloClient, OperationMap } from '@contello/client';
-import type { MediaResolverOptions } from '@contello/media';
 import type { MaybePromise } from 'projected';
 import type { Observable } from 'rxjs';
 import type { MapperContext } from './dependency-collector';
@@ -21,7 +20,6 @@ export type CreateStoreOptions<TOps extends OperationMap | undefined = undefined
   onReconnecting?: (() => void) | undefined;
   onError?: ((error: unknown) => void) | undefined;
   connectionEvents?: ConnectionEvents | undefined;
-  media?: MediaResolverOptions | undefined;
 };
 
 // ---------------------------------------------------------------------------
