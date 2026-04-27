@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 1.4.2
+
+### Patch Changes
+
+- 0f45854: restore `.assets` / `.routes` / `.i18nMessages` access from inside loadable `map` functions
+
 ## 1.4.1
 
 ### Patch Changes
