@@ -207,24 +207,24 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   // --- pre-wired collections ---
 
   get assets(): Assets {
-    if (!this._initialized || !this._assets) {
-      throw new Error('@contello/astro: .assets accessed before init() completed');
+    if (!this._assets) {
+      throw new Error('@contello/astro: .assets accessed before init()');
     }
 
     return this._assets;
   }
 
   get routes(): Routes {
-    if (!this._initialized || !this._routes) {
-      throw new Error('@contello/astro: .routes accessed before init() completed');
+    if (!this._routes) {
+      throw new Error('@contello/astro: .routes accessed before init()');
     }
 
     return this._routes;
   }
 
   get i18nMessages(): I18nMessages {
-    if (!this._initialized || !this._i18nMessages) {
-      throw new Error('@contello/astro: .i18nMessages accessed before init() completed (or i18n is not configured)');
+    if (!this._i18nMessages) {
+      throw new Error('@contello/astro: .i18nMessages accessed before init() with i18n config');
     }
 
     return this._i18nMessages;
