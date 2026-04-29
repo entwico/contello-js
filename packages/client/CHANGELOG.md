@@ -1,5 +1,11 @@
 # @contello/client
 
+## 1.2.0
+
+### Minor Changes
+
+- dcf1311: validate user .gql documents against the schema during `contello-client generate`
+
 ## 1.1.1
 
 ### Patch Changes
