@@ -39,7 +39,7 @@ describe('ConnectionPool', () => {
   test('throws when getting client before connect', () => {
     const pool = new ConnectionPool(() => createMockClient(), 3);
 
-    expect(() => pool.get()).toThrow('Connection pool is empty');
+    expect(() => pool.get()).toThrow('connection pool is empty');
   });
 
   test('creates clients on connect and waits for connected events', async () => {
@@ -141,6 +141,6 @@ describe('ConnectionPool', () => {
     await connectPromise;
     await pool.disconnect();
 
-    expect(() => pool.get()).toThrow('Connection pool is empty');
+    expect(() => pool.get()).toThrow('connection pool is empty');
   });
 });
