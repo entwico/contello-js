@@ -1,7 +1,7 @@
-import { parse } from 'graphql';
+import { Source, buildSchema, parse } from 'graphql';
 import { describe, expect, test } from 'vitest';
 
-import { collectFragments, collectOperations, generateDocumentString } from './documents';
+import { collectFragments, collectOperations, generateDocumentString, validateDocuments } from './documents';
 
 describe('collectFragments', () => {
   test('collects named fragments from documents', () => {
@@ -156,5 +156,66 @@ describe('generateDocumentString', () => {
     const operations = collectOperations([doc]);
 
     expect(() => generateDocumentString(operations[0]!, fragments)).toThrow('unknown fragment: "UnknownFragment"');
+  });
+});
+
+describe('validateDocuments', () => {
+  const schema = buildSchema(`
+    type Query {
+      testimonials: TestimonialsResponse
+      tourSearch: TourSearchResponse
+    }
+
+    type TestimonialsResponse {
+      variant: TestimonialsVariant
+    }
+
+    type TourSearchResponse {
+      variant: TourSearchVariant
+    }
+
+    type TestimonialsVariant {
+      id: ID!
+      label: String
+    }
+
+    type TourSearchVariant {
+      id: ID!
+      kind: String
+    }
+  `);
+
+  test('passes for valid documents', () => {
+    const doc = parse(`query Q { testimonials { variant { id } } }`);
+    const fragments = collectFragments([doc]);
+    const operations = collectOperations([doc]);
+
+    expect(() => validateDocuments(schema, fragments, operations)).not.toThrow();
+  });
+
+  test('throws on conflicting fields with the same alias', () => {
+    const doc = parse(
+      new Source(
+        `query Q {
+            variant: testimonials { id }
+            variant: tourSearch { id }
+          }`,
+        'queries/q.gql',
+      ),
+    );
+    const fragments = collectFragments([doc]);
+    const operations = collectOperations([doc]);
+
+    expect(() => validateDocuments(schema, fragments, operations)).toThrow(/graphql validation failed/);
+    expect(() => validateDocuments(schema, fragments, operations)).toThrow(/Fields "variant" conflict/);
+    expect(() => validateDocuments(schema, fragments, operations)).toThrow(/queries\/q\.gql:\d+:\d+/);
+  });
+
+  test('throws on unknown field', () => {
+    const doc = parse(new Source(`query Q { testimonials { nonExistent } }`, 'queries/q.gql'));
+    const fragments = collectFragments([doc]);
+    const operations = collectOperations([doc]);
+
+    expect(() => validateDocuments(schema, fragments, operations)).toThrow(/Cannot query field "nonExistent"/);
   });
 });

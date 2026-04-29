@@ -1,4 +1,13 @@
-import { type DocumentNode, type FragmentDefinitionNode, Kind, type OperationDefinitionNode, print } from 'graphql';
+import {
+  type DocumentNode,
+  type FragmentDefinitionNode,
+  type GraphQLSchema,
+  Kind,
+  type OperationDefinitionNode,
+  getLocation,
+  print,
+  validate,
+} from 'graphql';
 
 export function collectFragments(documents: DocumentNode[]): Map<string, FragmentDefinitionNode> {
   const fragments = new Map<string, FragmentDefinitionNode>();
@@ -102,6 +111,42 @@ function sortFragmentsByDependency(fragments: Map<string, FragmentDefinitionNode
   }
 
   return sorted;
+}
+
+export function validateDocuments(
+  schema: GraphQLSchema,
+  fragments: Map<string, FragmentDefinitionNode>,
+  operations: OperationDefinitionNode[],
+): void {
+  const combined: DocumentNode = {
+    kind: Kind.DOCUMENT,
+    definitions: [...fragments.values(), ...operations],
+  };
+
+  const errors = validate(schema, combined);
+
+  if (errors.length === 0) {
+    return;
+  }
+
+  const formatted = errors.map((err) => {
+    const locations = (err.nodes ?? [])
+      .map((node) => {
+        if (!node.loc) {
+          return null;
+        }
+
+        const { source, start } = node.loc;
+        const { line, column } = getLocation(source, start);
+
+        return `    at ${source.name}:${line}:${column}`;
+      })
+      .filter((s): s is string => s !== null);
+
+    return locations.length > 0 ? `  ${err.message}\n${locations.join('\n')}` : `  ${err.message}`;
+  });
+
+  throw new Error(`graphql validation failed:\n\n${formatted.join('\n\n')}\n`);
 }
 
 export function generateDocumentString(

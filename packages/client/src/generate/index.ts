@@ -1,10 +1,10 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { glob } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
-import { parse } from 'graphql';
+import { Source, parse } from 'graphql';
 
 import { loadConfig } from './config';
-import { collectFragments, collectOperations, generateDocumentString } from './documents';
+import { collectFragments, collectOperations, generateDocumentString, validateDocuments } from './documents';
 import { introspectSchema } from './introspect';
 import { generateFragmentTypes, generateOperationTypes } from './operation-types';
 import { generateOperationsObject } from './operations';
@@ -50,9 +50,12 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const documents = documentPaths.map((p) => parse(readFileSync(resolve(cwd, p), 'utf-8')));
+    const documents = documentPaths.map((p) => parse(new Source(readFileSync(resolve(cwd, p), 'utf-8'), p)));
     const fragments = collectFragments(documents);
     const operations = collectOperations(documents);
+
+    // validate user documents against the schema before transforming
+    validateDocuments(schema, fragments, operations);
 
     // transform component fields (auto-inject _flat_ pattern)
     const transformedFragments = new Map(
