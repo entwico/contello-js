@@ -1,6 +1,6 @@
 {
   "name": "@contello/client",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "GraphQL client for Contello CMS with WebSocket transport, connection pooling, and built-in codegen",
   "type": "module",
   "license": "MIT",

@@ -1,5 +1,15 @@
 # @contello/client
 
+## 1.2.0
+
+### Minor Changes
+
+- dcf1311: validate user .gql documents against the schema during `contello-client generate`
+
+### Patch Changes
+
+- 062116a: properly resolve component refs nested inside wrapper objects
+
 ## 1.1.1
 
 ### Patch Changes
