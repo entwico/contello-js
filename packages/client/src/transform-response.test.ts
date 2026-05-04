@@ -86,6 +86,60 @@ describe('transformResponse', () => {
       expect(section.content[0].text).toBe('nested');
     });
 
+    test('resolves refs nested inside non-ref wrapper objects', () => {
+      const data = {
+        attributes: {
+          content: [{ _flatId: 'wrapper' }],
+          _flat_content: [
+            {
+              _flatId: 'wrapper',
+              __typename: 'StudyOptionsComponent',
+              items: [
+                { title: 'first', contentSection1: [{ _flatId: 'leaf1' }] },
+                { title: 'second', contentSection1: [{ _flatId: 'leaf2' }] },
+              ],
+            },
+            { _flatId: 'leaf1', __typename: 'FeesComponent', value: 'one' },
+            { _flatId: 'leaf2', __typename: 'FeesComponent', value: 'two' },
+          ],
+        },
+      };
+
+      transformResponse(data);
+
+      const wrapper = data.attributes.content[0] as any;
+
+      expect(wrapper.items[0].contentSection1[0].value).toBe('one');
+      expect(wrapper.items[0].contentSection1[0].__model).toBe('fees');
+      expect(wrapper.items[1].contentSection1[0].value).toBe('two');
+    });
+
+    test('resolves refs at arbitrary depth across multiple nesting levels', () => {
+      const data = {
+        attributes: {
+          content: [{ _flatId: 'a' }],
+          _flat_content: [
+            {
+              _flatId: 'a',
+              __typename: 'OuterComponent',
+              groups: [
+                {
+                  rows: [{ cells: [{ _flatId: 'leaf' }] }],
+                },
+              ],
+            },
+            { _flatId: 'leaf', __typename: 'TextComponent', text: 'deep' },
+          ],
+        },
+      };
+
+      transformResponse(data);
+
+      const outer = data.attributes.content[0] as any;
+
+      expect(outer.groups[0].rows[0].cells[0].text).toBe('deep');
+    });
+
     test('skips refs with no matching _flatId', () => {
       const data = {
         attributes: {

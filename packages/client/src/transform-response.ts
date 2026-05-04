@@ -100,15 +100,39 @@ function resolveRefs(refs: readonly FlatRef[], flatMap: Map<string, FlatComponen
 
     if (!component) return [];
 
-    for (const [key, value] of Object.entries(component)) {
-      if (Array.isArray(value) && value.length > 0 && value[0]?._flatId !== undefined) {
-        (component as Record<string, unknown>)[key] = resolveRefs(value, flatMap);
-      }
-    }
+    // ref-arrays may be nested arbitrarily deep inside the resolved component
+    // (e.g. items[i].contentSection1) — the `_flat_<field>` companion only ever
+    // sits at the owning entity level, so resolve all nested refs against the
+    // same flatMap.
+    resolveNestedRefs(component, flatMap);
 
     // inject __model on resolved components
     transformResponse(component);
 
     return [component];
   });
+}
+
+function resolveNestedRefs(value: unknown, flatMap: Map<string, FlatComponent>): void {
+  if (!value || typeof value !== 'object') return;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      resolveNestedRefs(item, flatMap);
+    }
+
+    return;
+  }
+
+  const obj = value as Record<string, unknown>;
+
+  for (const key of Object.keys(obj)) {
+    const inner = obj[key];
+
+    if (Array.isArray(inner) && inner.length > 0 && (inner[0] as FlatRef | undefined)?._flatId !== undefined) {
+      obj[key] = resolveRefs(inner as FlatRef[], flatMap);
+    } else if (inner && typeof inner === 'object') {
+      resolveNestedRefs(inner, flatMap);
+    }
+  }
 }
