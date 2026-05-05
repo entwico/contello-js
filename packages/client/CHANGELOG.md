@@ -1,5 +1,11 @@
 # @contello/client
 
+## 1.2.1
+
+### Patch Changes
+
+- dfe5645: prevent errors on `ContelloComponent` recursion and unused fragments during `contello-client generate`
+
 ## 1.2.0
 
 ### Minor Changes
