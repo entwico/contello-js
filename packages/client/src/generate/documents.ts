@@ -3,11 +3,17 @@ import {
   type FragmentDefinitionNode,
   type GraphQLSchema,
   Kind,
+  NoFragmentCyclesRule,
+  NoUnusedFragmentsRule,
   type OperationDefinitionNode,
   getLocation,
   print,
+  specifiedRules,
   validate,
 } from 'graphql';
+
+const SUPPRESSED_RULE_NAMES = new Set([NoFragmentCyclesRule.name, NoUnusedFragmentsRule.name]);
+const VALIDATION_RULES = specifiedRules.filter((rule) => !SUPPRESSED_RULE_NAMES.has(rule.name));
 
 export function collectFragments(documents: DocumentNode[]): Map<string, FragmentDefinitionNode> {
   const fragments = new Map<string, FragmentDefinitionNode>();
@@ -123,7 +129,7 @@ export function validateDocuments(
     definitions: [...fragments.values(), ...operations],
   };
 
-  const errors = validate(schema, combined);
+  const errors = validate(schema, combined, VALIDATION_RULES);
 
   if (errors.length === 0) {
     return;

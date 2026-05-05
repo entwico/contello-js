@@ -218,4 +218,33 @@ describe('validateDocuments', () => {
 
     expect(() => validateDocuments(schema, fragments, operations)).toThrow(/Cannot query field "nonExistent"/);
   });
+
+  test('does not flag unused fragments', () => {
+    const doc = parse(`
+      fragment Unused on TestimonialsVariant { id }
+      query Q { testimonials { variant { id } } }
+    `);
+    const fragments = collectFragments([doc]);
+    const operations = collectOperations([doc]);
+
+    expect(() => validateDocuments(schema, fragments, operations)).not.toThrow();
+  });
+
+  test('does not flag fragment cycles', () => {
+    const cycleSchema = buildSchema(`
+      type Query { node: Node }
+      type Node { id: ID! child: Node }
+    `);
+    const doc = parse(`
+      fragment NodeFields on Node {
+        id
+        child { ...NodeFields }
+      }
+      query Q { node { ...NodeFields } }
+    `);
+    const fragments = collectFragments([doc]);
+    const operations = collectOperations([doc]);
+
+    expect(() => validateDocuments(cycleSchema, fragments, operations)).not.toThrow();
+  });
 });
