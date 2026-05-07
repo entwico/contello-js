@@ -434,6 +434,10 @@ function toSizesString(
  * - higher priority (earlier in `priority`) wins
  * - within same priority tier, smallest width wins (bandwidth-conservative)
  * - if nothing matches priority, returns the smallest variant in the filtered set
+ *
+ * graceful degradation when the size range is empty: prefer the largest variant
+ * below `minWidth` (closest match without upscaling); otherwise the smallest
+ * variant above `maxWidth`. format priority is still honored within the fallback.
  */
 function pickVariant(
   variants: ImageDefVariant[],
@@ -441,26 +445,51 @@ function pickVariant(
   minWidth: number | undefined,
   maxWidth: number | undefined,
 ): ImageDefVariant | undefined {
-  const filtered = variants.filter((v) => {
+  if (variants.length === 0) {
+    return undefined;
+  }
+
+  const inRange = variants.filter((v) => {
     if (minWidth !== undefined && v.width < minWidth) return false;
     if (maxWidth !== undefined && v.width > maxWidth) return false;
 
     return true;
   });
 
-  if (filtered.length === 0) {
-    return undefined;
+  if (inRange.length > 0) {
+    return pickByPriorityWithOrder(inRange, priority, 'asc');
   }
 
-  for (const format of priority) {
-    const ofFormat = filtered.filter((v) => v.type === format);
+  if (minWidth !== undefined) {
+    const below = variants.filter((v) => v.width < minWidth);
 
-    if (ofFormat.length > 0) {
-      return ofFormat.slice().sort((a, b) => a.width - b.width)[0];
+    if (below.length > 0) {
+      return pickByPriorityWithOrder(below, priority, 'desc');
     }
   }
 
-  return filtered.slice().sort((a, b) => a.width - b.width)[0];
+  return pickByPriorityWithOrder(variants, priority, 'asc');
+}
+
+function pickByPriorityWithOrder(
+  variants: ImageDefVariant[],
+  priority: string[],
+  order: 'asc' | 'desc',
+): ImageDefVariant {
+  const cmp =
+    order === 'asc'
+      ? (a: ImageDefVariant, b: ImageDefVariant) => a.width - b.width
+      : (a: ImageDefVariant, b: ImageDefVariant) => b.width - a.width;
+
+  for (const format of priority) {
+    const ofFormat = variants.filter((v) => v.type === format);
+
+    if (ofFormat.length > 0) {
+      return ofFormat.slice().sort(cmp)[0]!;
+    }
+  }
+
+  return variants.slice().sort(cmp)[0]!;
 }
 
 function pickByPriority(variants: ImageDefVariant[], priority: string[]): ImageDefVariant | undefined {

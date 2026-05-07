@@ -243,6 +243,39 @@ describe('MediaResolver.image.url', () => {
     expect(media.image.url(imageDef, 'email')).toBe('/j-400');
   });
 
+  test('falls back to largest variant below minWidth when none meet threshold', () => {
+    expect(media.image.url(imageDef, 'web', { minWidth: 2000 })).toBe('/w-1200');
+  });
+
+  test('falls back to largest webp below minWidth (1800/1200/400 with min 2000 → 1800)', () => {
+    const def: ImageDef = {
+      id: 'x',
+      variants: [
+        { type: 'image/webp', url: '/w-400', width: 400, height: 300 },
+        { type: 'image/webp', url: '/w-1200', width: 1200, height: 900 },
+        { type: 'image/webp', url: '/w-1800', width: 1800, height: 1350 },
+      ],
+    };
+
+    expect(media.image.url(def, 'web', { minWidth: 2000 })).toBe('/w-1800');
+  });
+
+  test('honors format priority within the below-minWidth fallback', () => {
+    const def: ImageDef = {
+      id: 'x',
+      variants: [
+        { type: 'image/webp', url: '/w-1200', width: 1200, height: 900 },
+        { type: 'image/jpeg', url: '/j-1800', width: 1800, height: 1350 },
+      ],
+    };
+
+    expect(media.image.url(def, 'web', { minWidth: 2000 })).toBe('/w-1200');
+  });
+
+  test('falls back to smallest variant above maxWidth when none fit', () => {
+    expect(media.image.url(imageDef, 'web', { maxWidth: 100 })).toBe('/w-400');
+  });
+
   test('returns empty string for null source with no fallback', () => {
     expect(media.image.url(null, 'web')).toBe('');
   });
