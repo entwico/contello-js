@@ -167,6 +167,111 @@ describe('generateOperationTypes', () => {
     expect(result).toContain('export type GetUserQuery = {');
   });
 
+  test('references fragment type instead of inlining', () => {
+    const sdl = `
+      type Query { user: User }
+      type User { id: ID! name: String! email: String }
+    `;
+    const result = generate(
+      sdl,
+      `
+        fragment UserFields on User { id name }
+        query GetUser { user { ...UserFields email } }
+      `,
+    );
+
+    expect(result).toContain('& UserFieldsFragment');
+    // selection-set siblings should not duplicate fields from the fragment
+    expect(result).not.toMatch(/user\?:[^&]*name:\s*string/);
+  });
+
+  test('intersects multiple fragment refs', () => {
+    const sdl = `
+      type Query { user: User }
+      type User { id: ID! name: String! email: String }
+    `;
+    const result = generate(
+      sdl,
+      `
+        fragment UserNames on User { id name }
+        fragment UserContact on User { email }
+        query GetUser { user { ...UserNames ...UserContact } }
+      `,
+    );
+
+    expect(result).toContain('UserNamesFragment & UserContactFragment');
+  });
+
+  test('references fragment ref inside list field with proper wrapping', () => {
+    const sdl = `
+      type Query { users: [User!]! }
+      type User { id: ID! name: String! }
+    `;
+    const result = generate(
+      sdl,
+      `
+        fragment UserFields on User { id name }
+        query GetUsers { users { ...UserFields } }
+      `,
+    );
+
+    expect(result).toContain('UserFieldsFragment[]');
+  });
+
+  test('chains fragment refs across multi-level nesting (MediaFile inside MediaAsset)', () => {
+    const sdl = `
+      type Query { asset: Asset }
+      type Asset { id: ID! original: File! preview: File optimized: [OptimizedFile!]! }
+      type File { uid: String! mimeType: String! }
+      type OptimizedFile { uid: String! mimeType: String! name: String! }
+    `;
+    const result = generate(
+      sdl,
+      `
+        fragment MediaFile on File { uid mimeType }
+        fragment MediaAsset on Asset {
+          id
+          original { ...MediaFile }
+          preview { ...MediaFile }
+        }
+        query GetAsset { asset { ...MediaAsset } }
+      `,
+    );
+
+    // operation result references MediaAssetFragment
+    expect(result).toMatch(/GetAssetQuery = \{[\s\S]*?MediaAssetFragment/);
+    // the file shape is not inlined three times (once per occurrence of MediaFile)
+    const uidOccurrences = (result.match(/uid: string/g) ?? []).length;
+
+    expect(uidOccurrences).toBeLessThanOrEqual(1);
+  });
+
+  test('references fragment ref inside discriminated inline branch', () => {
+    const sdl = `
+      type Query { node: Node }
+      interface Node { id: ID! }
+      type User implements Node { id: ID! name: String! }
+      type Post implements Node { id: ID! title: String! }
+    `;
+    const result = generate(
+      sdl,
+      `
+        fragment UserFields on User { name }
+        query GetNode {
+          node {
+            id
+            ... on User { ...UserFields }
+            ... on Post { title }
+          }
+        }
+      `,
+    );
+
+    // user branch carries __typename discriminant intersected with the fragment ref
+    expect(result).toContain("__typename: 'User'");
+    expect(result).toContain('& UserFieldsFragment');
+  });
+
   test('rejects fragment spread on incompatible object type', () => {
     const sdl = `
       type Query { user: User }
@@ -344,6 +449,25 @@ describe('generateFragmentTypes', () => {
     expect(result).toContain('export type ProfileFieldsFragment = {');
     expect(result).toContain('export type UserFieldsFragment = {');
     expect(result).toContain('bio?: string | undefined;');
+  });
+
+  test('fragment with nested spread references the nested fragment by name', () => {
+    const sdl = `
+      type Query { dummy: String }
+      type User { id: ID! profile: Profile }
+      type Profile { bio: String }
+    `;
+    const result = generateFragments(
+      sdl,
+      `
+        fragment ProfileFields on Profile { bio }
+        fragment UserFields on User { id profile { ...ProfileFields } }
+      `,
+    );
+
+    expect(result).toContain('profile?: ProfileFieldsFragment | undefined;');
+    // the nested fragment's body must not be inlined into UserFieldsFragment
+    expect(result).not.toMatch(/UserFieldsFragment = \{[\s\S]*?bio\?:/);
   });
 
   test('handles inline fragments on unions', () => {

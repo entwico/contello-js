@@ -45,6 +45,7 @@ function unwrapType(type: GraphQLType): { namedType: GraphQLType; isList: boolea
 type SelectionSetResult = {
   fields: string[];
   inlineUnions: string[];
+  fragmentRefs: string[];
   hasTypenameField: boolean;
 };
 
@@ -54,10 +55,10 @@ function resolveSelectionSet(
   parentType: GraphQLCompositeType,
   fragments: Map<string, FragmentDefinitionNode>,
   indent: string,
-  visited: Set<string>,
 ): SelectionSetResult {
   const fields: string[] = [];
   const inlineUnions: string[] = [];
+  const fragmentRefs: string[] = [];
   let hasTypenameField = false;
 
   for (const selection of selectionSet.selections) {
@@ -84,7 +85,7 @@ function resolveSelectionSet(
       let tsType: string;
 
       if (selection.selectionSet && isCompositeType(namedType)) {
-        tsType = resolveSelectionSetType(schema, selection.selectionSet, namedType, fragments, `${indent}  `, visited);
+        tsType = resolveSelectionSetType(schema, selection.selectionSet, namedType, fragments, `${indent}  `);
       } else if (isScalarType(namedType)) {
         tsType = resolveScalarType(namedType.name);
       } else if (isEnumType(namedType)) {
@@ -94,7 +95,7 @@ function resolveSelectionSet(
       }
 
       if (isList) {
-        const wrapped = tsType.includes(' | ') ? `(${tsType})` : tsType;
+        const wrapped = /[ |&]/.test(tsType) ? `(${tsType})` : tsType;
 
         tsType = `${wrapped}[]`;
       }
@@ -116,26 +117,13 @@ function resolveSelectionSet(
         if (isCompositeType(conditionalType)) {
           if (isInterfaceType(conditionalType)) {
             // interface spreads merge fields into the base (not a discriminated branch)
-            const inner = resolveSelectionSet(
-              schema,
-              selection.selectionSet,
-              conditionalType,
-              fragments,
-              indent,
-              visited,
-            );
+            const inner = resolveSelectionSet(schema, selection.selectionSet, conditionalType, fragments, indent);
 
             fields.push(...inner.fields);
+            fragmentRefs.push(...inner.fragmentRefs);
           } else if (isObjectType(conditionalType)) {
             // inject __typename discriminant for proper narrowing
-            const nested = resolveSelectionSetType(
-              schema,
-              selection.selectionSet,
-              conditionalType,
-              fragments,
-              indent,
-              visited,
-            );
+            const nested = resolveSelectionSetType(schema, selection.selectionSet, conditionalType, fragments, indent);
 
             if (nested.startsWith('{')) {
               const model = isContelloModel(schema, conditionalType.name)
@@ -147,17 +135,17 @@ function resolveSelectionSet(
 
               inlineUnions.push(`{\n${discriminant}\n${nested.slice(2)}`);
             } else {
-              inlineUnions.push(nested);
+              const model = isContelloModel(schema, conditionalType.name)
+                ? deriveModelName(conditionalType.name)
+                : undefined;
+              const discriminant = model
+                ? `{\n${indent}  __typename: '${conditionalType.name}';\n${indent}  __model: '${model}';\n${indent}}`
+                : `{\n${indent}  __typename: '${conditionalType.name}';\n${indent}}`;
+
+              inlineUnions.push(`${discriminant} & ${nested}`);
             }
           } else {
-            const nested = resolveSelectionSetType(
-              schema,
-              selection.selectionSet,
-              conditionalType,
-              fragments,
-              indent,
-              visited,
-            );
+            const nested = resolveSelectionSetType(schema, selection.selectionSet, conditionalType, fragments, indent);
 
             inlineUnions.push(nested);
           }
@@ -165,14 +153,6 @@ function resolveSelectionSet(
       }
     } else if (selection.kind === Kind.FRAGMENT_SPREAD) {
       const fragmentName = selection.name.value;
-
-      if (visited.has(fragmentName)) {
-        // cycle detected — reference the fragment type by name instead of expanding inline
-        inlineUnions.push(`${fragmentName}Fragment`);
-
-        continue;
-      }
-
       const fragment = fragments.get(fragmentName);
 
       if (fragment?.selectionSet) {
@@ -185,31 +165,13 @@ function resolveSelectionSet(
             );
           }
 
-          const nextVisited = new Set(visited);
-
-          nextVisited.add(fragmentName);
-
-          const fragmentResult = resolveSelectionSet(
-            schema,
-            fragment.selectionSet,
-            fragmentType,
-            fragments,
-            indent,
-            nextVisited,
-          );
-
-          fields.push(...fragmentResult.fields);
-          inlineUnions.push(...fragmentResult.inlineUnions);
-
-          if (fragmentResult.hasTypenameField) {
-            hasTypenameField = true;
-          }
+          fragmentRefs.push(`${fragmentName}Fragment`);
         }
       }
     }
   }
 
-  return { fields, inlineUnions, hasTypenameField };
+  return { fields, inlineUnions, fragmentRefs, hasTypenameField };
 }
 
 function resolveSelectionSetType(
@@ -218,15 +180,13 @@ function resolveSelectionSetType(
   parentType: GraphQLCompositeType,
   fragments: Map<string, FragmentDefinitionNode>,
   indent: string,
-  visited: Set<string> = new Set(),
 ): string {
-  const { fields, inlineUnions, hasTypenameField } = resolveSelectionSet(
+  const { fields, inlineUnions, fragmentRefs, hasTypenameField } = resolveSelectionSet(
     schema,
     selectionSet,
     parentType,
     fragments,
     indent,
-    visited,
   );
 
   // add __typename to base fields only when there are no inline union branches
@@ -239,17 +199,28 @@ function resolveSelectionSetType(
     fields.unshift(typenameField);
   }
 
-  if (inlineUnions.length > 0 && fields.length === 0) {
+  // only inline unions, no base fields and no fragment refs — emit a bare union
+  if (fields.length === 0 && fragmentRefs.length === 0 && inlineUnions.length > 0) {
     return inlineUnions.join(' | ');
   }
 
-  const baseType = fields.length > 0 ? `{\n${fields.join('\n')}\n${indent}}` : '{}';
+  const parts: string[] = [];
 
-  if (inlineUnions.length > 0) {
-    return `${baseType} & (${inlineUnions.join(' | ')})`;
+  if (fields.length > 0) {
+    parts.push(`{\n${fields.join('\n')}\n${indent}}`);
   }
 
-  return baseType;
+  parts.push(...fragmentRefs);
+
+  if (inlineUnions.length > 0) {
+    parts.push(`(${inlineUnions.join(' | ')})`);
+  }
+
+  if (parts.length === 0) {
+    return '{}';
+  }
+
+  return parts.join(' & ');
 }
 
 function generateVariablesType(schema: GraphQLSchema, operation: OperationDefinitionNode): string {

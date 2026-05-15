@@ -768,7 +768,7 @@ export const models = {
 
 export type ModelType = keyof typeof models;
 
-export type StoreFileFragment = {
+export type MediaFileFragment = {
   uid: string;
   mimeType: string;
   metadata?: {
@@ -782,48 +782,22 @@ export type StoreFileFragment = {
   } | undefined;
 };
 
-export type StoreAssetFragment = {
+export type MediaAssetFragment = {
   id: string;
-  original: {
-    uid: string;
-    mimeType: string;
-    metadata?: {
-      __typename: 'ContelloImageMetadata';
-      width: number;
-      height: number;
-    } | {
-      __typename: 'ContelloVideoMetadata';
-      width: number;
-      height: number;
+  original: MediaFileFragment;
+  preview?: MediaFileFragment | undefined;
+  optimized: (MediaFileFragment & ({
+    __typename: 'ContelloOptimizedFile';
+    optimizationConfig?: {
+      __typename: 'ContelloImageOptimizationConfig';
+      name: string;
     } | undefined;
-  };
-  preview?: {
-    uid: string;
-    mimeType: string;
-    metadata?: {
-      __typename: 'ContelloImageMetadata';
-      width: number;
-      height: number;
-    } | {
-      __typename: 'ContelloVideoMetadata';
-      width: number;
-      height: number;
-    } | undefined;
-  } | undefined;
-  optimized: ({
-    uid: string;
-    mimeType: string;
-    metadata?: {
-      __typename: 'ContelloImageMetadata';
-      width: number;
-      height: number;
-    } | {
-      __typename: 'ContelloVideoMetadata';
-      width: number;
-      height: number;
-    } | undefined;
-  })[];
+  }))[];
 };
+
+export type StoreFileFragment = MediaFileFragment;
+
+export type StoreAssetFragment = MediaAssetFragment;
 
 export type StoreRouteFragment = {
   id: string;
@@ -853,19 +827,19 @@ export type StoreRouteFragment = {
     content: string;
     mimeType: string;
   };
-  customHeaders: {
+  customHeaders: ({
     name: string;
     value: string;
-  }[];
+  })[];
 };
 
 export type ComponentFragment = {
   __typename: 'ProductListComponent';
   __model: 'productList';
   headline?: string | undefined;
-  products?: {
+  products?: ({
     id: string;
-  }[] | undefined;
+  })[] | undefined;
 } | {
   __typename: 'TextComponent';
   __model: 'text';
@@ -876,25 +850,7 @@ export type ComponentFragment = {
   __typename: 'SectionComponent';
   __model: 'section';
   headline?: string | undefined;
-  content?: ({
-    __typename: 'ProductListComponent';
-    __model: 'productList';
-    headline?: string | undefined;
-    products?: {
-      id: string;
-    }[] | undefined;
-  } | {
-    __typename: 'TextComponent';
-    __model: 'text';
-    text?: {
-      markdownData?: string | undefined;
-    } | undefined;
-  } | {
-    __typename: 'SectionComponent';
-    __model: 'section';
-    headline?: string | undefined;
-    content?: ComponentFragment[] | undefined;
-  })[] | undefined;
+  content?: ComponentFragment[] | undefined;
 };
 
 export type GetAllCategoriesSubscription = {
@@ -913,56 +869,15 @@ export type GetProductsQuery = {
     entities: ({
       id: string;
       internalName: string;
-      routes: {
+      routes: ({
         path: string;
-      }[];
+      })[];
       attributes: {
         name?: string | undefined;
         description?: {
           markdownData?: string | undefined;
         } | undefined;
-        image?: {
-          id: string;
-          original: {
-            uid: string;
-            mimeType: string;
-            metadata?: {
-              __typename: 'ContelloImageMetadata';
-              width: number;
-              height: number;
-            } | {
-              __typename: 'ContelloVideoMetadata';
-              width: number;
-              height: number;
-            } | undefined;
-          };
-          preview?: {
-            uid: string;
-            mimeType: string;
-            metadata?: {
-              __typename: 'ContelloImageMetadata';
-              width: number;
-              height: number;
-            } | {
-              __typename: 'ContelloVideoMetadata';
-              width: number;
-              height: number;
-            } | undefined;
-          } | undefined;
-          optimized: ({
-            uid: string;
-            mimeType: string;
-            metadata?: {
-              __typename: 'ContelloImageMetadata';
-              width: number;
-              height: number;
-            } | {
-              __typename: 'ContelloVideoMetadata';
-              width: number;
-              height: number;
-            } | undefined;
-          })[];
-        } | undefined;
+        image?: StoreAssetFragment | undefined;
         category?: {
           id: string;
         } | undefined;
@@ -980,30 +895,12 @@ export type GetStaticPagesQuery = {
     entities: ({
       id: string;
       internalName: string;
-      routes: {
+      routes: ({
         path: string;
-      }[];
+      })[];
       attributes: {
         name?: string | undefined;
-        content?: ({
-          __typename: 'ProductListComponent';
-          __model: 'productList';
-          headline?: string | undefined;
-          products?: {
-            id: string;
-          }[] | undefined;
-        } | {
-          __typename: 'TextComponent';
-          __model: 'text';
-          text?: {
-            markdownData?: string | undefined;
-          } | undefined;
-        } | {
-          __typename: 'SectionComponent';
-          __model: 'section';
-          headline?: string | undefined;
-          content?: ComponentFragment[] | undefined;
-        })[] | undefined;
+        content?: ComponentFragment[] | undefined;
       };
     })[];
   };
@@ -1022,7 +919,7 @@ export const getAllCategoriesDocument = `subscription GetAllCategories {
   }
 }`;
 
-export const getProductsDocument = `fragment StoreFile on ContelloFile {
+export const getProductsDocument = `fragment MediaFile on ContelloFile {
   uid
   mimeType
   metadata {
@@ -1036,17 +933,27 @@ export const getProductsDocument = `fragment StoreFile on ContelloFile {
     }
   }
 }
-fragment StoreAsset on ContelloAsset {
+fragment MediaAsset on ContelloAsset {
   id
   original {
-    ...StoreFile
+    ...MediaFile
   }
   preview {
-    ...StoreFile
+    ...MediaFile
   }
   optimized {
-    ...StoreFile
+    ...MediaFile
+    ... on ContelloOptimizedFile {
+      optimizationConfig {
+        ... on ContelloImageOptimizationConfig {
+          name
+        }
+      }
+    }
   }
+}
+fragment StoreAsset on ContelloAsset {
+  ...MediaAsset
 }
 query GetProducts($request: ProductsRequestInput) {
   products(request: $request) {

@@ -12,7 +12,11 @@ export default {
       url: CONTELLO_URL,
       project: CONTELLO_DEMO_ASTRO_PROJECT,
       token: CONTELLO_TOKEN,
-      documents: ['src/server/graphql/**/*.gql', '../../packages/store/fragments/**/*.gql'],
+      documents: [
+        'src/server/graphql/**/*.gql',
+        '../../packages/store/fragments/**/*.gql',
+        '../../packages/media/fragments/**/*.gql',
+      ],
       output: 'src/server/_/gql/graphql.ts',
     },
   ],
