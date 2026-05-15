@@ -1,5 +1,11 @@
 # @contello/client
 
+## 1.2.2
+
+### Patch Changes
+
+- 0f14d49: reference fragment types by name in generated operation/fragment types
+
 ## 1.2.1
 
 ### Patch Changes
