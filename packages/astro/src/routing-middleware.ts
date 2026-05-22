@@ -19,7 +19,7 @@ function customHeaders(headers: readonly StoreRouteCustomHeader[]): Record<strin
   return result;
 }
 
-export function createRoutingMiddleware(instance: Contello<any, any>, options?: ContelloMiddlewareOptions | undefined) {
+export function createRoutingMiddleware(instance: Contello<any>, options?: ContelloMiddlewareOptions | undefined) {
   const { exclude } = options ?? {};
 
   return defineMiddleware(async (ctx, next) => {

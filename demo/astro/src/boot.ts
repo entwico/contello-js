@@ -6,6 +6,7 @@ import { checks } from 'health-probes';
 import { stdTimeFunctions } from 'pino';
 import { Config } from '@/config';
 import { categories } from '@/server/categories';
+import { config } from '@/server/config';
 import { contello } from '@/server/contello';
 
 const sdk = new NodeSDK({
@@ -25,7 +26,7 @@ export async function onStartup({ dev, host, port }: BootContext) {
   checks.register('contello', () => contello.ping());
 
   await contello.init({
-    load: [categories],
+    load: [categories, config],
     i18n: { register: !dev },
   });
 

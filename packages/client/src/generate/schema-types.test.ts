@@ -126,7 +126,7 @@ describe('generateSchemaTypes', () => {
     expect(result).not.toContain('__Field');
   });
 
-  test('generates models const and type from ContelloEntity union', () => {
+  test('does not emit `export const models` directly (the schema bundle assembles it)', () => {
     const schema = buildSchema(`
       type Query { dummy: String }
       type ArticleEntity { id: ID! }
@@ -136,9 +136,8 @@ describe('generateSchemaTypes', () => {
 
     const result = generateSchemaTypes(schema);
 
-    expect(result).toContain("article: 'ArticleEntity',");
-    expect(result).toContain("product: 'ProductEntity',");
-    expect(result).toContain('export type ModelType = keyof typeof models;');
+    expect(result).not.toContain('export const models');
+    expect(result).not.toContain('ModelType');
   });
 
   test('does not generate models when ContelloEntity union is missing', () => {

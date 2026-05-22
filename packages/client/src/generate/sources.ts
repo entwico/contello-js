@@ -94,14 +94,12 @@ function unwrapEntity(type: GraphQLType): { entityType: GraphQLObjectType | unde
   };
 }
 
-export function generateSourcesObject(
+/**
+ * Dedupe + sort entries by model name. Throws on duplicates.
+ */
+function organize(
   entries: { fragmentName: string; binding: EntitySourceBinding; fragmentExpression: string }[],
-): string {
-  if (entries.length === 0) {
-    return '';
-  }
-
-  // each Contello model gets exactly one source — multiple fragments on the same entity collide
+): { fragmentName: string; binding: EntitySourceBinding; fragmentExpression: string }[] {
   const byModel = new Map<string, { fragmentName: string; binding: EntitySourceBinding; fragmentExpression: string }>();
 
   for (const entry of entries) {
@@ -118,7 +116,19 @@ export function generateSourcesObject(
     byModel.set(entry.binding.model, entry);
   }
 
-  const sorted = [...byModel.values()].sort((a, b) => a.binding.model.localeCompare(b.binding.model));
+  return [...byModel.values()].sort((a, b) => a.binding.model.localeCompare(b.binding.model));
+}
+
+/** Emits `export type Sources = { ... }`. */
+export function generateSourcesType(
+  entries: { fragmentName: string; binding: EntitySourceBinding; fragmentExpression: string }[],
+): string {
+  const sorted = organize(entries);
+
+  if (sorted.length === 0) {
+    return '';
+  }
+
   const lines: string[] = [];
 
   lines.push('export type Sources = {');
@@ -130,8 +140,23 @@ export function generateSourcesObject(
   }
 
   lines.push('};');
-  lines.push('');
-  lines.push('export const sources: Sources = {');
+
+  return lines.join('\n');
+}
+
+/** Emits `const sources: Sources = { ... }` for inclusion in the schema bundle. */
+export function generateSourcesConst(
+  entries: { fragmentName: string; binding: EntitySourceBinding; fragmentExpression: string }[],
+): string {
+  const sorted = organize(entries);
+
+  if (sorted.length === 0) {
+    return '';
+  }
+
+  const lines: string[] = [];
+
+  lines.push('const sources: Sources = {');
 
   for (const { fragmentName, binding, fragmentExpression } of sorted) {
     lines.push(`  ${binding.model}: {`);

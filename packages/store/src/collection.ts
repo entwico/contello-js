@@ -1,9 +1,9 @@
 import {
   type AsyncIterableSubject,
   type ContelloClient,
-  type OperationMap,
   type SourceDef,
   createAsyncIterableSubject,
+  createSourceSubscription,
   firstAsync,
   mapAsync,
   runWithBackoff,
@@ -12,7 +12,6 @@ import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'p
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import type { ModelResolver } from './model-resolver';
-import { createSourceSubscription } from './source-subscription';
 import type {
   Collection,
   CollectionOptions,
@@ -37,14 +36,13 @@ function fetchCollection<S extends SourceDef<string, 'collection'>>(
 }
 
 export function createCollection<
-  TOps extends OperationMap | undefined,
   TSource extends SourceDef<TModels, 'collection'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(
   source: TSource,
   options: CollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
-  client: ContelloClient<TOps>,
+  client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
 ): Created<Collection<TMapped>> {
@@ -233,18 +231,17 @@ export function createCollection<
 }
 
 export function createCollectionSync<
-  TOps extends OperationMap | undefined,
   TSource extends SourceDef<TModels, 'collection'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(
   source: TSource,
   options: CollectionSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
-  client: ContelloClient<TOps>,
+  client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
 ): Created<CollectionSync<TMapped>> {
-  const { instance: base, destroy } = createCollection<TOps, TSource, TMapped, TModels>(
+  const { instance: base, destroy } = createCollection<TSource, TMapped, TModels>(
     source,
     options,
     client,

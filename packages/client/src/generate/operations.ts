@@ -2,10 +2,10 @@ import type { OperationDefinitionNode } from 'graphql';
 
 import { pascalCase, uncapitalize } from './utils';
 
-export function generateOperationsObject(operations: OperationDefinitionNode[]): string {
+/** Emits `export type Operations = { ... }`. */
+export function generateOperationsType(operations: OperationDefinitionNode[]): string {
   const lines: string[] = [];
 
-  // operations type (with phantom type metadata)
   lines.push('export type Operations = {');
 
   for (const op of operations) {
@@ -24,10 +24,18 @@ export function generateOperationsObject(operations: OperationDefinitionNode[]):
   }
 
   lines.push('};');
-  lines.push('');
 
-  // runtime operations object
-  lines.push('export const operations: Operations = {');
+  return lines.join('\n');
+}
+
+/**
+ * Emits the typed `operations` const body for inclusion in the schema bundle:
+ *   const operations: Operations = { getProducts: { document: getProductsDocument, kind: 'query' }, ... };
+ */
+export function generateOperationsConst(operations: OperationDefinitionNode[]): string {
+  const lines: string[] = [];
+
+  lines.push('const operations: Operations = {');
 
   for (const op of operations) {
     const camelName = uncapitalize(op.name!.value);
@@ -35,7 +43,7 @@ export function generateOperationsObject(operations: OperationDefinitionNode[]):
     lines.push(`  ${camelName}: { document: ${camelName}Document, kind: '${op.operation}' },`);
   }
 
-  lines.push('} as Operations;');
+  lines.push('};');
 
   return lines.join('\n');
 }

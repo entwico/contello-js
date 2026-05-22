@@ -1,13 +1,7 @@
-import type { SourceDef } from '@contello/client';
+import type { SourceDef } from './types';
 
 const cache = new WeakMap<SourceDef, string>();
 
-/**
- * Generates the subscription document that feeds the store, derived from a SourceDef.
- * Singleton: `subscription { source: <sub> { ...<Frag> } }`.
- * Collection: `subscription($ids: [ID!]) { source: <sub>(request: { filter: { ids: $ids } }) { ...<Frag> } }`.
- * Memoized per SourceDef reference.
- */
 export function createSourceSubscription(source: SourceDef): string {
   const cached = cache.get(source);
 

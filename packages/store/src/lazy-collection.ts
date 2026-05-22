@@ -1,9 +1,9 @@
 import {
   type AsyncIterableSubject,
   type ContelloClient,
-  type OperationMap,
   type SourceDef,
   createAsyncIterableSubject,
+  createSourceSubscription,
   firstAsync,
   mapAsync,
 } from '@contello/client';
@@ -12,20 +12,18 @@ import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import { createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
-import { createSourceSubscription } from './source-subscription';
 import type { Created, ExtractSourceResult, LazyCollection, LazyCollectionOptions } from './types';
 import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createLazyCollection<
-  TOps extends OperationMap | undefined,
   TSource extends SourceDef<TModels, 'collection'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(
   source: TSource,
   options: LazyCollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
-  client: ContelloClient<TOps>,
+  client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
 ): Created<LazyCollection<TMapped>> {

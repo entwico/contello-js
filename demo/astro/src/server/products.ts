@@ -1,5 +1,5 @@
 import { log } from '@astroscope/pino';
-import { sources } from '@/server/_/gql/graphql';
+import { schema } from '@/server/_/gql/graphql';
 import { contello } from '@/server/contello';
 
 export type Product = {
@@ -9,7 +9,7 @@ export type Product = {
   description: string | undefined;
 };
 
-export const products = contello.defineLazyCollection(sources.product, {
+export const products = contello.defineLazyCollection(schema.sources.product, {
   map: (item) => ({
     id: item.id,
     name: item.attributes.name ?? '',

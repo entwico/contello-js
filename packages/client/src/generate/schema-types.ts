@@ -218,21 +218,28 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
     lines.push('');
   }
 
-  // entity models
-  if (entityModelNames.size > 0) {
-    const sorted = [...entityModelNames.entries()].sort(([a], [b]) => a.localeCompare(b));
+  return lines.join('\n');
+}
 
-    lines.push('export const models = {');
+/**
+ * Returns the model-reference-name → typename map for entities in `ContelloEntity`.
+ * Used by the schema bundle assembly to emit `models: { category: 'CategoryEntity', ... }`.
+ */
+export function extractEntityModels(schema: GraphQLSchema): Map<string, string> {
+  const map = new Map<string, string>();
+  const union = schema.getTypeMap()['ContelloEntity'];
 
-    for (const [typeName, model] of sorted) {
-      lines.push(`  ${model}: '${typeName}',`);
-    }
-
-    lines.push('} as const;');
-    lines.push('');
-    lines.push('export type ModelType = keyof typeof models;');
-    lines.push('');
+  if (!union || !isUnionType(union)) {
+    return map;
   }
 
-  return lines.join('\n');
+  for (const member of union.getTypes()) {
+    const model = deriveModelName(member.name);
+
+    if (model) {
+      map.set(model, member.name);
+    }
+  }
+
+  return map;
 }

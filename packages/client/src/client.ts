@@ -14,7 +14,8 @@ import {
 import { ping } from './ping';
 import { ConnectionPool } from './pool';
 import { buildRpc } from './rpc';
-import type { OperationMap, Rpc } from './types';
+import { createSources } from './sources';
+import type { Rpc, Schema, SourceFetchers } from './types';
 import { type UploadData, type UploadMetadata, type UploadOptions, upload as uploadAsset } from './upload';
 import { wsRetryWait } from './utils';
 
@@ -30,11 +31,11 @@ export type ConnectionEvents = {
   onError?: ((context: ConnectionContext, error: unknown) => void) | undefined;
 };
 
-export type ContelloClientOptions<T extends OperationMap | undefined = undefined> = {
+export type ContelloClientOptions<TSchema extends Schema | undefined = undefined> = {
   url: string;
   project: string;
   token: string;
-  operations?: T | undefined;
+  schema?: TSchema | undefined;
   connections?: number | undefined;
   http?: HttpAgentOptions | undefined;
   onConnected?: (() => void) | undefined;
@@ -45,16 +46,17 @@ export type ContelloClientOptions<T extends OperationMap | undefined = undefined
 
 type PoolState = 'disconnected' | 'connected' | 'reconnecting';
 
-export class ContelloClient<T extends OperationMap | undefined = undefined> {
+export class ContelloClient<TSchema extends Schema | undefined = undefined> {
   private _pool: ConnectionPool;
-  private _rpc: T extends OperationMap ? Rpc<T> : undefined;
+  private _rpc: TSchema extends Schema<infer TOps, any, any> ? Rpc<TOps> : undefined;
+  private _sources: TSchema extends Schema<any, infer TSources, any> ? SourceFetchers<TSources> : undefined;
   private _url: string;
   private _project: string;
   private _token: string;
   private _agent: Agent;
 
-  constructor(options: ContelloClientOptions<T>) {
-    const { url, project, token, operations, connections = 1, connectionEvents } = options;
+  constructor(options: ContelloClientOptions<TSchema>) {
+    const { url, project, token, schema, connections = 1, connectionEvents } = options;
 
     this._url = url;
     this._project = project;
@@ -129,15 +131,29 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
       });
     }, connections);
 
-    this._rpc = (operations ? buildRpc(operations, (q, v) => this.subscribe(q, v)) : undefined) as typeof this._rpc;
+    this._rpc = (
+      schema?.operations ? buildRpc(schema.operations, (q, v) => this.subscribe(q, v)) : undefined
+    ) as typeof this._rpc;
+
+    this._sources = (
+      schema?.sources ? createSources(schema.sources, (q, v) => this.subscribe(q, v)) : undefined
+    ) as typeof this._sources;
   }
 
-  get rpc(): T extends OperationMap ? Rpc<T> : never {
+  get rpc(): TSchema extends Schema<infer TOps, any, any> ? Rpc<TOps> : never {
     if (!this._rpc) {
-      throw new Error('@contello/client: .rpc accessed without operations');
+      throw new Error('@contello/client: .rpc accessed without a schema containing operations');
     }
 
     return this._rpc as any;
+  }
+
+  get sources(): TSchema extends Schema<any, infer TSources, any> ? SourceFetchers<TSources> : never {
+    if (!this._sources) {
+      throw new Error('@contello/client: .sources accessed without a schema containing sources');
+    }
+
+    return this._sources as any;
   }
 
   async init(): Promise<void> {
@@ -265,8 +281,8 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
   }
 }
 
-export function createContelloClient<T extends OperationMap | undefined = undefined>(
-  options: ContelloClientOptions<T>,
-): ContelloClient<T> {
+export function createContelloClient<TSchema extends Schema | undefined = undefined>(
+  options: ContelloClientOptions<TSchema>,
+): ContelloClient<TSchema> {
   return new ContelloClient(options);
 }

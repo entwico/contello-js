@@ -21,10 +21,7 @@ export type ContelloAssetsMiddlewareOptions = {
 
 const DEFAULT_IMAGES_CACHE_CONTROL = 'public, max-age=31536000';
 
-export function createAssetsMiddleware(
-  instance: Contello<any, any>,
-  options?: ContelloAssetsMiddlewareOptions | undefined,
-) {
+export function createAssetsMiddleware(instance: Contello<any>, options?: ContelloAssetsMiddlewareOptions | undefined) {
   const imagesPrefix = instance.media.imagesPath;
   const imagesCacheControl = options?.images?.cacheControl ?? DEFAULT_IMAGES_CACHE_CONTROL;
   const filesPrefix = instance.media.filesPath;
@@ -60,7 +57,7 @@ export function createAssetsMiddleware(
 }
 
 function handleFile(
-  instance: Contello<any, any>,
+  instance: Contello<any>,
   next: () => Response | Promise<Response>,
   rest: string,
   cacheControl: string | undefined,
@@ -91,7 +88,7 @@ function handleFile(
 }
 
 function handleVideo(
-  instance: Contello<any, any>,
+  instance: Contello<any>,
   next: () => Response | Promise<Response>,
   path: string,
   signal: AbortSignal,

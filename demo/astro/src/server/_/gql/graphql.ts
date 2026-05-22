@@ -803,15 +803,6 @@ export type ContelloRouteTarget = ContelloRouteTargetAsset | ContelloRouteTarget
 export type ContelloUpdatePrev = ContelloRoute;
 export type ContelloUpdateTarget = CategoryEntity | ConfigEntity | ContelloAsset | ContelloI18nMessage | ContelloRoute | ProductEntity | StaticPageEntity;
 
-export const models = {
-  category: 'CategoryEntity',
-  config: 'ConfigEntity',
-  product: 'ProductEntity',
-  staticPage: 'StaticPageEntity',
-} as const;
-
-export type ModelType = keyof typeof models;
-
 export type MediaFileFragment = {
   uid: string;
   mimeType: string;
@@ -1100,9 +1091,6 @@ const StoreRouteFragmentSchema = `fragment StoreRoute on ContelloRoute {
 export type Operations = {
 };
 
-export const operations: Operations = {
-} as Operations;
-
 export type Sources = {
   category: SourceDef<'category', 'collection', CategoryFragment>;
   config: SourceDef<'config', 'singleton', ConfigFragment>;
@@ -1110,7 +1098,10 @@ export type Sources = {
   staticPage: SourceDef<'staticPage', 'collection', StaticPageFragment>;
 };
 
-export const sources: Sources = {
+const operations: Operations = {
+};
+
+const sources: Sources = {
   category: {
     document: CategoryFragmentSchema,
     fragment: 'Category',
@@ -1144,3 +1135,13 @@ ${StaticPageFragmentSchema}`,
     __cardinality: 'collection',
   },
 };
+
+const models = {
+  category: 'CategoryEntity',
+  config: 'ConfigEntity',
+  product: 'ProductEntity',
+  staticPage: 'StaticPageEntity',
+} as const;
+
+export const schema = { operations, sources, models };
+export type Schema = typeof schema;

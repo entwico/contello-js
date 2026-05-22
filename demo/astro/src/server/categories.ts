@@ -1,5 +1,4 @@
 import { log } from '@astroscope/pino';
-import { sources } from '@/server/_/gql/graphql';
 import { contello } from '@/server/contello';
 
 export type Category = {
@@ -7,7 +6,7 @@ export type Category = {
   name: string;
 };
 
-export const categories = contello.defineCollectionSync(sources.category, {
+export const categories = contello.defineCollectionSync('category', {
   map: (item) => ({
     id: item.id,
     name: item.attributes.name ?? '',

@@ -89,6 +89,9 @@ importers:
       '@contello/astro':
         specifier: workspace:^
         version: link:../../packages/astro
+      '@contello/client':
+        specifier: workspace:^
+        version: link:../../packages/client
       '@contello/opentelemetry':
         specifier: workspace:^
         version: link:../../packages/opentelemetry

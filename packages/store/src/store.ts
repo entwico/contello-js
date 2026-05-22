@@ -1,4 +1,4 @@
-import { type ContelloClient, type OperationMap, type SourceDef, createContelloClient } from '@contello/client';
+import { type ContelloClient, type Schema, type SourceDef, createContelloClient } from '@contello/client';
 
 import { type AssetCollectionOptions, type Assets, createAssetsCollection } from './assets';
 import { createCollection, createCollectionSync } from './collection';
@@ -17,17 +17,33 @@ import type {
   ExtractSourceResult,
   LazyCollection,
   LazyCollectionOptions,
+  ResolveSource,
   Singleton,
   SingletonOptions,
   SingletonSync,
   SingletonSyncOptions,
+  SourceKeysOf,
 } from './types';
 import { type InternalWatcher, type UpdateBatch, createInternalWatcher } from './watcher';
 
-export class Store<TOps extends OperationMap | undefined = undefined, TModels extends string = string> {
-  private _client: ContelloClient<TOps>;
+/** Project the model-reference-name union out of a Schema generic, falling back to `string`. */
+type ModelsOf<TSchema> = TSchema extends { models: infer M } ? keyof M & string : string;
+
+type CollectionArg<TSchema> = SourceKeysOf<TSchema, 'collection'> | SourceDef<ModelsOf<TSchema>, 'collection'>;
+type SingletonArg<TSchema> = SourceKeysOf<TSchema, 'singleton'> | SourceDef<ModelsOf<TSchema>, 'singleton'>;
+
+type CollectionRaw<TSchema, TArg> = ExtractSourceResult<
+  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'collection'>>
+>;
+type SingletonRaw<TSchema, TArg> = ExtractSourceResult<
+  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'singleton'>>
+>;
+
+export class Store<TSchema extends Schema | undefined = undefined> {
+  private _client: ContelloClient<TSchema>;
   private _resolver: ModelResolver;
   private _watcher: InternalWatcher;
+  private _schema: TSchema;
   private _cleanups: (() => void)[] = [];
 
   /**
@@ -36,14 +52,15 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
    */
   public readonly updates$: AsyncIterable<UpdateBatch>;
 
-  constructor(options: CreateStoreOptions<TOps, TModels>) {
-    const { url, project, token, operations } = options;
+  constructor(options: CreateStoreOptions<TSchema>) {
+    const { url, project, token, schema } = options;
 
-    this._client = createContelloClient({
+    this._schema = schema as TSchema;
+    this._client = createContelloClient<TSchema>({
       url,
       project,
       token,
-      operations,
+      schema,
       connections: options.connections,
       onConnected: options.onConnected,
       onReconnecting: options.onReconnecting,
@@ -51,10 +68,14 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
       connectionEvents: options.connectionEvents,
     });
 
-    this._resolver = new ModelResolver(options.models);
+    this._resolver = new ModelResolver(schema?.models);
     this._watcher = createInternalWatcher(this._client, this._resolver);
     this.updates$ = this._watcher.updates$;
     this.ping = () => this._client.ping();
+  }
+
+  public get client(): ContelloClient<TSchema> {
+    return this._client;
   }
 
   public async init() {
@@ -64,7 +85,6 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
   }
 
   public async destroy() {
-    // tear down definers first so they detach from updates$ and complete their refresh$
     for (const fn of this._cleanups.splice(0)) {
       try {
         fn();
@@ -78,13 +98,32 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
     await wrap('store:destroy', () => this._client.destroy());
   }
 
-  public defineSingleton<TSource extends SourceDef<TModels, 'singleton'>, TMapped = ExtractSourceResult<TSource>>(
-    source: TSource,
-    options?: SingletonOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
+  /** Resolve a string key (looked up via `schema.sources`) or a SourceDef directly to a SourceDef. */
+  private _resolveSource<T extends SourceDef>(sourceOrKey: string | T): T {
+    if (typeof sourceOrKey !== 'string') {
+      return sourceOrKey;
+    }
+
+    const sources = (this._schema as Schema | undefined)?.sources;
+    const source = sources?.[sourceOrKey];
+
+    if (!source) {
+      throw new Error(`@contello/store: no source named "${sourceOrKey}" in schema.sources`);
+    }
+
+    return source as T;
+  }
+
+  // --- singleton ---
+
+  public defineSingleton<TArg extends SingletonArg<TSchema>, TMapped = SingletonRaw<TSchema, TArg>>(
+    sourceOrKey: TArg,
+    options?: SingletonOptions<SingletonRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): Singleton<TMapped> {
-    const { instance, destroy } = createSingleton<TOps, TSource, TMapped, TModels>(
+    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'singleton'>;
+    const { instance, destroy } = createSingleton(
       source,
-      options,
+      options as any,
       this._client,
       this._watcher.updates$,
       this._resolver,
@@ -92,16 +131,17 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as Singleton<TMapped>;
   }
 
-  public defineSingletonSync<TSource extends SourceDef<TModels, 'singleton'>, TMapped = ExtractSourceResult<TSource>>(
-    source: TSource,
-    options?: SingletonSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
+  public defineSingletonSync<TArg extends SingletonArg<TSchema>, TMapped = SingletonRaw<TSchema, TArg>>(
+    sourceOrKey: TArg,
+    options?: SingletonSyncOptions<SingletonRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): SingletonSync<TMapped> {
-    const { instance, destroy } = createSingletonSync<TOps, TSource, TMapped, TModels>(
+    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'singleton'>;
+    const { instance, destroy } = createSingletonSync(
       source,
-      options,
+      options as any,
       this._client,
       this._watcher.updates$,
       this._resolver,
@@ -109,16 +149,22 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as SingletonSync<TMapped>;
   }
+
+  // --- collection ---
 
   public defineCollection<
-    TSource extends SourceDef<TModels, 'collection'>,
-    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
-  >(source: TSource, options?: CollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels>): Collection<TMapped> {
-    const { instance, destroy } = createCollection<TOps, TSource, TMapped, TModels>(
+    TArg extends CollectionArg<TSchema>,
+    TMapped extends { id: string } = CollectionRaw<TSchema, TArg> & { id: string },
+  >(
+    sourceOrKey: TArg,
+    options?: CollectionOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
+  ): Collection<TMapped> {
+    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'collection'>;
+    const { instance, destroy } = createCollection(
       source,
-      options,
+      options as any,
       this._client,
       this._watcher.updates$,
       this._resolver,
@@ -126,19 +172,20 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as Collection<TMapped>;
   }
 
   public defineCollectionSync<
-    TSource extends SourceDef<TModels, 'collection'>,
-    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
+    TArg extends CollectionArg<TSchema>,
+    TMapped extends { id: string } = CollectionRaw<TSchema, TArg> & { id: string },
   >(
-    source: TSource,
-    options?: CollectionSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
+    sourceOrKey: TArg,
+    options?: CollectionSyncOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): CollectionSync<TMapped> {
-    const { instance, destroy } = createCollectionSync<TOps, TSource, TMapped, TModels>(
+    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'collection'>;
+    const { instance, destroy } = createCollectionSync(
       source,
-      options,
+      options as any,
       this._client,
       this._watcher.updates$,
       this._resolver,
@@ -146,19 +193,22 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as CollectionSync<TMapped>;
   }
+
+  // --- lazy collection ---
 
   public defineLazyCollection<
-    TSource extends SourceDef<TModels, 'collection'>,
-    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
+    TArg extends CollectionArg<TSchema>,
+    TMapped extends { id: string } = CollectionRaw<TSchema, TArg> & { id: string },
   >(
-    source: TSource,
-    options?: LazyCollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
+    sourceOrKey: TArg,
+    options?: LazyCollectionOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): LazyCollection<TMapped> {
-    const { instance, destroy } = createLazyCollection<TOps, TSource, TMapped, TModels>(
+    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'collection'>;
+    const { instance, destroy } = createLazyCollection(
       source,
-      options,
+      options as any,
       this._client,
       this._watcher.updates$,
       this._resolver,
@@ -166,8 +216,10 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as LazyCollection<TMapped>;
   }
+
+  // --- assets / routes / i18n (no source — built-ins) ---
 
   public defineAssets(options?: AssetCollectionOptions | undefined): Assets {
     const { instance, destroy } = createAssetsCollection(options, this._client, this._watcher.updates$);
@@ -196,8 +248,8 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
   public ping: () => Promise<void>;
 }
 
-export function createStore<TOps extends OperationMap | undefined = undefined, TModels extends string = string>(
-  options: CreateStoreOptions<TOps, TModels>,
-): Store<TOps, TModels> {
+export function createStore<TSchema extends Schema | undefined = undefined>(
+  options: CreateStoreOptions<TSchema>,
+): Store<TSchema> {
   return new Store(options);
 }

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
-import type { OperationMap, SourceDef } from '@contello/client';
+import type { Schema, SourceDef } from '@contello/client';
 import { type ImageDef, type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
 import {
   type AssetCollectionOptions,
@@ -17,12 +17,14 @@ import {
   type LazyCollectionOptions,
   type Loadable,
   type ReadonlyDeep,
+  type ResolveSource,
   type RouteCollectionOptions,
   type Routes,
   type Singleton,
   type SingletonOptions,
   type SingletonSync,
   type SingletonSyncOptions,
+  type SourceKeysOf,
   type Store,
   type StoreRoute,
   createStore,
@@ -60,10 +62,7 @@ export type ContelloMediaConfig = {
   readonly filesPath: string;
 };
 
-export type ContelloOptions<
-  TOps extends OperationMap | undefined = undefined,
-  TModels extends string = string,
-> = CreateStoreOptions<TOps, TModels> & {
+export type ContelloOptions<TSchema extends Schema | undefined = undefined> = CreateStoreOptions<TSchema> & {
   assets?: AssetCollectionOptions | undefined;
   i18n?: ContelloI18nOptions | undefined;
   routes?: RouteCollectionOptions | undefined;
@@ -115,9 +114,19 @@ async function applyTranslations(messages: I18nMessages): Promise<void> {
   }
 }
 
-export class Contello<TOps extends OperationMap | undefined = undefined, TModels extends string = string> {
-  private readonly _store: Store<TOps, TModels>;
-  private readonly _options: ContelloOptions<TOps, TModels>;
+type ModelsOf<TSchema> = TSchema extends { models: infer M } ? keyof M & string : string;
+type CollectionArg<TSchema> = SourceKeysOf<TSchema, 'collection'> | SourceDef<ModelsOf<TSchema>, 'collection'>;
+type SingletonArg<TSchema> = SourceKeysOf<TSchema, 'singleton'> | SourceDef<ModelsOf<TSchema>, 'singleton'>;
+type CollectionRaw<TSchema, TArg> = ExtractSourceResult<
+  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'collection'>>
+>;
+type SingletonRaw<TSchema, TArg> = ExtractSourceResult<
+  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'singleton'>>
+>;
+
+export class Contello<TSchema extends Schema | undefined = undefined> {
+  private readonly _store: Store<TSchema>;
+  private readonly _options: ContelloOptions<TSchema>;
   private _assets: Assets | undefined;
   private _routes: Routes | undefined;
   private _i18nMessages: I18nMessages | undefined;
@@ -127,9 +136,9 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
 
   readonly media: ContelloMediaConfig;
 
-  constructor(options: ContelloOptions<TOps, TModels>) {
+  constructor(options: ContelloOptions<TSchema>) {
     this._options = options;
-    this._store = createStore(options);
+    this._store = createStore<TSchema>(options);
 
     this.media = {
       baseUrl: options.media?.baseUrl ?? '',
@@ -267,45 +276,48 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
 
   // --- store delegation ---
 
-  defineSingleton<TSource extends SourceDef<TModels, 'singleton'>, TMapped = ExtractSourceResult<TSource>>(
-    source: TSource,
-    options?: SingletonOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
+  defineSingleton<TArg extends SingletonArg<TSchema>, TMapped = SingletonRaw<TSchema, TArg>>(
+    sourceOrKey: TArg,
+    options?: SingletonOptions<SingletonRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): Singleton<TMapped> {
-    return this._store.defineSingleton(source, options);
+    return this._store.defineSingleton(sourceOrKey as any, options as any) as Singleton<TMapped>;
   }
 
-  defineSingletonSync<TSource extends SourceDef<TModels, 'singleton'>, TMapped = ExtractSourceResult<TSource>>(
-    source: TSource,
-    options?: SingletonSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
+  defineSingletonSync<TArg extends SingletonArg<TSchema>, TMapped = SingletonRaw<TSchema, TArg>>(
+    sourceOrKey: TArg,
+    options?: SingletonSyncOptions<SingletonRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): SingletonSync<TMapped> {
-    return this._store.defineSingletonSync(source, options);
+    return this._store.defineSingletonSync(sourceOrKey as any, options as any) as SingletonSync<TMapped>;
   }
 
   defineCollection<
-    TSource extends SourceDef<TModels, 'collection'>,
-    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
-  >(source: TSource, options?: CollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels>): Collection<TMapped> {
-    return this._store.defineCollection(source, options);
+    TArg extends CollectionArg<TSchema>,
+    TMapped extends { id: string } = CollectionRaw<TSchema, TArg> & { id: string },
+  >(
+    sourceOrKey: TArg,
+    options?: CollectionOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
+  ): Collection<TMapped> {
+    return this._store.defineCollection(sourceOrKey as any, options as any) as Collection<TMapped>;
   }
 
   defineCollectionSync<
-    TSource extends SourceDef<TModels, 'collection'>,
-    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
+    TArg extends CollectionArg<TSchema>,
+    TMapped extends { id: string } = CollectionRaw<TSchema, TArg> & { id: string },
   >(
-    source: TSource,
-    options?: CollectionSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
+    sourceOrKey: TArg,
+    options?: CollectionSyncOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): CollectionSync<TMapped> {
-    return this._store.defineCollectionSync(source, options);
+    return this._store.defineCollectionSync(sourceOrKey as any, options as any) as CollectionSync<TMapped>;
   }
 
   defineLazyCollection<
-    TSource extends SourceDef<TModels, 'collection'>,
-    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
+    TArg extends CollectionArg<TSchema>,
+    TMapped extends { id: string } = CollectionRaw<TSchema, TArg> & { id: string },
   >(
-    source: TSource,
-    options?: LazyCollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
+    sourceOrKey: TArg,
+    options?: LazyCollectionOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): LazyCollection<TMapped> {
-    return this._store.defineLazyCollection(source, options);
+    return this._store.defineLazyCollection(sourceOrKey as any, options as any) as LazyCollection<TMapped>;
   }
 
   // --- ALS run ---
@@ -315,8 +327,8 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   }
 }
 
-export function createContello<TOps extends OperationMap | undefined = undefined, TModels extends string = string>(
-  options: ContelloOptions<TOps, TModels>,
-): Contello<TOps, TModels> {
+export function createContello<TSchema extends Schema | undefined = undefined>(
+  options: ContelloOptions<TSchema>,
+): Contello<TSchema> {
   return new Contello(options);
 }

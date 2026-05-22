@@ -1,9 +1,9 @@
 import {
   type AsyncIterableSubject,
   type ContelloClient,
-  type OperationMap,
   type SourceDef,
   createAsyncIterableSubject,
+  createSourceSubscription,
   firstAsync,
   mapAsync,
 } from '@contello/client';
@@ -11,7 +11,6 @@ import { type MaybePromise, ProjectedValue, type ReadonlyDeep, maybeThen } from 
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import type { ModelResolver } from './model-resolver';
-import { createSourceSubscription } from './source-subscription';
 import type {
   Created,
   ExtractSourceResult,
@@ -24,14 +23,13 @@ import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createSingleton<
-  TOps extends OperationMap | undefined,
   TSource extends SourceDef<TModels, 'singleton'>,
   TMapped,
   TModels extends string = string,
 >(
   source: TSource,
   options: SingletonOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
-  client: ContelloClient<TOps>,
+  client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
 ): Created<Singleton<TMapped>> {
@@ -145,18 +143,17 @@ export function createSingleton<
 }
 
 export function createSingletonSync<
-  TOps extends OperationMap | undefined,
   TSource extends SourceDef<TModels, 'singleton'>,
   TMapped,
   TModels extends string = string,
 >(
   source: TSource,
   options: SingletonSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
-  client: ContelloClient<TOps>,
+  client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
 ): Created<SingletonSync<TMapped>> {
-  const { instance: base, destroy } = createSingleton<TOps, TSource, TMapped, TModels>(
+  const { instance: base, destroy } = createSingleton<TSource, TMapped, TModels>(
     source,
     options,
     client,

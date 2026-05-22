@@ -1,4 +1,4 @@
-import type { ConnectionEvents, OperationMap, SourceDef } from '@contello/client';
+import type { ConnectionEvents, Schema, SourceCardinality, SourceDef } from '@contello/client';
 import type { MaybePromise, ReadonlyDeep } from 'projected';
 import type { MapperContext } from './dependency-collector';
 
@@ -8,16 +8,41 @@ export type ExtractSourceResult<S extends SourceDef<string, 'collection' | 'sing
 /** Internal — every `create*` definer returns its instance plus a `destroy` the Store invokes on teardown. */
 export type Created<T> = { instance: T; destroy: () => void };
 
+/** Keys of `schema.sources` whose entries match the given cardinality. */
+export type SourceKeysOf<TSchema, TCardinality extends SourceCardinality> = TSchema extends {
+  sources: infer TSources;
+}
+  ? {
+      [K in keyof TSources]: TSources[K] extends SourceDef<any, TCardinality, any> ? K : never;
+    }[keyof TSources]
+  : never;
+
+/** The SourceDef at `schema.sources[TKey]`. */
+export type SourceAt<TSchema, TKey> = TSchema extends { sources: infer TSources }
+  ? TKey extends keyof TSources
+    ? TSources[TKey]
+    : never
+  : never;
+
+/**
+ * For `define*(arg, options?)` — accepts either a string key (looked up in `schema.sources`) or a SourceDef directly.
+ * `ResolveSource` projects the argument to the underlying SourceDef so `ExtractSourceResult` can extract the fragment type.
+ */
+export type ResolveSource<TSchema, T> = T extends string
+  ? SourceAt<TSchema, T>
+  : T extends SourceDef<any, any, any>
+    ? T
+    : never;
+
 // ---------------------------------------------------------------------------
 // store
 // ---------------------------------------------------------------------------
 
-export type CreateStoreOptions<TOps extends OperationMap | undefined = undefined, TModels extends string = string> = {
+export type CreateStoreOptions<TSchema extends Schema | undefined = undefined> = {
   url: string;
   project: string;
   token: string;
-  models?: Record<TModels, string> | undefined;
-  operations?: TOps | undefined;
+  schema?: TSchema | undefined;
   connections?: number | undefined;
   onConnected?: (() => void) | undefined;
   onReconnecting?: (() => void) | undefined;

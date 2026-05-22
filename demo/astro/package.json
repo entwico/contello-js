@@ -17,6 +17,7 @@
     "@astroscope/opentelemetry": "^0.3.3",
     "@astroscope/pino": "^0.4.6",
     "@contello/astro": "workspace:^",
+    "@contello/client": "workspace:^",
     "@contello/opentelemetry": "workspace:^",
     "@contello/store": "workspace:^",
     "@opentelemetry/api": "^1.9.1",

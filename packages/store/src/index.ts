@@ -37,5 +37,8 @@ export type {
   SingletonOptions,
   SingletonSync,
   SingletonSyncOptions,
+  ResolveSource,
+  SourceAt,
+  SourceKeysOf,
   SyncCacheOptions,
 } from './types';

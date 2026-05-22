@@ -48,3 +48,33 @@ export type SourceDef<
   /** phantom type — exists only at the type level */
   __result?: TResult | undefined;
 };
+
+export type SourceMap = Record<string, SourceDef>;
+
+/**
+ * The bundle emitted by `contello-client generate`. Pass to `createContelloClient({ schema })`
+ * (and to `createStore`, `createContello`). Each layer reads what it needs:
+ * - client uses `operations` (for `client.rpc.*`) and `sources` (for `client.sources.*`).
+ * - store uses `models` (for the dependency resolver) on top of what client uses.
+ */
+export type Schema<
+  TOps extends OperationMap = OperationMap,
+  TSources extends SourceMap = SourceMap,
+  TModels extends string = string,
+> = {
+  operations: TOps;
+  sources: TSources;
+  models: Record<TModels, string>;
+};
+
+type SourceFetcherFor<S> =
+  S extends SourceDef<string, 'singleton', infer R>
+    ? () => Promise<R>
+    : S extends SourceDef<string, 'collection', infer R>
+      ? (vars?: { ids?: string[] }) => Promise<R[]>
+      : never;
+
+/** Per-model runtime accessor: `client.sources.category()` → `Promise<CategoryFragment[]>` etc. */
+export type SourceFetchers<TSources extends SourceMap> = {
+  [K in keyof TSources]: SourceFetcherFor<TSources[K]>;
+};

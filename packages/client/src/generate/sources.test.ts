@@ -2,7 +2,7 @@ import { buildSchema, parse } from 'graphql';
 import { describe, expect, test } from 'vitest';
 
 import { collectFragments } from './documents';
-import { type EntitySourceBinding, generateSourcesObject, indexEntitySources } from './sources';
+import { type EntitySourceBinding, generateSourcesConst, generateSourcesType, indexEntitySources } from './sources';
 
 const sdl = `
   type Query {
@@ -85,8 +85,8 @@ describe('indexEntitySources', () => {
   });
 });
 
-describe('generateSourcesObject', () => {
-  test('emits the Sources type and sources const keyed by model reference name', () => {
+describe('generateSourcesType', () => {
+  test('emits the Sources type keyed by model reference name', () => {
     const doc = parse(`
       fragment Category on CategoryEntity { id }
       fragment Config on ConfigEntity { brandName }
@@ -99,29 +99,48 @@ describe('generateSourcesObject', () => {
       fragmentExpression: `${name}FragmentSchema`,
     }));
 
-    const out = generateSourcesObject(entries);
+    const out = generateSourcesType(entries);
 
     expect(out).toContain('export type Sources = {');
     expect(out).toContain("category: SourceDef<'category', 'collection', CategoryFragment>;");
     expect(out).toContain("config: SourceDef<'config', 'singleton', ConfigFragment>;");
-    expect(out).toContain('export const sources: Sources = {');
-    expect(out).toContain('category: {');
-    expect(out).toContain('config: {');
-    expect(out).toContain("fragment: 'Category',");
-    expect(out).toContain("subscription: 'categoriesBatch',");
-    expect(out).toContain("__cardinality: 'collection',");
-    expect(out).toContain("__cardinality: 'singleton',");
   });
 
   test('returns empty string when there are no entries', () => {
-    expect(generateSourcesObject([])).toBe('');
+    expect(generateSourcesType([])).toBe('');
+  });
+});
+
+describe('generateSourcesConst', () => {
+  test('emits an internal `const sources: Sources = { ... }` (not exported)', () => {
+    const doc = parse(`fragment Category on CategoryEntity { id }`);
+    const fragments = collectFragments([doc]);
+    const bindings = indexEntitySources(schema);
+    const entries = [...fragments].map(([name, fragment]) => ({
+      fragmentName: name,
+      binding: bindings.get(fragment.typeCondition.name.value)!,
+      fragmentExpression: `${name}FragmentSchema`,
+    }));
+
+    const out = generateSourcesConst(entries);
+
+    expect(out).toContain('const sources: Sources = {');
+    expect(out).not.toContain('export const sources');
+    expect(out).toContain('category: {');
+    expect(out).toContain("fragment: 'Category',");
+    expect(out).toContain("subscription: 'categoriesBatch',");
+    expect(out).toContain("__cardinality: 'collection',");
+  });
+
+  test('returns empty string when there are no entries', () => {
+    expect(generateSourcesConst([])).toBe('');
   });
 
   test('throws when two fragments target the same Contello model', () => {
     const binding: EntitySourceBinding = { cardinality: 'collection', fieldName: 'categoriesBatch', model: 'category' };
 
     expect(() =>
-      generateSourcesObject([
+      generateSourcesConst([
         { fragmentName: 'CategoryListing', binding, fragmentExpression: 'CategoryListingFragmentSchema' },
         { fragmentName: 'CategoryDetail', binding, fragmentExpression: 'CategoryDetailFragmentSchema' },
       ]),
@@ -136,7 +155,7 @@ describe('generateSourcesObject', () => {
     };
     const collectionB: EntitySourceBinding = { cardinality: 'singleton', fieldName: 'config', model: 'config' };
 
-    const out = generateSourcesObject([
+    const out = generateSourcesConst([
       { fragmentName: 'Product', binding: collectionA, fragmentExpression: 'ProductFragmentSchema' },
       { fragmentName: 'Config', binding: collectionB, fragmentExpression: 'ConfigFragmentSchema' },
     ]);
