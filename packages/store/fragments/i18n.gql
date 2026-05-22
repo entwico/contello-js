@@ -1,0 +1,10 @@
+fragment StoreI18nMessage on ContelloI18nMessage {
+  id
+  token
+  description
+  example
+  translations {
+    language
+    value
+  }
+}

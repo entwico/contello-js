@@ -17,7 +17,7 @@ import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createLazyCollection<
-  TSource extends SourceDef<TModels, 'collection'>,
+  TSource extends SourceDef<TModels, 'entity'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(

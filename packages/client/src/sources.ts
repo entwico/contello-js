@@ -15,14 +15,30 @@ export function createSources<TSources extends SourceMap>(
     const def = source as SourceDef;
     const doc = createSourceSubscription(def);
 
-    if (def.__cardinality === 'singleton') {
-      out[name] = () =>
-        wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source)));
-    } else {
-      out[name] = (vars?: { ids?: string[] }) =>
-        wrap(`source:${name}`, () =>
-          firstAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, { ids: vars?.ids }), (r) => r.source)),
-        );
+    switch (def.__cardinality) {
+      case 'singleton':
+        out[name] = () =>
+          wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source)));
+        break;
+      case 'entity':
+        out[name] = (vars?: { ids?: string[] }) =>
+          wrap(`source:${name}`, () =>
+            firstAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, { ids: vars?.ids }), (r) => r.source)),
+          );
+        break;
+      case 'route':
+      case 'asset':
+        out[name] = () =>
+          wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown[] }>(doc), (r) => r.source)));
+        break;
+      case 'i18nMessage':
+        out[name] = (vars: { collection: string }) =>
+          wrap(`source:${name}`, () =>
+            firstAsync(
+              mapAsync(subscribe<{ source: unknown[] }>(doc, { collection: vars.collection }), (r) => r.source),
+            ),
+          );
+        break;
     }
   }
 

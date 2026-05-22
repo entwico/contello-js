@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { glob } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
-import { Source, parse } from 'graphql';
+import { type FragmentDefinitionNode, Kind, Source, parse, visit } from 'graphql';
 
 import { loadConfig } from './config';
 import {
@@ -16,7 +16,13 @@ import { introspectSchema } from './introspect';
 import { generateFragmentTypes, generateOperationTypes } from './operation-types';
 import { generateOperationsConst, generateOperationsType } from './operations';
 import { extractEntityModels, generateSchemaTypes } from './schema-types';
-import { type EntitySourceBinding, generateSourcesConst, generateSourcesType, indexEntitySources } from './sources';
+import {
+  type SourceEntry,
+  generateSourcesConst,
+  generateSourcesType,
+  indexBuiltInSources,
+  indexEntitySources,
+} from './sources';
 import { transformFragment, transformOperation } from './transform-components';
 import { uncapitalize } from './utils';
 
@@ -28,6 +34,18 @@ const bold = (s: string) => styled(s, '1m', '22m');
 const green = (s: string) => styled(s, '32m', '39m');
 const yellow = (s: string) => styled(s, '33m', '39m');
 const cyan = (s: string) => styled(s, '36m', '39m');
+
+function collectFragmentSpreads(fragment: FragmentDefinitionNode): Set<string> {
+  const refs = new Set<string>();
+
+  visit(fragment, {
+    [Kind.FRAGMENT_SPREAD](node) {
+      refs.add(node.name.value);
+    },
+  });
+
+  return refs;
+}
 
 async function main(): Promise<void> {
   const cwd = process.cwd();
@@ -72,14 +90,16 @@ async function main(): Promise<void> {
 
     const transformedOperations = operations.map((op) => transformOperation(schema, op, transformedFragments));
 
-    // source consts for entity-bound fragments (always emitted)
-    const sourceBindings = indexEntitySources(schema);
-    const sourceEntries: { fragmentName: string; binding: EntitySourceBinding; fragmentExpression: string }[] = [];
+    // source consts for entity-bound + built-in fragments (always emitted)
+    const entityBindings = indexEntitySources(schema);
+    const builtInBindings = indexBuiltInSources(schema);
+    const sourceEntries: SourceEntry[] = [];
 
+    // entity sources: one fragment per entity type — collected directly
     for (const [name, fragment] of fragments) {
-      const binding = sourceBindings.get(fragment.typeCondition.name.value);
+      const entityBinding = entityBindings.get(fragment.typeCondition.name.value);
 
-      if (!binding) {
+      if (!entityBinding) {
         continue;
       }
 
@@ -91,7 +111,65 @@ async function main(): Promise<void> {
 
       sourceEntries.push({
         fragmentName: name,
-        binding,
+        binding: {
+          cardinality: entityBinding.cardinality,
+          fieldName: entityBinding.fieldName,
+          sourceKey: entityBinding.model,
+        },
+        fragmentExpression: fragmentBundleExpression(transformed, transformedFragments),
+      });
+    }
+
+    // built-in sources: a type can have multiple fragments (e.g. MediaAsset base + StoreAsset),
+    // pick the "root" — the one not spread by any other candidate fragment for the same type.
+    for (const [typeName, builtInBinding] of builtInBindings) {
+      const candidates: { name: string; fragment: FragmentDefinitionNode }[] = [];
+
+      for (const [name, fragment] of fragments) {
+        if (fragment.typeCondition.name.value === typeName) {
+          candidates.push({ name, fragment });
+        }
+      }
+
+      if (candidates.length === 0) {
+        continue;
+      }
+
+      const candidateNames = new Set(candidates.map((c) => c.name));
+      const spreadByOther = new Set<string>();
+
+      for (const { name, fragment } of candidates) {
+        for (const ref of collectFragmentSpreads(fragment)) {
+          if (ref !== name && candidateNames.has(ref)) {
+            spreadByOther.add(ref);
+          }
+        }
+      }
+
+      const roots = candidates.filter((c) => !spreadByOther.has(c.name));
+      const picked = roots.length === 1 ? roots[0] : undefined;
+
+      if (!picked) {
+        throw new Error(
+          `multiple fragments target the built-in type "${typeName}" without a clear root: ${candidates
+            .map((c) => `"${c.name}"`)
+            .join(', ')}. Either have one fragment spread the others, or remove the extras.`,
+        );
+      }
+
+      const transformed = transformedFragments.get(picked.name);
+
+      if (!transformed) {
+        continue;
+      }
+
+      sourceEntries.push({
+        fragmentName: picked.name,
+        binding: {
+          cardinality: builtInBinding.cardinality,
+          fieldName: builtInBinding.fieldName,
+          sourceKey: uncapitalize(picked.name),
+        },
         fragmentExpression: fragmentBundleExpression(transformed, transformedFragments),
       });
     }
@@ -125,7 +203,7 @@ async function main(): Promise<void> {
       const camelName = uncapitalize(operations[i]!.name!.value);
       const docExpr = operationDocumentExpression(transformedOperations[i]!, transformedFragments);
 
-      parts.push(`const ${camelName}Document = ${docExpr};`);
+      parts.push(`export const ${camelName}Document = ${docExpr};`);
     }
 
     if (operations.length > 0) {

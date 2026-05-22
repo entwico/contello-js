@@ -115,10 +115,10 @@ async function applyTranslations(messages: I18nMessages): Promise<void> {
 }
 
 type ModelsOf<TSchema> = TSchema extends { models: infer M } ? keyof M & string : string;
-type CollectionArg<TSchema> = SourceKeysOf<TSchema, 'collection'> | SourceDef<ModelsOf<TSchema>, 'collection'>;
+type CollectionArg<TSchema> = SourceKeysOf<TSchema, 'entity'> | SourceDef<ModelsOf<TSchema>, 'entity'>;
 type SingletonArg<TSchema> = SourceKeysOf<TSchema, 'singleton'> | SourceDef<ModelsOf<TSchema>, 'singleton'>;
 type CollectionRaw<TSchema, TArg> = ExtractSourceResult<
-  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'collection'>>
+  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'entity'>>
 >;
 type SingletonRaw<TSchema, TArg> = ExtractSourceResult<
   Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'singleton'>>

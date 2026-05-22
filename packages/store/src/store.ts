@@ -29,11 +29,11 @@ import { type InternalWatcher, type UpdateBatch, createInternalWatcher } from '.
 /** Project the model-reference-name union out of a Schema generic, falling back to `string`. */
 type ModelsOf<TSchema> = TSchema extends { models: infer M } ? keyof M & string : string;
 
-type CollectionArg<TSchema> = SourceKeysOf<TSchema, 'collection'> | SourceDef<ModelsOf<TSchema>, 'collection'>;
+type CollectionArg<TSchema> = SourceKeysOf<TSchema, 'entity'> | SourceDef<ModelsOf<TSchema>, 'entity'>;
 type SingletonArg<TSchema> = SourceKeysOf<TSchema, 'singleton'> | SourceDef<ModelsOf<TSchema>, 'singleton'>;
 
 type CollectionRaw<TSchema, TArg> = ExtractSourceResult<
-  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'collection'>>
+  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'entity'>>
 >;
 type SingletonRaw<TSchema, TArg> = ExtractSourceResult<
   Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'singleton'>>
@@ -161,7 +161,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
     sourceOrKey: TArg,
     options?: CollectionOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): Collection<TMapped> {
-    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'collection'>;
+    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'entity'>;
     const { instance, destroy } = createCollection(
       source,
       options as any,
@@ -182,7 +182,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
     sourceOrKey: TArg,
     options?: CollectionSyncOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): CollectionSync<TMapped> {
-    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'collection'>;
+    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'entity'>;
     const { instance, destroy } = createCollectionSync(
       source,
       options as any,
@@ -205,7 +205,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
     sourceOrKey: TArg,
     options?: LazyCollectionOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
   ): LazyCollection<TMapped> {
-    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'collection'>;
+    const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'entity'>;
     const { instance, destroy } = createLazyCollection(
       source,
       options as any,

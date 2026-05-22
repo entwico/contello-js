@@ -834,6 +834,17 @@ export type StoreFileFragment = MediaFileFragment;
 
 export type StoreAssetFragment = MediaAssetFragment;
 
+export type StoreI18nMessageFragment = {
+  id: string;
+  token: string;
+  description?: string | undefined;
+  example?: string | undefined;
+  translations: ({
+    language: string;
+    value: string;
+  })[];
+};
+
 export type StoreRouteFragment = {
   id: string;
   path: string;
@@ -1050,6 +1061,16 @@ const StoreAssetFragmentSchema = `fragment StoreAsset on ContelloAsset {
 const StoreFileFragmentSchema = `fragment StoreFile on ContelloFile {
   ...MediaFile
 }`;
+const StoreI18nMessageFragmentSchema = `fragment StoreI18nMessage on ContelloI18nMessage {
+  id
+  token
+  description
+  example
+  translations {
+    language
+    value
+  }
+}`;
 const StoreRouteFragmentSchema = `fragment StoreRoute on ContelloRoute {
   id
   path
@@ -1092,10 +1113,13 @@ export type Operations = {
 };
 
 export type Sources = {
-  category: SourceDef<'category', 'collection', CategoryFragment>;
+  category: SourceDef<'category', 'entity', CategoryFragment>;
   config: SourceDef<'config', 'singleton', ConfigFragment>;
-  product: SourceDef<'product', 'collection', ProductFragment>;
-  staticPage: SourceDef<'staticPage', 'collection', StaticPageFragment>;
+  product: SourceDef<'product', 'entity', ProductFragment>;
+  staticPage: SourceDef<'staticPage', 'entity', StaticPageFragment>;
+  storeAsset: SourceDef<'storeAsset', 'asset', StoreAssetFragment>;
+  storeI18nMessage: SourceDef<'storeI18nMessage', 'i18nMessage', StoreI18nMessageFragment>;
+  storeRoute: SourceDef<'storeRoute', 'route', StoreRouteFragment>;
 };
 
 const operations: Operations = {
@@ -1107,7 +1131,7 @@ const sources: Sources = {
     fragment: 'Category',
     subscription: 'categoriesBatch',
     __model: 'category',
-    __cardinality: 'collection',
+    __cardinality: 'entity',
   },
   config: {
     document: ConfigFragmentSchema,
@@ -1124,7 +1148,7 @@ ${ProductFragmentSchema}`,
     fragment: 'Product',
     subscription: 'productsBatch',
     __model: 'product',
-    __cardinality: 'collection',
+    __cardinality: 'entity',
   },
   staticPage: {
     document: `${ComponentFragmentSchema}
@@ -1132,7 +1156,30 @@ ${StaticPageFragmentSchema}`,
     fragment: 'StaticPage',
     subscription: 'staticPagesBatch',
     __model: 'staticPage',
-    __cardinality: 'collection',
+    __cardinality: 'entity',
+  },
+  storeAsset: {
+    document: `${MediaFileFragmentSchema}
+${MediaAssetFragmentSchema}
+${StoreAssetFragmentSchema}`,
+    fragment: 'StoreAsset',
+    subscription: 'contelloAssetsBatch',
+    __model: 'storeAsset',
+    __cardinality: 'asset',
+  },
+  storeI18nMessage: {
+    document: StoreI18nMessageFragmentSchema,
+    fragment: 'StoreI18nMessage',
+    subscription: 'contelloI18nMessagesBatch',
+    __model: 'storeI18nMessage',
+    __cardinality: 'i18nMessage',
+  },
+  storeRoute: {
+    document: StoreRouteFragmentSchema,
+    fragment: 'StoreRoute',
+    subscription: 'contelloRoutesBatch',
+    __model: 'storeRoute',
+    __cardinality: 'route',
   },
 };
 

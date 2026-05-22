@@ -2,6 +2,22 @@ import type { SourceDef } from './types';
 
 const cache = new WeakMap<SourceDef, string>();
 
+function createSelection(source: SourceDef): string {
+  const spread = `{ ...${source.fragment} }`;
+
+  switch (source.__cardinality) {
+    case 'singleton':
+      return `subscription { source: ${source.subscription} ${spread} }`;
+    case 'entity':
+      return `subscription($ids: [ID!]) { source: ${source.subscription}(request: { filter: { ids: $ids } }) ${spread} }`;
+    case 'route':
+    case 'asset':
+      return `subscription { source: ${source.subscription} ${spread} }`;
+    case 'i18nMessage':
+      return `subscription($collection: String!) { source: ${source.subscription}(collectionReferenceName: $collection) ${spread} }`;
+  }
+}
+
 export function createSourceSubscription(source: SourceDef): string {
   const cached = cache.get(source);
 
@@ -9,12 +25,7 @@ export function createSourceSubscription(source: SourceDef): string {
     return cached;
   }
 
-  const spread = `{ ...${source.fragment} }`;
-  const selection =
-    source.__cardinality === 'singleton'
-      ? `subscription { source: ${source.subscription} ${spread} }`
-      : `subscription($ids: [ID!]) { source: ${source.subscription}(request: { filter: { ids: $ids } }) ${spread} }`;
-  const doc = `${source.document}\n${selection}`;
+  const doc = `${source.document}\n${createSelection(source)}`;
 
   cache.set(source, doc);
 

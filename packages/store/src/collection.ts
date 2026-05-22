@@ -22,7 +22,7 @@ import type {
 } from './types';
 import type { UpdateBatch } from './watcher';
 
-function fetchCollection<S extends SourceDef<string, 'collection'>>(
+function fetchCollection<S extends SourceDef<string, 'entity'>>(
   source: S,
   client: ContelloClient<any>,
   ids: string[] | undefined,
@@ -36,7 +36,7 @@ function fetchCollection<S extends SourceDef<string, 'collection'>>(
 }
 
 export function createCollection<
-  TSource extends SourceDef<TModels, 'collection'>,
+  TSource extends SourceDef<TModels, 'entity'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(
@@ -231,7 +231,7 @@ export function createCollection<
 }
 
 export function createCollectionSync<
-  TSource extends SourceDef<TModels, 'collection'>,
+  TSource extends SourceDef<TModels, 'entity'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(

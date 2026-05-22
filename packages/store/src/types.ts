@@ -3,7 +3,7 @@ import type { MaybePromise, ReadonlyDeep } from 'projected';
 import type { MapperContext } from './dependency-collector';
 
 /** Extracts the typed fragment result from a SourceDef. */
-export type ExtractSourceResult<S extends SourceDef<string, 'collection' | 'singleton'>> = NonNullable<S['__result']>;
+export type ExtractSourceResult<S extends SourceDef<string, 'entity' | 'singleton'>> = NonNullable<S['__result']>;
 
 /** Internal — every `create*` definer returns its instance plus a `destroy` the Store invokes on teardown. */
 export type Created<T> = { instance: T; destroy: () => void };

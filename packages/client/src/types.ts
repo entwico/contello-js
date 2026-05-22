@@ -30,7 +30,15 @@ export type Rpc<T extends OperationMap> = {
   [K in keyof T]: RpcMethod<T[K]>;
 };
 
-export type SourceCardinality = 'collection' | 'singleton';
+/**
+ * Discriminator for how a SourceDef binds to a Subscription field:
+ * - `entity` — a Contello entity model collection (`categoriesBatch` etc.), accepts optional `{ ids }` filter
+ * - `singleton` — a single Contello entity (`config` etc.), no args
+ * - `route` — built-in: `contelloRoutesBatch`, no args
+ * - `asset` — built-in: `contelloAssetsBatch`, no args
+ * - `i18nMessage` — built-in: `contelloI18nMessagesBatch`, requires `{ collection }`
+ */
+export type SourceCardinality = 'entity' | 'singleton' | 'route' | 'asset' | 'i18nMessage';
 
 export type SourceDef<
   TModel extends string = string,
@@ -70,9 +78,15 @@ export type Schema<
 type SourceFetcherFor<S> =
   S extends SourceDef<string, 'singleton', infer R>
     ? () => Promise<R>
-    : S extends SourceDef<string, 'collection', infer R>
+    : S extends SourceDef<string, 'entity', infer R>
       ? (vars?: { ids?: string[] }) => Promise<R[]>
-      : never;
+      : S extends SourceDef<string, 'route', infer R>
+        ? () => Promise<R[]>
+        : S extends SourceDef<string, 'asset', infer R>
+          ? () => Promise<R[]>
+          : S extends SourceDef<string, 'i18nMessage', infer R>
+            ? (vars: { collection: string }) => Promise<R[]>
+            : never;
 
 /** Per-model runtime accessor: `client.sources.category()` → `Promise<CategoryFragment[]>` etc. */
 export type SourceFetchers<TSources extends SourceMap> = {
