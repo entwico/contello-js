@@ -8,6 +8,8 @@ export type ProjectConfig = {
   documents: string | string[];
   output: string;
   namespace?: string | undefined;
+  /** Emit a `sources` namespace for entity-bound fragments (for use with `@contello/store`) */
+  sources?: boolean | undefined;
 };
 
 export type ContelloConfig = {

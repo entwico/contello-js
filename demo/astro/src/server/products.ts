@@ -1,4 +1,5 @@
 import { log } from '@astroscope/pino';
+import { sources } from '@/server/_/gql/graphql';
 import { contello } from '@/server/contello';
 
 export type Product = {
@@ -8,9 +9,7 @@ export type Product = {
   description: string | undefined;
 };
 
-export const products = contello.defineLazyCollection({
-  model: 'product',
-  fetch: (ids, client) => client.rpc.getProducts({ request: { filter: { ids } } }).then((r) => r.products.entities),
+export const products = contello.defineLazyCollection(sources.product, {
   map: (item) => ({
     id: item.id,
     name: item.attributes.name ?? '',

@@ -1,10 +1,11 @@
-import type { ContelloClient, OperationMap } from '@contello/client';
-import { type MaybePromise, ProjectedValue, maybeThen } from 'projected';
-import { type Observable, Subject } from 'rxjs';
+import type { ContelloClient, OperationMap, SourceDef } from '@contello/client';
+import { type MaybePromise, ProjectedValue, type ReadonlyDeep, maybeThen } from 'projected';
+import { type Observable, Subject, firstValueFrom, map as rxMap } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import type { ModelResolver } from './model-resolver';
-import type { Singleton, SingletonDef, SingletonSync, SingletonSyncDef } from './types';
+import { createSourceSubscription } from './source-subscription';
+import type { ExtractSourceResult, Singleton, SingletonOptions, SingletonSync, SingletonSyncOptions } from './types';
 import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
@@ -14,22 +15,24 @@ export type InternalSingletonSync<T> = SingletonSync<T>;
 
 export function createSingleton<
   TOps extends OperationMap | undefined,
-  TModel extends string,
-  TRaw,
+  TSource extends SourceDef<TModels, 'singleton'>,
   TMapped,
   TModels extends string = string,
 >(
-  def: SingletonDef<TOps, TModel, TRaw, TMapped, TModels>,
+  source: TSource,
+  options: SingletonOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
   resolver: ModelResolver,
 ): InternalSingleton<TMapped> {
+  const opts = options ?? {};
+  const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
   const _def = {
-    name: def.name ?? def.model,
-    model: def.model,
+    name: opts.name ?? source.__model,
+    model: source.__model,
     cache: {
-      ttl: def.cache?.ttl,
-      eviction: def.cache?.eviction ?? 'refresh',
+      ttl: opts.cache?.ttl,
+      eviction: opts.cache?.eviction ?? 'refresh',
     },
   };
 
@@ -40,17 +43,22 @@ export function createSingleton<
   const projected = new ProjectedValue<TMapped>({
     value: () =>
       wrap(`singleton:${_def.name}`, () =>
-        maybeThen(def.fetch(client), (raw) =>
-          dependencyCollector.createContext((ref, register) =>
-            maybeThen(def.map(raw, ref), (mapped) => {
-              register(itemKey);
-
-              return mapped;
-            }),
+        maybeThen(
+          firstValueFrom(
+            client
+              .subscribe<{ source: ExtractSourceResult<TSource> }>(createSourceSubscription(source))
+              .pipe(rxMap((r) => r.source)),
           ),
+          (raw) =>
+            dependencyCollector.createContext((ref, register) =>
+              maybeThen(mapFn(raw, ref), (mapped) => {
+                register(itemKey);
+
+                return mapped;
+              }),
+            ),
         ),
       ),
-    protection: 'freeze',
   });
 
   const refresh$ = new Subject<void>();
@@ -59,7 +67,7 @@ export function createSingleton<
     () => projected.refresh(),
     () => {
       refresh$.next();
-      def.onRefresh?.();
+      opts.onRefresh?.();
 
       if (_def.cache.ttl !== undefined) {
         timer = setTimeout(scheduleRefresh, _def.cache.ttl);
@@ -96,7 +104,7 @@ export function createSingleton<
     name: _def.name,
     refresh$: refresh$.asObservable(),
 
-    get(): MaybePromise<TMapped> {
+    get(): MaybePromise<ReadonlyDeep<TMapped>> {
       return projected.get();
     },
 
@@ -113,29 +121,29 @@ export function createSingleton<
         timer = setTimeout(scheduleRefresh, _def.cache.ttl);
       }
 
-      def.onLoad?.();
+      opts.onLoad?.();
     },
   };
 }
 
 export function createSingletonSync<
   TOps extends OperationMap | undefined,
-  TModel extends string,
-  TRaw,
+  TSource extends SourceDef<TModels, 'singleton'>,
   TMapped,
   TModels extends string = string,
 >(
-  def: SingletonSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
+  source: TSource,
+  options: SingletonSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
   resolver: ModelResolver,
 ): InternalSingletonSync<TMapped> {
-  const base = createSingleton(def, client, updates$, resolver);
+  const base = createSingleton<TOps, TSource, TMapped, TModels>(source, options, client, updates$, resolver);
 
   return {
     ...base,
 
-    get(): TMapped {
+    get(): ReadonlyDeep<TMapped> {
       const result = base.get();
 
       if (result instanceof Promise) {

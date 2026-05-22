@@ -1,8 +1,6 @@
-subscription GetAllCategories {
-  categoriesBatch {
-    id
-    attributes {
-      name
-    }
+fragment Category on CategoryEntity {
+  id
+  attributes {
+    name
   }
 }

@@ -1,5 +1,5 @@
 import type { ContelloClient } from '@contello/client';
-import { type MaybePromise, ProjectedMap, maybeThen } from 'projected';
+import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
 import { type Observable, Subject, map } from 'rxjs';
 import { wrap } from './diagnostics';
 import {
@@ -52,9 +52,9 @@ export type I18nMessage = {
 
 export type I18nMessages = {
   readonly refresh$: Observable<string[]>;
-  get(id: string): MaybePromise<I18nMessage | undefined>;
-  get(ids: string[]): MaybePromise<I18nMessage[]>;
-  getAll(): MaybePromise<I18nMessage[]>;
+  get(id: string): MaybePromise<ReadonlyDeep<I18nMessage> | undefined>;
+  get(ids: string[]): MaybePromise<ReadonlyDeep<I18nMessage[]>>;
+  getAll(): MaybePromise<ReadonlyDeep<I18nMessage[]>>;
   register(messages: I18nMessageRegistrationDefinition[]): Promise<void>;
 };
 
@@ -90,7 +90,6 @@ export function createI18nMessagesCollection(
           })),
         ),
       ),
-    protection: 'freeze',
   });
 
   const refresh$ = new Subject<string[]>();

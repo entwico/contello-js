@@ -1,32 +1,35 @@
-import type { ContelloClient, OperationMap } from '@contello/client';
+import type { ContelloClient, OperationMap, SourceDef } from '@contello/client';
 import { ProjectedLazyMap, maybeThen } from 'projected';
-import { type Observable, Subject } from 'rxjs';
+import { type Observable, Subject, firstValueFrom, map as rxMap } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import { createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
-import type { LazyCollection, LazyCollectionDef } from './types';
-import { createRefresher, resolveFetchable } from './utils';
+import { createSourceSubscription } from './source-subscription';
+import type { ExtractSourceResult, LazyCollection, LazyCollectionOptions } from './types';
+import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createLazyCollection<
   TOps extends OperationMap | undefined,
-  TModel extends string,
-  TRaw,
+  TSource extends SourceDef<TModels, 'collection'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(
-  def: LazyCollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
+  source: TSource,
+  options: LazyCollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
   resolver: ModelResolver,
 ): LazyCollection<TMapped> {
+  const opts = options ?? {};
+  const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
   const _def = {
-    name: def.name ?? def.model,
-    model: def.model,
+    name: opts.name ?? source.__model,
+    model: source.__model,
     cache: {
-      max: def.cache?.max ?? 1000,
-      ttl: def.cache?.ttl,
+      max: opts.cache?.max ?? 1000,
+      ttl: opts.cache?.ttl,
     },
   };
 
@@ -41,22 +44,27 @@ export function createLazyCollection<
     key: (item) => item.id,
     values: (keys) =>
       wrap(`lazy-collection:${_def.name}`, () =>
-        maybeThen(resolveFetchable(def.fetch(keys, client)), (rawItems) =>
-          Promise.all(
-            rawItems.map((item) =>
-              dependencyCollector.createContext((ref, register) =>
-                maybeThen(def.map(item, ref), (mapped) => {
-                  register(mapped.id);
+        maybeThen(
+          firstValueFrom(
+            client
+              .subscribe<{ source: ExtractSourceResult<TSource>[] }>(createSourceSubscription(source), { ids: keys })
+              .pipe(rxMap((r) => r.source)),
+          ),
+          (rawItems) =>
+            Promise.all(
+              rawItems.map((item) =>
+                dependencyCollector.createContext((ref, register) =>
+                  maybeThen(mapFn(item, ref), (mapped) => {
+                    register(mapped.id);
 
-                  return mapped;
-                }),
+                    return mapped;
+                  }),
+                ),
               ),
             ),
-          ),
         ),
       ),
     cache,
-    protection: 'freeze',
   });
 
   const refresh$ = new Subject<string[]>();
@@ -76,7 +84,7 @@ export function createLazyCollection<
     () => {
       if (lastRefreshKeys.length > 0) {
         refresh$.next(lastRefreshKeys);
-        def.onRefresh?.(lastRefreshKeys);
+        opts.onRefresh?.(lastRefreshKeys);
       }
     },
     () => {},
@@ -107,7 +115,7 @@ export function createLazyCollection<
       const ids = [...evicted];
 
       refresh$.next(ids);
-      def.onRefresh?.(ids);
+      opts.onRefresh?.(ids);
     }
   });
 

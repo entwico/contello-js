@@ -212,6 +212,9 @@ importers:
       lru-cache:
         specifier: ^11.3.5
         version: 11.3.5
+      projected:
+        specifier: ^3.0.0
+        version: 3.0.0
     devDependencies:
       '@contello/client':
         specifier: workspace:^
@@ -219,9 +222,6 @@ importers:
       '@contello/media':
         specifier: workspace:^
         version: link:../media
-      projected:
-        specifier: ^2.2.1
-        version: 2.2.1
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
@@ -3398,8 +3398,8 @@ packages:
   process-warning@5.0.0:
     resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
 
-  projected@2.2.1:
-    resolution: {integrity: sha512-Mo8Cyx03q2Gm0wiilFDDit+MUwlDlJCuthisd0azO3yiR1jchlJQQeisjqF7j4Db1K22IEFR8/WyznFlYZF6EA==}
+  projected@3.0.0:
+    resolution: {integrity: sha512-8MemiejT5V631axrReEUEy/FrcRJQmjdDxE3gtSE8ycODAKy8IOEV8/F5BUWE8A0EpLxQKS2YYQhqWhCFLTnSg==}
 
   property-information@7.1.0:
     resolution: {integrity: sha512-TwEZ+X+yCJmYfL7TPUOcvBZ4QfoT5YenQiJuX//0th53DE6w0xxLEtfK3iyryQFddXuvkIk51EEgrJQ0WJkOmQ==}
@@ -7948,7 +7948,7 @@ snapshots:
 
   process-warning@5.0.0: {}
 
-  projected@2.2.1: {}
+  projected@3.0.0: {}
 
   property-information@7.1.0: {}
 

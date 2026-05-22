@@ -9,7 +9,7 @@ export type ContelloMiddlewareOptions = {
   exclude?: ExcludePattern[] | undefined;
 };
 
-function customHeaders(headers: StoreRouteCustomHeader[]): Record<string, string> {
+function customHeaders(headers: readonly StoreRouteCustomHeader[]): Record<string, string> {
   const result: Record<string, string> = {};
 
   for (const h of headers) {

@@ -3,8 +3,8 @@ import type { ComponentFragment } from '@/server/_/gql/graphql';
 
 export type Component =
   | { type: 'text'; markdownData: string }
-  | { type: 'section'; headline: string; content: Component[] }
-  | { type: 'productList'; headline: string; productIds: string[] };
+  | { type: 'section'; headline: string; content: readonly Component[] }
+  | { type: 'productList'; headline: string; productIds: readonly string[] };
 
 function mapComponent(c: ComponentFragment): Component | undefined {
   switch (c.__model) {

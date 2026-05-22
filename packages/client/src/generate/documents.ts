@@ -168,3 +168,60 @@ export function generateDocumentString(
 
   return parts.join('\n');
 }
+
+/**
+ * Returns the TS-source expression for an operation's document — a template literal
+ * interpolating each used fragment's `<Name>FragmentSchema` const, followed by the
+ * inlined operation body. The atomic schema consts are shared with sources, so the
+ * fragment text appears once in the generated file even if reused across operations.
+ */
+export function operationDocumentExpression(
+  operation: OperationDefinitionNode,
+  allFragments: Map<string, FragmentDefinitionNode>,
+): string {
+  const usedFragments = new Map<string, FragmentDefinitionNode>();
+
+  collectUsedFragments(operation, allFragments, usedFragments);
+
+  const sortedFragments = sortFragmentsByDependency(usedFragments);
+  const parts = sortedFragments.map((f) => `\${${f.name.value}FragmentSchema}`);
+
+  parts.push(print(operation));
+
+  return `\`${parts.join('\n')}\``;
+}
+
+/**
+ * Returns the TS-source expression for a fragment's "bundle" — the fragment plus
+ * its transitive deps, each referenced via its shared `<Name>FragmentSchema` const.
+ * If the fragment has no deps, returns the bare const identifier (no template wrap).
+ */
+export function fragmentBundleExpression(
+  fragment: FragmentDefinitionNode,
+  allFragments: Map<string, FragmentDefinitionNode>,
+): string {
+  const usedFragments = new Map<string, FragmentDefinitionNode>();
+
+  collectUsedFragments(fragment, allFragments, usedFragments);
+  usedFragments.set(fragment.name.value, fragment);
+
+  const sortedFragments = sortFragmentsByDependency(usedFragments);
+
+  if (sortedFragments.length === 1) {
+    return `${sortedFragments[0]!.name.value}FragmentSchema`;
+  }
+
+  return `\`${sortedFragments.map((f) => `\${${f.name.value}FragmentSchema}`).join('\n')}\``;
+}
+
+/** Emits `const <Name>FragmentSchema = \`...\`;` for each (transformed) fragment. */
+export function generateFragmentSchemas(fragments: Map<string, FragmentDefinitionNode>): string {
+  const sorted = [...fragments.values()].sort((a, b) => a.name.value.localeCompare(b.name.value));
+  const lines: string[] = [];
+
+  for (const fragment of sorted) {
+    lines.push(`const ${fragment.name.value}FragmentSchema = \`${print(fragment)}\`;`);
+  }
+
+  return lines.join('\n');
+}

@@ -1,5 +1,8 @@
 export { createStore, Store } from './store';
 
+export { maybeThen, maybeCatch } from 'projected';
+export type { MaybePromise, ReadonlyDeep } from 'projected';
+
 export type { AssetCollectionOptions, Assets, StoreAsset, StoreFile, StoreFileMetadata } from './assets';
 
 export type {
@@ -21,18 +24,19 @@ export type { UpdateBatch, UpdateEvent, UpdateEventFor, UpdateMutationType } fro
 export type {
   CacheOptions,
   Collection,
-  CollectionDef,
+  CollectionOptions,
   CollectionSync,
-  CollectionSyncDef,
+  CollectionSyncOptions,
   CreateStoreOptions,
+  ExtractSourceResult,
   Fetchable,
   LazyCacheOptions,
   Loadable,
   LazyCollection,
-  LazyCollectionDef,
+  LazyCollectionOptions,
   Singleton,
-  SingletonDef,
+  SingletonOptions,
   SingletonSync,
-  SingletonSyncDef,
+  SingletonSyncOptions,
   SyncCacheOptions,
 } from './types';

@@ -31,3 +31,22 @@ export type RpcMethod<T extends OperationDef> = T['kind'] extends 'subscription'
 export type Rpc<T extends OperationMap> = {
   [K in keyof T]: RpcMethod<T[K]>;
 };
+
+export type SourceCardinality = 'collection' | 'singleton';
+
+export type SourceDef<
+  TModel extends string = string,
+  TCardinality extends SourceCardinality = SourceCardinality,
+  TResult = unknown,
+> = {
+  /** the GQL fragment text — bundled with transitive deps if any */
+  document: string;
+  /** the fragment name to spread inside the source subscription — e.g. `Category` */
+  fragment: string;
+  /** the subscription field this fragment is bound to — `categoriesBatch`, `config`, etc */
+  subscription: string;
+  __model: TModel;
+  __cardinality: TCardinality;
+  /** phantom type — exists only at the type level */
+  __result?: TResult | undefined;
+};

@@ -1,23 +1,19 @@
-query GetProducts($request: ProductsRequestInput) {
-  products(request: $request) {
-    entities {
+fragment Product on ProductEntity {
+  id
+  internalName
+  routes {
+    path
+  }
+  attributes {
+    name
+    description {
+      markdownData
+    }
+    image {
+      ...StoreAsset
+    }
+    category {
       id
-      internalName
-      routes {
-        path
-      }
-      attributes {
-        name
-        description {
-          markdownData
-        }
-        image {
-          ...StoreAsset
-        }
-        category {
-          id
-        }
-      }
     }
   }
 }

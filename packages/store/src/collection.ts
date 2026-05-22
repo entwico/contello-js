@@ -1,50 +1,80 @@
-import type { ContelloClient, OperationMap } from '@contello/client';
-import { type MaybePromise, ProjectedMap, maybeThen } from 'projected';
-import { type Observable, Subject } from 'rxjs';
+import type { ContelloClient, OperationMap, SourceDef } from '@contello/client';
+import { retryBackoff } from 'backoff-rxjs';
+import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
+import { type Observable, Subject, defer, firstValueFrom, map as rxMap } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import type { ModelResolver } from './model-resolver';
-import type { Collection, CollectionDef, CollectionSync, CollectionSyncDef } from './types';
-import { createRefresher, resolveFetchable } from './utils';
+import { createSourceSubscription } from './source-subscription';
+import type {
+  Collection,
+  CollectionOptions,
+  CollectionSync,
+  CollectionSyncOptions,
+  ExtractSourceResult,
+} from './types';
 import type { UpdateBatch } from './watcher';
 
 export type InternalCollection<T> = Collection<T>;
 
 export type InternalCollectionSync<T> = CollectionSync<T>;
 
+function fetchCollection<S extends SourceDef<string, 'collection'>>(
+  source: S,
+  client: ContelloClient<any>,
+  ids: string[] | undefined,
+): Promise<ExtractSourceResult<S>[]> {
+  return firstValueFrom(
+    client
+      .subscribe<{ source: ExtractSourceResult<S>[] }>(createSourceSubscription(source), { ids })
+      .pipe(rxMap((r) => r.source)),
+  );
+}
+
+/**
+ * Runs `fn` with exponential-backoff retry. Used so a transient fetch error doesn't leave
+ * the cache stale until the next watcher event — the refresh retries on its own.
+ */
+function withRetry(fn: () => Promise<unknown>): void {
+  defer(fn)
+    .pipe(retryBackoff({ initialInterval: 100, maxInterval: 10_000 }))
+    .subscribe({ error: () => undefined });
+}
+
 export function createCollection<
   TOps extends OperationMap | undefined,
-  TModel extends string,
-  TRaw,
+  TSource extends SourceDef<TModels, 'collection'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(
-  def: CollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
+  source: TSource,
+  options: CollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
   resolver: ModelResolver,
 ): InternalCollection<TMapped> {
+  const opts = options ?? {};
+  const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
   const _def = {
-    name: def.name ?? def.model,
-    model: def.model,
+    name: opts.name ?? source.__model,
+    model: source.__model,
     cache: {
-      ttl: def.cache?.ttl,
-      eviction: def.cache?.eviction ?? 'refresh',
+      ttl: opts.cache?.ttl,
+      eviction: opts.cache?.eviction ?? 'refresh',
     },
   };
   const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let ttlTimer: ReturnType<typeof setTimeout> | undefined;
 
   const projected = new ProjectedMap<string, TMapped>({
     key: (item) => item.id,
-    values: () =>
+    values: (ids) =>
       wrap(`collection:${_def.name}`, () =>
-        maybeThen(resolveFetchable(def.fetch(client)), (rawItems) =>
-          // maybeAll one day?
+        maybeThen(fetchCollection(source, client, ids), (rawItems) =>
           Promise.all(
             rawItems.map((item) =>
               dependencyCollector.createContext((ref, register) =>
-                maybeThen(def.map(item, ref), (mapped) => {
+                maybeThen(mapFn(item, ref), (mapped) => {
                   register(mapped.id);
 
                   return mapped;
@@ -52,45 +82,97 @@ export function createCollection<
               ),
             ),
           ).then((items) => {
-            dependencyCollector.retainOnly(new Set(items.map((item) => item.id)));
+            if (ids === undefined) {
+              dependencyCollector.retainOnly(new Set(items.map((item) => item.id)));
+            } else {
+              const returnedIds = new Set(items.map((item) => item.id));
+
+              for (const id of ids) {
+                if (!returnedIds.has(id)) {
+                  dependencyCollector.removeItem(id);
+                }
+              }
+            }
 
             return items;
           }),
         ),
       ),
-    protection: 'freeze',
+    sort: opts.sort,
   });
 
   const refresh$ = new Subject<string[]>();
+  let loaded = false;
 
-  const scheduleRefresh = createRefresher(
-    () => projected.refresh(),
-    () => {
-      maybeThen(projected.getAll(), (items) => {
-        const ids = items.map((item) => item.id);
+  function scheduleTtl(): void {
+    if (_def.cache.ttl === undefined) {
+      return;
+    }
+
+    clearTimeout(ttlTimer);
+
+    ttlTimer = setTimeout(() => {
+      runFullRefresh();
+    }, _def.cache.ttl);
+  }
+
+  function runFullRefresh(): void {
+    withRetry(() =>
+      projected.refresh().then((map) => {
+        const ids = [...map.keys()];
 
         refresh$.next(ids);
-        def.onRefresh?.(ids);
+        opts.onRefresh?.(ids);
 
-        if (_def.cache.ttl !== undefined) {
-          timer = setTimeout(scheduleRefresh, _def.cache.ttl);
-        }
-      });
-    },
-    () => clearTimeout(timer),
-  );
+        scheduleTtl();
+      }),
+    );
+  }
 
-  let loaded = false;
+  function runPartialRefresh(refreshIds: string[], deletedIds: string[]): void {
+    const changedIds = [...new Set([...refreshIds, ...deletedIds])];
+
+    if (refreshIds.length === 0) {
+      refresh$.next(changedIds);
+      opts.onRefresh?.(changedIds);
+
+      return;
+    }
+
+    withRetry(() =>
+      projected.refresh(refreshIds).then(() => {
+        refresh$.next(changedIds);
+        opts.onRefresh?.(changedIds);
+      }),
+    );
+  }
 
   updates$.subscribe((batch) => {
     if (!loaded) {
       return;
     }
 
-    const hasOwnModel = batch.entity.has(_def.model);
-    const hasAffectedRefs = batch.events.some((event) => dependencyCollector.getAffectedKeys(event).size > 0);
+    const ownEvents = batch.entity.get(_def.model) ?? [];
+    const deleted: string[] = [];
+    const upserted = new Set<string>();
 
-    if (!hasOwnModel && !hasAffectedRefs) {
+    for (const event of ownEvents) {
+      if (event.mutation === 'delete') {
+        deleted.push(event.id);
+      } else {
+        upserted.add(event.id);
+      }
+    }
+
+    const depAffected = new Set<string>();
+
+    for (const event of batch.events) {
+      for (const id of dependencyCollector.getAffectedKeys(event)) {
+        depAffected.add(id);
+      }
+    }
+
+    if (deleted.length === 0 && upserted.size === 0 && depAffected.size === 0) {
       return;
     }
 
@@ -101,7 +183,21 @@ export function createCollection<
       return;
     }
 
-    scheduleRefresh();
+    for (const id of deleted) {
+      dependencyCollector.removeItem(id);
+    }
+
+    if (deleted.length > 0) {
+      projected.delete(deleted);
+    }
+
+    const refreshIds = new Set([...upserted, ...depAffected]);
+
+    for (const id of deleted) {
+      refreshIds.delete(id);
+    }
+
+    runPartialRefresh([...refreshIds], deleted);
   });
 
   const instance: InternalCollection<TMapped> = {
@@ -112,24 +208,22 @@ export function createCollection<
       return projected.get(idOrIds as string);
     },
 
-    getAll(): MaybePromise<TMapped[]> {
+    getAll(): MaybePromise<ReadonlyArray<ReadonlyDeep<TMapped>>> {
       return projected.getAll();
     },
 
     refresh() {
-      scheduleRefresh();
+      runFullRefresh();
     },
 
     async load() {
-      const items = await projected.getAll();
+      const map = await projected.refresh();
 
       loaded = true;
 
-      if (_def.cache.ttl !== undefined) {
-        timer = setTimeout(scheduleRefresh, _def.cache.ttl);
-      }
+      scheduleTtl();
 
-      def.onLoad?.(items.map((item) => item.id));
+      opts.onLoad?.([...map.keys()]);
     },
   };
 
@@ -138,17 +232,17 @@ export function createCollection<
 
 export function createCollectionSync<
   TOps extends OperationMap | undefined,
-  TModel extends string,
-  TRaw,
+  TSource extends SourceDef<TModels, 'collection'>,
   TMapped extends { id: string },
   TModels extends string = string,
 >(
-  def: CollectionSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
+  source: TSource,
+  options: CollectionSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
   updates$: Observable<UpdateBatch>,
   resolver: ModelResolver,
 ): InternalCollectionSync<TMapped> {
-  const base = createCollection(def, client, updates$, resolver);
+  const base = createCollection<TOps, TSource, TMapped, TModels>(source, options, client, updates$, resolver);
 
   function assertSync<T>(value: MaybePromise<T>, method: string): T {
     if (value instanceof Promise) {
@@ -163,7 +257,7 @@ export function createCollectionSync<
     get(idOrIds: string | string[]): any {
       return assertSync(base.get(idOrIds as string), 'get');
     },
-    getAll(): TMapped[] {
+    getAll(): ReadonlyArray<ReadonlyDeep<TMapped>> {
       return assertSync(base.getAll(), 'getAll');
     },
   };

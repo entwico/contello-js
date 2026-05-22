@@ -6,7 +6,7 @@ import type {
   UploadMetadata,
   UploadOptions,
 } from '@contello/client';
-import { ProjectedLazyMap } from 'projected';
+import { ProjectedLazyMap, type ReadonlyDeep } from 'projected';
 import { type Observable, Subject } from 'rxjs';
 import { wrap } from './diagnostics';
 import {
@@ -44,8 +44,8 @@ export type AssetCollectionOptions = {
 
 export type Assets = {
   readonly refresh$: Observable<string[]>;
-  get(id: string): Promise<StoreAsset | undefined>;
-  get(ids: string[]): Promise<StoreAsset[]>;
+  get(id: string): Promise<ReadonlyDeep<StoreAsset> | undefined>;
+  get(ids: string[]): Promise<ReadonlyDeep<StoreAsset[]>>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
   download(fileId: string): Promise<DownloadResult>;
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
@@ -99,7 +99,6 @@ export function createAssetsCollection(
         ),
       ),
     cache,
-    protection: 'freeze',
   });
 
   const refresh$ = new Subject<string[]>();

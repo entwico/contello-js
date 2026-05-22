@@ -1,5 +1,5 @@
 import type { ContelloClient } from '@contello/client';
-import { ProjectedLazyMap } from 'projected';
+import { ProjectedLazyMap, type ReadonlyDeep } from 'projected';
 import { type Observable, Subject } from 'rxjs';
 import { wrap } from './diagnostics';
 import { type StoreGetRoutesQuery, storeGetRoutesDocument } from './generated/graphql';
@@ -18,10 +18,10 @@ export type RouteCollectionOptions = {
 
 export type Routes = {
   readonly refresh$: Observable<string[]>;
-  get(id: string): Promise<StoreRoute | undefined>;
-  get(ids: string[]): Promise<StoreRoute[]>;
-  getByPath(path: string): Promise<StoreRoute | undefined>;
-  getByPath(paths: string[]): Promise<StoreRoute[]>;
+  get(id: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
+  get(ids: string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
+  getByPath(path: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
+  getByPath(paths: string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
   refresh(): void;
   clear(): void;
 };
@@ -164,7 +164,6 @@ export function createRoutesCollection(
         ]).then(([byIds, byPaths]) => [...byIds, ...byPaths]);
       }),
     cache,
-    protection: 'freeze',
   });
 
   const refresh$ = new Subject<string[]>();
@@ -200,7 +199,7 @@ export function createRoutesCollection(
         evicted.push(event.id);
       } else {
         if (cache.has(idKey)) {
-          cache.set(idKey, Object.freeze(event.after));
+          cache.set(idKey, event.after);
         }
 
         evicted.push(event.after.path);

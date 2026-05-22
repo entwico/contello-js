@@ -1,5 +1,5 @@
 import { log } from '@astroscope/pino';
-import { map } from 'rxjs';
+import { sources } from '@/server/_/gql/graphql';
 import { contello } from '@/server/contello';
 
 export type Category = {
@@ -7,9 +7,7 @@ export type Category = {
   name: string;
 };
 
-export const categories = contello.defineCollectionSync({
-  model: 'category',
-  fetch: (client) => client.rpc.getAllCategories().pipe(map((r) => r.categoriesBatch)),
+export const categories = contello.defineCollectionSync(sources.category, {
   map: (item) => ({
     id: item.id,
     name: item.attributes.name ?? '',

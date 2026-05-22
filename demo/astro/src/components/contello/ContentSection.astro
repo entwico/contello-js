@@ -2,7 +2,7 @@
 import ComponentEntry from './ComponentEntry.astro';
 import type { Component } from '@/server/components';
 
-type Props = { components: Component[] };
+type Props = { components: readonly Component[] };
 
 const { components } = Astro.props;
 ---

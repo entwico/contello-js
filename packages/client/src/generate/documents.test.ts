@@ -1,7 +1,15 @@
 import { Source, buildSchema, parse } from 'graphql';
 import { describe, expect, test } from 'vitest';
 
-import { collectFragments, collectOperations, generateDocumentString, validateDocuments } from './documents';
+import {
+  collectFragments,
+  collectOperations,
+  fragmentBundleExpression,
+  generateDocumentString,
+  generateFragmentSchemas,
+  operationDocumentExpression,
+  validateDocuments,
+} from './documents';
 
 describe('collectFragments', () => {
   test('collects named fragments from documents', () => {
@@ -246,5 +254,115 @@ describe('validateDocuments', () => {
     const operations = collectOperations([doc]);
 
     expect(() => validateDocuments(cycleSchema, fragments, operations)).not.toThrow();
+  });
+});
+
+describe('generateFragmentSchemas', () => {
+  test('emits one `const <Name>FragmentSchema` per fragment', () => {
+    const doc = parse(`
+      fragment UserFields on User { id name }
+      fragment PostFields on Post { id title }
+    `);
+    const fragments = collectFragments([doc]);
+    const out = generateFragmentSchemas(fragments);
+
+    expect(out).toContain('const UserFieldsFragmentSchema = `fragment UserFields on User');
+    expect(out).toContain('const PostFieldsFragmentSchema = `fragment PostFields on Post');
+  });
+
+  test('emits in alphabetical order by fragment name', () => {
+    const doc = parse(`
+      fragment Z on User { id }
+      fragment A on User { id }
+      fragment M on User { id }
+    `);
+    const fragments = collectFragments([doc]);
+    const out = generateFragmentSchemas(fragments);
+
+    const aIdx = out.indexOf('const AFragmentSchema');
+    const mIdx = out.indexOf('const MFragmentSchema');
+    const zIdx = out.indexOf('const ZFragmentSchema');
+
+    expect(aIdx).toBeLessThan(mIdx);
+    expect(mIdx).toBeLessThan(zIdx);
+  });
+
+  test('returns empty string when no fragments', () => {
+    const fragments = collectFragments([parse(`query Q { user { id } }`)]);
+
+    expect(generateFragmentSchemas(fragments)).toBe('');
+  });
+});
+
+describe('fragmentBundleExpression', () => {
+  test('returns the bare const identifier when fragment has no deps', () => {
+    const doc = parse(`fragment Category on CategoryEntity { id }`);
+    const fragments = collectFragments([doc]);
+
+    expect(fragmentBundleExpression(fragments.get('Category')!, fragments)).toBe('CategoryFragmentSchema');
+  });
+
+  test('returns a template literal interpolating deps + self when transitive deps exist', () => {
+    const doc = parse(`
+      fragment Component on ContelloComponent { __typename }
+      fragment StaticPage on StaticPageEntity { id ...Component }
+    `);
+    const fragments = collectFragments([doc]);
+
+    const expr = fragmentBundleExpression(fragments.get('StaticPage')!, fragments);
+
+    expect(expr).toContain('${ComponentFragmentSchema}');
+    expect(expr).toContain('${StaticPageFragmentSchema}');
+    expect(expr.indexOf('Component')).toBeLessThan(expr.indexOf('StaticPage'));
+    expect(expr.startsWith('`')).toBe(true);
+    expect(expr.endsWith('`')).toBe(true);
+  });
+});
+
+describe('operationDocumentExpression', () => {
+  test('wraps the result in a template literal', () => {
+    const doc = parse(`query GetUser { user { id } }`);
+    const operations = collectOperations([doc]);
+    const fragments = collectFragments([doc]);
+
+    const expr = operationDocumentExpression(operations[0]!, fragments);
+
+    expect(expr.startsWith('`')).toBe(true);
+    expect(expr.endsWith('`')).toBe(true);
+    expect(expr).toContain('query GetUser');
+  });
+
+  test('interpolates fragment schema refs (not inlined fragment text)', () => {
+    const doc = parse(`
+      fragment UserFields on User { id name }
+      query GetUser { user { ...UserFields } }
+    `);
+    const operations = collectOperations([doc]);
+    const fragments = collectFragments([doc]);
+
+    const expr = operationDocumentExpression(operations[0]!, fragments);
+
+    expect(expr).toContain('${UserFieldsFragmentSchema}');
+    expect(expr).not.toContain('fragment UserFields on User');
+  });
+
+  test('orders transitive deps before dependents in the interpolation', () => {
+    const doc = parse(`
+      fragment BaseFields on User { id }
+      fragment UserFields on User { ...BaseFields name }
+      query GetUser { user { ...UserFields } }
+    `);
+    const operations = collectOperations([doc]);
+    const fragments = collectFragments([doc]);
+
+    const expr = operationDocumentExpression(operations[0]!, fragments);
+
+    const baseIdx = expr.indexOf('${BaseFieldsFragmentSchema}');
+    const userIdx = expr.indexOf('${UserFieldsFragmentSchema}');
+    const queryIdx = expr.indexOf('query GetUser');
+
+    expect(baseIdx).toBeGreaterThanOrEqual(0);
+    expect(baseIdx).toBeLessThan(userIdx);
+    expect(userIdx).toBeLessThan(queryIdx);
   });
 });

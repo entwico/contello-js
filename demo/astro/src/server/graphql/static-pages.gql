@@ -1,17 +1,13 @@
-query GetStaticPages($request: StaticPagesRequestInput) {
-  staticPages(request: $request) {
-    entities {
-      id
-      internalName
-      routes {
-        path
-      }
-      attributes {
-        name
-        content {
-          ...Component
-        }
-      }
+fragment StaticPage on StaticPageEntity {
+  id
+  internalName
+  routes {
+    path
+  }
+  attributes {
+    name
+    content {
+      ...Component
     }
   }
 }

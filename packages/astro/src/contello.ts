@@ -1,26 +1,28 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
-import type { OperationMap } from '@contello/client';
+import type { OperationMap, SourceDef } from '@contello/client';
 import { type ImageDef, type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
 import {
   type AssetCollectionOptions,
   type Assets,
   type Collection,
-  type CollectionDef,
+  type CollectionOptions,
   type CollectionSync,
-  type CollectionSyncDef,
+  type CollectionSyncOptions,
   type CreateStoreOptions,
+  type ExtractSourceResult,
   type I18nMessageRegistrationDefinition,
   type I18nMessages,
   type LazyCollection,
-  type LazyCollectionDef,
+  type LazyCollectionOptions,
   type Loadable,
+  type ReadonlyDeep,
   type RouteCollectionOptions,
   type Routes,
   type Singleton,
-  type SingletonDef,
+  type SingletonOptions,
   type SingletonSync,
-  type SingletonSyncDef,
+  type SingletonSyncOptions,
   type Store,
   type StoreRoute,
   createStore,
@@ -32,7 +34,7 @@ const DEFAULT_VIDEO_PREFIX = '/_contello/v/';
 
 export type ContelloRequestContext = {
   url: URL;
-  route: StoreRoute | undefined;
+  route: ReadonlyDeep<StoreRoute> | undefined;
   rewritten: boolean;
 };
 
@@ -253,34 +255,45 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
 
   // --- store delegation ---
 
-  defineSingleton<TModel extends TModels, TRaw, TMapped>(
-    def: SingletonDef<TOps, TModel, TRaw, TMapped, TModels>,
+  defineSingleton<TSource extends SourceDef<TModels, 'singleton'>, TMapped = ExtractSourceResult<TSource>>(
+    source: TSource,
+    options?: SingletonOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
   ): Singleton<TMapped> {
-    return this._store.defineSingleton(def);
+    return this._store.defineSingleton(source, options);
   }
 
-  defineSingletonSync<TModel extends TModels, TRaw, TMapped>(
-    def: SingletonSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
+  defineSingletonSync<TSource extends SourceDef<TModels, 'singleton'>, TMapped = ExtractSourceResult<TSource>>(
+    source: TSource,
+    options?: SingletonSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
   ): SingletonSync<TMapped> {
-    return this._store.defineSingletonSync(def);
+    return this._store.defineSingletonSync(source, options);
   }
 
-  defineCollection<TModel extends TModels, TRaw, TMapped extends { id: string }>(
-    def: CollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
-  ): Collection<TMapped> {
-    return this._store.defineCollection(def);
+  defineCollection<
+    TSource extends SourceDef<TModels, 'collection'>,
+    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
+  >(source: TSource, options?: CollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels>): Collection<TMapped> {
+    return this._store.defineCollection(source, options);
   }
 
-  defineCollectionSync<TModel extends TModels, TRaw, TMapped extends { id: string }>(
-    def: CollectionSyncDef<TOps, TModel, TRaw, TMapped, TModels>,
+  defineCollectionSync<
+    TSource extends SourceDef<TModels, 'collection'>,
+    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
+  >(
+    source: TSource,
+    options?: CollectionSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
   ): CollectionSync<TMapped> {
-    return this._store.defineCollectionSync(def);
+    return this._store.defineCollectionSync(source, options);
   }
 
-  defineLazyCollection<TModel extends TModels, TRaw, TMapped extends { id: string }>(
-    def: LazyCollectionDef<TOps, TModel, TRaw, TMapped, TModels>,
+  defineLazyCollection<
+    TSource extends SourceDef<TModels, 'collection'>,
+    TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
+  >(
+    source: TSource,
+    options?: LazyCollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
   ): LazyCollection<TMapped> {
-    return this._store.defineLazyCollection(def);
+    return this._store.defineLazyCollection(source, options);
   }
 
   // --- ALS run ---

@@ -1,4 +1,5 @@
 import { log } from '@astroscope/pino';
+import { sources } from '@/server/_/gql/graphql';
 import { type Component, mapComponents } from '@/server/components';
 import { contello } from '@/server/contello';
 
@@ -9,10 +10,7 @@ export type StaticPage = {
   content: Component[];
 };
 
-export const staticPages = contello.defineLazyCollection({
-  model: 'staticPage',
-  fetch: (ids, client) =>
-    client.rpc.getStaticPages({ request: { filter: { ids } } }).then((r) => r.staticPages.entities),
+export const staticPages = contello.defineLazyCollection(sources.staticPage, {
   map: (item) => {
     return {
       id: item.id,

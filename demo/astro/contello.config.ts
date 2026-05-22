@@ -18,6 +18,7 @@ export default {
         '../../packages/media/fragments/**/*.gql',
       ],
       output: 'src/server/_/gql/graphql.ts',
+      sources: true,
     },
   ],
 };
