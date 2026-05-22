@@ -1,5 +1,10 @@
-import type { ContelloClient } from '@contello/client';
-import { type Observable, Subject, filter, map, share } from 'rxjs';
+import {
+  type AsyncIterableSubject,
+  type ContelloClient,
+  asyncKeepalive,
+  createAsyncIterableSubject,
+  mapAsync,
+} from '@contello/client';
 
 import { wrap } from './diagnostics';
 import {
@@ -10,7 +15,6 @@ import {
 } from './generated/graphql';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
-import { keepalive } from './utils';
 
 export type UpdateEvent<TEntityType extends string = string> =
   | { id: string; mutation: 'create'; target: 'route'; after: StoreRoute }
@@ -158,47 +162,59 @@ function mapEvent(raw: RawEvent, resolver: ModelResolver): UpdateEvent | undefin
 }
 
 export type InternalWatcher = {
-  readonly updates$: Observable<UpdateBatch>;
+  /** Multicast stream of update batches. Internal-only; the public `Store.updates$` is the AsyncIterable view. */
+  readonly updates$: AsyncIterableSubject<UpdateBatch>;
   start(): void;
   stop(): void;
 };
 
 export function createInternalWatcher(client: ContelloClient<any>, resolver: ModelResolver): InternalWatcher {
-  const subject = new Subject<UpdateBatch>();
-  let subscription: { unsubscribe(): void } | undefined;
-
-  const updates$ = subject.asObservable().pipe(share());
+  const updates$ = createAsyncIterableSubject<UpdateBatch>();
+  let controller: AbortController | undefined;
 
   return {
     updates$,
 
     start() {
-      if (subscription) {
+      if (controller) {
         return;
       }
 
-      const source$ = client.subscribe<StoreWatchUpdatesSubscription>(storeWatchUpdatesDocument).pipe(
-        keepalive(),
-        map((data) =>
-          (data.contelloUpdatesBatch?.events ?? [])
-            .map((e) => mapEvent(e, resolver))
-            .filter((e): e is UpdateEvent => e !== undefined),
-        ),
-        filter((events) => events.length > 0),
-        map(createUpdateBatch),
-      );
+      controller = new AbortController();
+      const signal = controller.signal;
 
       wrap('watcher:start', () => {
-        subscription = source$.subscribe({
-          next: (batch) => subject.next(batch),
-          error: (err) => subject.error(err),
-        });
+        void (async () => {
+          const source = asyncKeepalive(
+            () => client.subscribe<StoreWatchUpdatesSubscription>(storeWatchUpdatesDocument),
+            signal,
+          );
+
+          const events = mapAsync(source, (data) =>
+            (data.contelloUpdatesBatch?.events ?? [])
+              .map((e) => mapEvent(e, resolver))
+              .filter((e): e is UpdateEvent => e !== undefined),
+          );
+
+          for await (const list of events) {
+            if (signal.aborted) {
+              return;
+            }
+
+            if (list.length === 0) {
+              continue;
+            }
+
+            updates$.next(createUpdateBatch(list));
+          }
+        })();
       });
     },
 
     stop() {
-      subscription?.unsubscribe();
-      subscription = undefined;
+      controller?.abort();
+      controller = undefined;
+      updates$.complete();
     },
   };
 }

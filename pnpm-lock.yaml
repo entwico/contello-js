@@ -162,10 +162,6 @@ importers:
       undici:
         specifier: ^8.1.0
         version: 8.1.0
-    devDependencies:
-      rxjs:
-        specifier: ^7.8.2
-        version: 7.8.2
 
   packages/extension: {}
 
@@ -206,9 +202,6 @@ importers:
 
   packages/store:
     dependencies:
-      backoff-rxjs:
-        specifier: ^7.0.0
-        version: 7.0.0(rxjs@7.8.2)
       lru-cache:
         specifier: ^11.3.5
         version: 11.3.5
@@ -222,9 +215,6 @@ importers:
       '@contello/media':
         specifier: workspace:^
         version: link:../media
-      rxjs:
-        specifier: ^7.8.2
-        version: 7.8.2
 
   packages/uploader:
     devDependencies:
@@ -1776,11 +1766,6 @@ packages:
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
     engines: {node: '>= 0.4'}
-
-  backoff-rxjs@7.0.0:
-    resolution: {integrity: sha512-ZLxc3iR7f6V4qngxL8CTBjIvQj1VCVK/EaQ26a2Xcrq0lXtSsl1ESvFFjMTSqcL93c9gcSinPf6xg/Sm+zYckg==}
-    peerDependencies:
-      rxjs: ^7.0.0
 
   bail@2.0.2:
     resolution: {integrity: sha512-0xO6mYd7JB2YesxDKplafRpsiOzPt9V02ddPCLbY1xYGPOX24NTyN50qnUxgCPcSoYMhKpAuBTjQoRZCAkUDRw==}
@@ -6097,10 +6082,6 @@ snapshots:
   axe-core@4.11.1: {}
 
   axobject-query@4.1.0: {}
-
-  backoff-rxjs@7.0.0(rxjs@7.8.2):
-    dependencies:
-      rxjs: 7.8.2
 
   bail@2.0.2: {}
 

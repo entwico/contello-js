@@ -19,18 +19,15 @@
   },
   "peerDependencies": {
     "@contello/client": "workspace:^",
-    "@contello/media": "workspace:^",
-    "rxjs": "^7.0.0"
+    "@contello/media": "workspace:^"
   },
   "dependencies": {
-    "backoff-rxjs": "^7.0.0",
     "lru-cache": "^11.3.5",
     "projected": "^3.0.0"
   },
   "devDependencies": {
     "@contello/client": "workspace:^",
-    "@contello/media": "workspace:^",
-    "rxjs": "^7.8.2"
+    "@contello/media": "workspace:^"
   },
   "files": [
     "dist",

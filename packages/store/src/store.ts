@@ -1,5 +1,4 @@
 import { type ContelloClient, type OperationMap, type SourceDef, createContelloClient } from '@contello/client';
-import type { Observable } from 'rxjs';
 
 import { type AssetCollectionOptions, type Assets, createAssetsCollection } from './assets';
 import { createCollection, createCollectionSync } from './collection';
@@ -29,8 +28,13 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
   private _client: ContelloClient<TOps>;
   private _resolver: ModelResolver;
   private _watcher: InternalWatcher;
+  private _cleanups: (() => void)[] = [];
 
-  public readonly updates$: Observable<UpdateBatch>;
+  /**
+   * Multicast update-batch stream from the watcher. Consume with `for await (const batch of updates$)`;
+   * each iteration starts an independent fan-out from the shared source.
+   */
+  public readonly updates$: AsyncIterable<UpdateBatch>;
 
   constructor(options: CreateStoreOptions<TOps, TModels>) {
     const { url, project, token, operations } = options;
@@ -60,6 +64,15 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
   }
 
   public async destroy() {
+    // tear down definers first so they detach from updates$ and complete their refresh$
+    for (const fn of this._cleanups.splice(0)) {
+      try {
+        fn();
+      } catch {
+        // swallow — destruction is best-effort
+      }
+    }
+
     this._watcher.stop();
 
     await wrap('store:destroy', () => this._client.destroy());
@@ -69,39 +82,51 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
     source: TSource,
     options?: SingletonOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
   ): Singleton<TMapped> {
-    return createSingleton<TOps, TSource, TMapped, TModels>(
+    const { instance, destroy } = createSingleton<TOps, TSource, TMapped, TModels>(
       source,
       options,
       this._client,
       this._watcher.updates$,
       this._resolver,
     );
+
+    this._cleanups.push(destroy);
+
+    return instance;
   }
 
   public defineSingletonSync<TSource extends SourceDef<TModels, 'singleton'>, TMapped = ExtractSourceResult<TSource>>(
     source: TSource,
     options?: SingletonSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
   ): SingletonSync<TMapped> {
-    return createSingletonSync<TOps, TSource, TMapped, TModels>(
+    const { instance, destroy } = createSingletonSync<TOps, TSource, TMapped, TModels>(
       source,
       options,
       this._client,
       this._watcher.updates$,
       this._resolver,
     );
+
+    this._cleanups.push(destroy);
+
+    return instance;
   }
 
   public defineCollection<
     TSource extends SourceDef<TModels, 'collection'>,
     TMapped extends { id: string } = ExtractSourceResult<TSource> & { id: string },
   >(source: TSource, options?: CollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels>): Collection<TMapped> {
-    return createCollection<TOps, TSource, TMapped, TModels>(
+    const { instance, destroy } = createCollection<TOps, TSource, TMapped, TModels>(
       source,
       options,
       this._client,
       this._watcher.updates$,
       this._resolver,
     );
+
+    this._cleanups.push(destroy);
+
+    return instance;
   }
 
   public defineCollectionSync<
@@ -111,13 +136,17 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
     source: TSource,
     options?: CollectionSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
   ): CollectionSync<TMapped> {
-    return createCollectionSync<TOps, TSource, TMapped, TModels>(
+    const { instance, destroy } = createCollectionSync<TOps, TSource, TMapped, TModels>(
       source,
       options,
       this._client,
       this._watcher.updates$,
       this._resolver,
     );
+
+    this._cleanups.push(destroy);
+
+    return instance;
   }
 
   public defineLazyCollection<
@@ -127,25 +156,41 @@ export class Store<TOps extends OperationMap | undefined = undefined, TModels ex
     source: TSource,
     options?: LazyCollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels>,
   ): LazyCollection<TMapped> {
-    return createLazyCollection<TOps, TSource, TMapped, TModels>(
+    const { instance, destroy } = createLazyCollection<TOps, TSource, TMapped, TModels>(
       source,
       options,
       this._client,
       this._watcher.updates$,
       this._resolver,
     );
+
+    this._cleanups.push(destroy);
+
+    return instance;
   }
 
   public defineAssets(options?: AssetCollectionOptions | undefined): Assets {
-    return createAssetsCollection(options, this._client, this._watcher.updates$);
+    const { instance, destroy } = createAssetsCollection(options, this._client, this._watcher.updates$);
+
+    this._cleanups.push(destroy);
+
+    return instance;
   }
 
   public defineRoutes(options?: RouteCollectionOptions | undefined): Routes {
-    return createRoutesCollection(options, this._client, this._watcher.updates$, this._resolver);
+    const { instance, destroy } = createRoutesCollection(options, this._client, this._watcher.updates$, this._resolver);
+
+    this._cleanups.push(destroy);
+
+    return instance;
   }
 
   public defineI18nMessages(def: I18nMessageDef): I18nMessages {
-    return createI18nMessagesCollection(def, this._client, this._watcher.updates$);
+    const result = createI18nMessagesCollection(def, this._client, this._watcher.updates$);
+
+    this._cleanups.push(result.destroy);
+
+    return result;
   }
 
   public ping: () => Promise<void>;

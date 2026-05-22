@@ -1,12 +1,12 @@
 import type { ConnectionEvents, OperationMap, SourceDef } from '@contello/client';
 import type { MaybePromise, ReadonlyDeep } from 'projected';
-import type { Observable } from 'rxjs';
 import type { MapperContext } from './dependency-collector';
-
-export type Fetchable<T> = MaybePromise<T> | Observable<T>;
 
 /** Extracts the typed fragment result from a SourceDef. */
 export type ExtractSourceResult<S extends SourceDef<string, 'collection' | 'singleton'>> = NonNullable<S['__result']>;
+
+/** Internal — every `create*` definer returns its instance plus a `destroy` the Store invokes on teardown. */
+export type Created<T> = { instance: T; destroy: () => void };
 
 // ---------------------------------------------------------------------------
 // store
@@ -83,7 +83,7 @@ export type Loadable = {
 
 export type Singleton<T> = {
   readonly name: string;
-  readonly refresh$: Observable<void>;
+  readonly refresh$: AsyncIterable<void>;
   load(): Promise<void>;
   get(): MaybePromise<ReadonlyDeep<T>>;
   refresh(): void;
@@ -91,7 +91,7 @@ export type Singleton<T> = {
 
 export type SingletonSync<T> = {
   readonly name: string;
-  readonly refresh$: Observable<void>;
+  readonly refresh$: AsyncIterable<void>;
   load(): Promise<void>;
   get(): ReadonlyDeep<T>;
   refresh(): void;
@@ -121,7 +121,7 @@ export type CollectionSyncOptions<TRaw, TMapped extends { id: string }, TModels 
 
 export type Collection<T> = {
   readonly name: string;
-  readonly refresh$: Observable<string[]>;
+  readonly refresh$: AsyncIterable<string[]>;
   load(): Promise<void>;
   get(id: string): MaybePromise<ReadonlyDeep<T> | undefined>;
   get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
@@ -131,7 +131,7 @@ export type Collection<T> = {
 
 export type CollectionSync<T> = {
   readonly name: string;
-  readonly refresh$: Observable<string[]>;
+  readonly refresh$: AsyncIterable<string[]>;
   load(): Promise<void>;
   get(id: string): ReadonlyDeep<T> | undefined;
   get(ids: string[]): ReadonlyArray<ReadonlyDeep<T>>;
@@ -152,7 +152,7 @@ export type LazyCollectionOptions<TRaw, TMapped extends { id: string }, TModels 
 
 export type LazyCollection<T> = {
   readonly name: string;
-  readonly refresh$: Observable<string[]>;
+  readonly refresh$: AsyncIterable<string[]>;
   get(id: string): MaybePromise<ReadonlyDeep<T> | undefined>;
   get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   refresh(): void;

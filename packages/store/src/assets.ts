@@ -1,13 +1,14 @@
-import type {
-  ContelloClient,
-  DownloadResult,
-  ProxyResult,
-  UploadData,
-  UploadMetadata,
-  UploadOptions,
+import {
+  type AsyncIterableSubject,
+  type ContelloClient,
+  type DownloadResult,
+  type ProxyResult,
+  type UploadData,
+  type UploadMetadata,
+  type UploadOptions,
+  createAsyncIterableSubject,
 } from '@contello/client';
 import { ProjectedLazyMap, type ReadonlyDeep } from 'projected';
-import { type Observable, Subject } from 'rxjs';
 import { wrap } from './diagnostics';
 import {
   type StoreAssetFragment,
@@ -16,7 +17,7 @@ import {
   storeGetAssetsDocument,
 } from './generated/graphql';
 import { createLruCache } from './lru';
-import type { LazyCacheOptions } from './types';
+import type { Created, LazyCacheOptions } from './types';
 import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
@@ -43,7 +44,7 @@ export type AssetCollectionOptions = {
 };
 
 export type Assets = {
-  readonly refresh$: Observable<string[]>;
+  readonly refresh$: AsyncIterable<string[]>;
   get(id: string): Promise<ReadonlyDeep<StoreAsset> | undefined>;
   get(ids: string[]): Promise<ReadonlyDeep<StoreAsset[]>>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
@@ -73,8 +74,8 @@ function mapAsset(raw: StoreAssetFragment): StoreAsset {
 export function createAssetsCollection(
   def: AssetCollectionOptions | undefined,
   client: ContelloClient<any>,
-  updates$: Observable<UpdateBatch>,
-): Assets {
+  updates$: AsyncIterableSubject<UpdateBatch>,
+): Created<Assets> {
   const _def = {
     cache: {
       max: def?.cache?.max ?? 1000,
@@ -101,7 +102,7 @@ export function createAssetsCollection(
     cache,
   });
 
-  const refresh$ = new Subject<string[]>();
+  const refresh$ = createAsyncIterableSubject<string[]>();
 
   let lastRefreshKeys: string[] = [];
 
@@ -123,7 +124,7 @@ export function createAssetsCollection(
     () => {},
   );
 
-  updates$.subscribe((batch) => {
+  const unsubUpdates = updates$.subscribe((batch) => {
     if (batch.asset.length === 0) return;
 
     for (const event of batch.asset) {
@@ -134,30 +135,36 @@ export function createAssetsCollection(
   });
 
   return {
-    refresh$: refresh$.asObservable(),
+    instance: {
+      refresh$,
 
-    get(idOrIds: string | string[]): any {
-      return projected.get(idOrIds as string);
+      get(idOrIds: string | string[]): any {
+        return projected.get(idOrIds as string);
+      },
+
+      upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string> {
+        return client.upload(data, meta, options);
+      },
+
+      download(fileId: string): Promise<DownloadResult> {
+        return client.download(fileId);
+      },
+
+      proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult> {
+        return client.proxyHls(path, signal);
+      },
+
+      refresh() {
+        scheduleRefresh();
+      },
+
+      clear() {
+        projected.clear();
+      },
     },
-
-    upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string> {
-      return client.upload(data, meta, options);
-    },
-
-    download(fileId: string): Promise<DownloadResult> {
-      return client.download(fileId);
-    },
-
-    proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult> {
-      return client.proxyHls(path, signal);
-    },
-
-    refresh() {
-      scheduleRefresh();
-    },
-
-    clear() {
-      projected.clear();
+    destroy() {
+      unsubUpdates();
+      refresh$.complete();
     },
   };
 }

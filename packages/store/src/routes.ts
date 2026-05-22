@@ -1,12 +1,11 @@
-import type { ContelloClient } from '@contello/client';
+import { type AsyncIterableSubject, type ContelloClient, createAsyncIterableSubject } from '@contello/client';
 import { ProjectedLazyMap, type ReadonlyDeep } from 'projected';
-import { type Observable, Subject } from 'rxjs';
 import { wrap } from './diagnostics';
 import { type StoreGetRoutesQuery, storeGetRoutesDocument } from './generated/graphql';
 import { type LruCache, createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
-import type { LazyCacheOptions } from './types';
+import type { Created, LazyCacheOptions } from './types';
 import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
@@ -17,7 +16,7 @@ export type RouteCollectionOptions = {
 };
 
 export type Routes = {
-  readonly refresh$: Observable<string[]>;
+  readonly refresh$: AsyncIterable<string[]>;
   get(id: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
   get(ids: string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
   getByPath(path: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
@@ -121,9 +120,9 @@ function createRoutesCache(max: number, ttl: number | undefined): LruCache<strin
 export function createRoutesCollection(
   def: RouteCollectionOptions | undefined,
   client: ContelloClient<any>,
-  updates$: Observable<UpdateBatch>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
-): Routes {
+): Created<Routes> {
   const _def = {
     cache: {
       max: def?.cache?.max ?? 1000,
@@ -166,7 +165,7 @@ export function createRoutesCollection(
     cache,
   });
 
-  const refresh$ = new Subject<string[]>();
+  const refresh$ = createAsyncIterableSubject<string[]>();
 
   let lastRefreshKeys: string[] = [];
 
@@ -188,7 +187,7 @@ export function createRoutesCollection(
     () => {},
   );
 
-  updates$.subscribe((batch) => {
+  const unsubUpdates = updates$.subscribe((batch) => {
     const evicted: string[] = [];
 
     for (const event of batch.route) {
@@ -212,30 +211,36 @@ export function createRoutesCollection(
   });
 
   return {
-    refresh$: refresh$.asObservable(),
+    instance: {
+      refresh$,
 
-    get(idOrIds: string | string[]): any {
-      if (Array.isArray(idOrIds)) {
-        return projected.get(idOrIds.map((id) => ID_PREFIX + id));
-      }
+      get(idOrIds: string | string[]): any {
+        if (Array.isArray(idOrIds)) {
+          return projected.get(idOrIds.map((id) => ID_PREFIX + id));
+        }
 
-      return projected.get(ID_PREFIX + idOrIds);
+        return projected.get(ID_PREFIX + idOrIds);
+      },
+
+      getByPath(pathOrPaths: string | string[]): any {
+        if (Array.isArray(pathOrPaths)) {
+          return projected.get(pathOrPaths.map((p) => PATH_PREFIX + p));
+        }
+
+        return projected.get(PATH_PREFIX + pathOrPaths);
+      },
+
+      refresh() {
+        scheduleRefresh();
+      },
+
+      clear() {
+        projected.clear();
+      },
     },
-
-    getByPath(pathOrPaths: string | string[]): any {
-      if (Array.isArray(pathOrPaths)) {
-        return projected.get(pathOrPaths.map((p) => PATH_PREFIX + p));
-      }
-
-      return projected.get(PATH_PREFIX + pathOrPaths);
-    },
-
-    refresh() {
-      scheduleRefresh();
-    },
-
-    clear() {
-      projected.clear();
+    destroy() {
+      unsubUpdates();
+      refresh$.complete();
     },
   };
 }

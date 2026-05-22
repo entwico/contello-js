@@ -1,7 +1,7 @@
 import { createClient } from 'graphql-ws';
-import { Observable, firstValueFrom, map } from 'rxjs';
 import type { Agent } from 'undici';
 
+import { firstAsync } from './async-iterable-utils';
 import { decorateMessage, wrap } from './diagnostics';
 import {
   type DownloadResult,
@@ -16,7 +16,7 @@ import { ConnectionPool } from './pool';
 import { buildRpc } from './rpc';
 import type { OperationMap, Rpc } from './types';
 import { type UploadData, type UploadMetadata, type UploadOptions, upload as uploadAsset } from './upload';
-import { exponentialBackoff } from './utils';
+import { wsRetryWait } from './utils';
 
 export type ConnectionContext = {
   connectionId: string;
@@ -95,7 +95,7 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
         lazy: false,
         keepAlive: 30000,
         retryAttempts: Infinity,
-        retryWait: exponentialBackoff,
+        retryWait: wsRetryWait,
         shouldRetry: () => true,
         jsonMessageReplacer: (key, value) => {
           if (!key) {
@@ -129,7 +129,7 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
       });
     }, connections);
 
-    this._rpc = (operations ? buildRpc(operations, this) : undefined) as typeof this._rpc;
+    this._rpc = (operations ? buildRpc(operations, (q, v) => this.subscribe(q, v)) : undefined) as typeof this._rpc;
   }
 
   get rpc(): T extends OperationMap ? Rpc<T> : never {
@@ -150,16 +150,100 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
   }
 
   async ping(): Promise<void> {
-    // exlude from diagnostics to avoid noise
-    return ping((query) => firstValueFrom(this.subscribe(query)));
+    // excluded from diagnostics to avoid noise
+    return ping((query) => firstAsync(this.subscribe(query)));
   }
 
-  subscribe<TData>(query: string, variables?: Record<string, unknown> | undefined): Observable<TData> {
-    const wsClient = this._pool.get();
+  /**
+   * Open a subscription on the websocket. Each `[Symbol.asyncIterator]()` call (the implicit one
+   * from `for await`, or via `rxjs.from(this)`) starts a fresh server subscription and tears it
+   * down when the iterator is returned (`break`, error, or explicit stop).
+   */
+  subscribe<TData>(query: string, variables?: Record<string, unknown> | undefined): AsyncIterable<TData> {
+    const pool = this._pool;
 
-    return new Observable<{ data: TData }>((obs) => wsClient.subscribe({ query, variables }, obs)).pipe(
-      map((r) => r.data),
-    );
+    return {
+      [Symbol.asyncIterator](): AsyncIterator<TData> {
+        const wsClient = pool.get();
+        const queue: TData[] = [];
+        let pending: { resolve: (r: IteratorResult<TData>) => void; reject: (e: unknown) => void } | undefined;
+        let done = false;
+        let error: unknown;
+
+        const unsubscribe = wsClient.subscribe<TData>(
+          { query, variables },
+          {
+            next(msg) {
+              const value = msg.data;
+
+              if (value === undefined || value === null) {
+                return;
+              }
+
+              if (pending) {
+                const p = pending;
+
+                pending = undefined;
+                p.resolve({ value: value as TData, done: false });
+              } else {
+                queue.push(value as TData);
+              }
+            },
+            error(err) {
+              done = true;
+              error = err;
+
+              if (pending) {
+                const p = pending;
+
+                pending = undefined;
+                p.reject(err);
+              }
+            },
+            complete() {
+              done = true;
+
+              if (pending) {
+                const p = pending;
+
+                pending = undefined;
+                p.resolve({ value: undefined as unknown as TData, done: true });
+              }
+            },
+          },
+        );
+
+        return {
+          next(): Promise<IteratorResult<TData>> {
+            if (queue.length > 0) {
+              return Promise.resolve({ value: queue.shift()!, done: false });
+            }
+
+            if (error !== undefined) {
+              return Promise.reject(error);
+            }
+
+            if (done) {
+              return Promise.resolve({ value: undefined as unknown as TData, done: true });
+            }
+
+            return new Promise<IteratorResult<TData>>((resolve, reject) => {
+              pending = { resolve, reject };
+            });
+          },
+          return(): Promise<IteratorResult<TData>> {
+            unsubscribe();
+
+            return Promise.resolve({ value: undefined as unknown as TData, done: true });
+          },
+          throw(err): Promise<IteratorResult<TData>> {
+            unsubscribe();
+
+            return Promise.reject(err);
+          },
+        };
+      },
+    };
   }
 
   download(fileId: string): Promise<DownloadResult> {
@@ -177,7 +261,7 @@ export class ContelloClient<T extends OperationMap | undefined = undefined> {
   }
 
   execute<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData> {
-    return wrap('@contello/client:execute', () => firstValueFrom(this.subscribe<TData>(query, variables)));
+    return wrap('@contello/client:execute', () => firstAsync(this.subscribe<TData>(query, variables)));
   }
 }
 

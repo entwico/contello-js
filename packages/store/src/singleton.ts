@@ -1,17 +1,27 @@
-import type { ContelloClient, OperationMap, SourceDef } from '@contello/client';
+import {
+  type AsyncIterableSubject,
+  type ContelloClient,
+  type OperationMap,
+  type SourceDef,
+  createAsyncIterableSubject,
+  firstAsync,
+  mapAsync,
+} from '@contello/client';
 import { type MaybePromise, ProjectedValue, type ReadonlyDeep, maybeThen } from 'projected';
-import { type Observable, Subject, firstValueFrom, map as rxMap } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import type { ModelResolver } from './model-resolver';
 import { createSourceSubscription } from './source-subscription';
-import type { ExtractSourceResult, Singleton, SingletonOptions, SingletonSync, SingletonSyncOptions } from './types';
+import type {
+  Created,
+  ExtractSourceResult,
+  Singleton,
+  SingletonOptions,
+  SingletonSync,
+  SingletonSyncOptions,
+} from './types';
 import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
-
-export type InternalSingleton<T> = Singleton<T>;
-
-export type InternalSingletonSync<T> = SingletonSync<T>;
 
 export function createSingleton<
   TOps extends OperationMap | undefined,
@@ -22,9 +32,9 @@ export function createSingleton<
   source: TSource,
   options: SingletonOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
-  updates$: Observable<UpdateBatch>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
-): InternalSingleton<TMapped> {
+): Created<Singleton<TMapped>> {
   const opts = options ?? {};
   const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
   const _def = {
@@ -44,10 +54,11 @@ export function createSingleton<
     value: () =>
       wrap(`singleton:${_def.name}`, () =>
         maybeThen(
-          firstValueFrom(
-            client
-              .subscribe<{ source: ExtractSourceResult<TSource> }>(createSourceSubscription(source))
-              .pipe(rxMap((r) => r.source)),
+          firstAsync(
+            mapAsync(
+              client.subscribe<{ source: ExtractSourceResult<TSource> }>(createSourceSubscription(source)),
+              (r) => r.source,
+            ),
           ),
           (raw) =>
             dependencyCollector.createContext((ref, register) =>
@@ -61,7 +72,7 @@ export function createSingleton<
       ),
   });
 
-  const refresh$ = new Subject<void>();
+  const refresh$ = createAsyncIterableSubject<void>();
 
   const scheduleRefresh = createRefresher(
     () => projected.refresh(),
@@ -78,7 +89,7 @@ export function createSingleton<
 
   let loaded = false;
 
-  updates$.subscribe((batch) => {
+  const unsubUpdates = updates$.subscribe((batch) => {
     if (!loaded) {
       return;
     }
@@ -101,27 +112,34 @@ export function createSingleton<
   });
 
   return {
-    name: _def.name,
-    refresh$: refresh$.asObservable(),
+    instance: {
+      name: _def.name,
+      refresh$,
 
-    get(): MaybePromise<ReadonlyDeep<TMapped>> {
-      return projected.get();
+      get(): MaybePromise<ReadonlyDeep<TMapped>> {
+        return projected.get();
+      },
+
+      refresh() {
+        scheduleRefresh();
+      },
+
+      async load() {
+        await projected.get();
+
+        loaded = true;
+
+        if (_def.cache.ttl !== undefined) {
+          timer = setTimeout(scheduleRefresh, _def.cache.ttl);
+        }
+
+        opts.onLoad?.();
+      },
     },
-
-    refresh() {
-      scheduleRefresh();
-    },
-
-    async load() {
-      await projected.get();
-
-      loaded = true;
-
-      if (_def.cache.ttl !== undefined) {
-        timer = setTimeout(scheduleRefresh, _def.cache.ttl);
-      }
-
-      opts.onLoad?.();
+    destroy() {
+      unsubUpdates();
+      clearTimeout(timer);
+      refresh$.complete();
     },
   };
 }
@@ -135,22 +153,31 @@ export function createSingletonSync<
   source: TSource,
   options: SingletonSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
-  updates$: Observable<UpdateBatch>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
-): InternalSingletonSync<TMapped> {
-  const base = createSingleton<TOps, TSource, TMapped, TModels>(source, options, client, updates$, resolver);
+): Created<SingletonSync<TMapped>> {
+  const { instance: base, destroy } = createSingleton<TOps, TSource, TMapped, TModels>(
+    source,
+    options,
+    client,
+    updates$,
+    resolver,
+  );
 
   return {
-    ...base,
+    instance: {
+      ...base,
 
-    get(): ReadonlyDeep<TMapped> {
-      const result = base.get();
+      get(): ReadonlyDeep<TMapped> {
+        const result = base.get();
 
-      if (result instanceof Promise) {
-        throw new Error(`singleton "${base.name}" is not initialized yet — call singleton.load() first`);
-      }
+        if (result instanceof Promise) {
+          throw new Error(`singleton "${base.name}" is not initialized yet — call singleton.load() first`);
+        }
 
-      return result;
+        return result;
+      },
     },
+    destroy,
   };
 }

@@ -1,6 +1,11 @@
-import type { ContelloClient } from '@contello/client';
+import {
+  type AsyncIterableSubject,
+  type ContelloClient,
+  collectAsync,
+  createAsyncIterableSubject,
+  mapAsync,
+} from '@contello/client';
 import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
-import { type Observable, Subject, map } from 'rxjs';
 import { wrap } from './diagnostics';
 import {
   type ContelloI18nMessageInput,
@@ -10,7 +15,7 @@ import {
   storeRegisterI18nMessagesDocument,
 } from './generated/graphql';
 
-import { collect, createRefresher } from './utils';
+import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type I18nTranslation = {
@@ -51,11 +56,13 @@ export type I18nMessage = {
 };
 
 export type I18nMessages = {
-  readonly refresh$: Observable<string[]>;
+  readonly refresh$: AsyncIterable<string[]>;
   get(id: string): MaybePromise<ReadonlyDeep<I18nMessage> | undefined>;
   get(ids: string[]): MaybePromise<ReadonlyDeep<I18nMessage[]>>;
   getAll(): MaybePromise<ReadonlyDeep<I18nMessage[]>>;
   register(messages: I18nMessageRegistrationDefinition[]): Promise<void>;
+  /** Completes refresh$ and detaches from the watcher — called by `Store.destroy()`. */
+  destroy(): void;
 };
 
 function toGqlMessageInput(msg: I18nMessageRegistrationDefinition): ContelloI18nMessageInput {
@@ -72,16 +79,19 @@ function toGqlMessageInput(msg: I18nMessageRegistrationDefinition): ContelloI18n
 export function createI18nMessagesCollection(
   def: I18nMessageDef,
   client: ContelloClient<any>,
-  updates$: Observable<UpdateBatch>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
 ): I18nMessages {
   const projected = new ProjectedMap<string, I18nMessage>({
     key: (msg) => msg.id,
     values: () =>
       wrap(`i18n:${def.collection}`, () =>
-        collect(
-          client
-            .subscribe<StoreGetI18nMessagesSubscription>(storeGetI18nMessagesDocument, { collection: def.collection })
-            .pipe(map((data) => data.contelloI18nMessagesBatch)),
+        collectAsync(
+          mapAsync(
+            client.subscribe<StoreGetI18nMessagesSubscription>(storeGetI18nMessagesDocument, {
+              collection: def.collection,
+            }),
+            (data) => data.contelloI18nMessagesBatch,
+          ),
         ).then((msgs) =>
           msgs.map((msg) => ({
             id: msg.id,
@@ -92,7 +102,7 @@ export function createI18nMessagesCollection(
       ),
   });
 
-  const refresh$ = new Subject<string[]>();
+  const refresh$ = createAsyncIterableSubject<string[]>();
 
   const scheduleRefresh = createRefresher(
     () => projected.refresh(),
@@ -104,14 +114,14 @@ export function createI18nMessagesCollection(
     () => {},
   );
 
-  updates$.subscribe((batch) => {
+  const unsubUpdates = updates$.subscribe((batch) => {
     if (batch.i18nMessage.length > 0) {
       scheduleRefresh();
     }
   });
 
   return {
-    refresh$: refresh$.asObservable(),
+    refresh$,
 
     get(idOrIds: string | string[]): any {
       return projected.get(idOrIds as string);
@@ -130,6 +140,11 @@ export function createI18nMessagesCollection(
           })
           .then(() => {}),
       );
+    },
+
+    destroy() {
+      unsubUpdates();
+      refresh$.complete();
     },
   };
 }

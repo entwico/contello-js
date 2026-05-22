@@ -29,7 +29,6 @@ export type {
   CollectionSyncOptions,
   CreateStoreOptions,
   ExtractSourceResult,
-  Fetchable,
   LazyCacheOptions,
   Loadable,
   LazyCollection,

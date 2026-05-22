@@ -1,12 +1,19 @@
-import type { ContelloClient, OperationMap, SourceDef } from '@contello/client';
+import {
+  type AsyncIterableSubject,
+  type ContelloClient,
+  type OperationMap,
+  type SourceDef,
+  createAsyncIterableSubject,
+  firstAsync,
+  mapAsync,
+} from '@contello/client';
 import { ProjectedLazyMap, maybeThen } from 'projected';
-import { type Observable, Subject, firstValueFrom, map as rxMap } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import { createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
 import { createSourceSubscription } from './source-subscription';
-import type { ExtractSourceResult, LazyCollection, LazyCollectionOptions } from './types';
+import type { Created, ExtractSourceResult, LazyCollection, LazyCollectionOptions } from './types';
 import { createRefresher } from './utils';
 import type { UpdateBatch } from './watcher';
 
@@ -19,9 +26,9 @@ export function createLazyCollection<
   source: TSource,
   options: LazyCollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
-  updates$: Observable<UpdateBatch>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
-): LazyCollection<TMapped> {
+): Created<LazyCollection<TMapped>> {
   const opts = options ?? {};
   const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
   const _def = {
@@ -45,10 +52,13 @@ export function createLazyCollection<
     values: (keys) =>
       wrap(`lazy-collection:${_def.name}`, () =>
         maybeThen(
-          firstValueFrom(
-            client
-              .subscribe<{ source: ExtractSourceResult<TSource>[] }>(createSourceSubscription(source), { ids: keys })
-              .pipe(rxMap((r) => r.source)),
+          firstAsync(
+            mapAsync(
+              client.subscribe<{ source: ExtractSourceResult<TSource>[] }>(createSourceSubscription(source), {
+                ids: keys,
+              }),
+              (r) => r.source,
+            ),
           ),
           (rawItems) =>
             Promise.all(
@@ -67,7 +77,7 @@ export function createLazyCollection<
     cache,
   });
 
-  const refresh$ = new Subject<string[]>();
+  const refresh$ = createAsyncIterableSubject<string[]>();
 
   let lastRefreshKeys: string[] = [];
 
@@ -90,7 +100,7 @@ export function createLazyCollection<
     () => {},
   );
 
-  updates$.subscribe((batch) => {
+  const unsubUpdates = updates$.subscribe((batch) => {
     const evicted = new Set<string>();
     const ownModelEvents = batch.entity.get(_def.model);
 
@@ -119,21 +129,30 @@ export function createLazyCollection<
     }
   });
 
+  // suppress unused warning for scheduleRefresh; consumers call refresh()
+  void scheduleRefresh;
+
   return {
-    name: _def.name,
-    refresh$: refresh$.asObservable(),
+    instance: {
+      name: _def.name,
+      refresh$,
 
-    get(idOrIds: string | string[]): any {
-      return projected.get(idOrIds as string);
+      get(idOrIds: string | string[]): any {
+        return projected.get(idOrIds as string);
+      },
+
+      refresh() {
+        scheduleRefresh();
+      },
+
+      clear() {
+        dependencyCollector.clear();
+        projected.clear();
+      },
     },
-
-    refresh() {
-      scheduleRefresh();
-    },
-
-    clear() {
-      dependencyCollector.clear();
-      projected.clear();
+    destroy() {
+      unsubUpdates();
+      refresh$.complete();
     },
   };
 }

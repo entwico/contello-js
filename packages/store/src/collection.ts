@@ -1,7 +1,14 @@
-import type { ContelloClient, OperationMap, SourceDef } from '@contello/client';
-import { retryBackoff } from 'backoff-rxjs';
+import {
+  type AsyncIterableSubject,
+  type ContelloClient,
+  type OperationMap,
+  type SourceDef,
+  createAsyncIterableSubject,
+  firstAsync,
+  mapAsync,
+  runWithBackoff,
+} from '@contello/client';
 import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
-import { type Observable, Subject, defer, firstValueFrom, map as rxMap } from 'rxjs';
 import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import type { ModelResolver } from './model-resolver';
@@ -11,34 +18,22 @@ import type {
   CollectionOptions,
   CollectionSync,
   CollectionSyncOptions,
+  Created,
   ExtractSourceResult,
 } from './types';
 import type { UpdateBatch } from './watcher';
-
-export type InternalCollection<T> = Collection<T>;
-
-export type InternalCollectionSync<T> = CollectionSync<T>;
 
 function fetchCollection<S extends SourceDef<string, 'collection'>>(
   source: S,
   client: ContelloClient<any>,
   ids: string[] | undefined,
 ): Promise<ExtractSourceResult<S>[]> {
-  return firstValueFrom(
-    client
-      .subscribe<{ source: ExtractSourceResult<S>[] }>(createSourceSubscription(source), { ids })
-      .pipe(rxMap((r) => r.source)),
+  return firstAsync(
+    mapAsync(
+      client.subscribe<{ source: ExtractSourceResult<S>[] }>(createSourceSubscription(source), { ids }),
+      (r) => r.source,
+    ),
   );
-}
-
-/**
- * Runs `fn` with exponential-backoff retry. Used so a transient fetch error doesn't leave
- * the cache stale until the next watcher event — the refresh retries on its own.
- */
-function withRetry(fn: () => Promise<unknown>): void {
-  defer(fn)
-    .pipe(retryBackoff({ initialInterval: 100, maxInterval: 10_000 }))
-    .subscribe({ error: () => undefined });
 }
 
 export function createCollection<
@@ -50,9 +45,9 @@ export function createCollection<
   source: TSource,
   options: CollectionOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
-  updates$: Observable<UpdateBatch>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
-): InternalCollection<TMapped> {
+): Created<Collection<TMapped>> {
   const opts = options ?? {};
   const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
   const _def = {
@@ -101,7 +96,7 @@ export function createCollection<
     sort: opts.sort,
   });
 
-  const refresh$ = new Subject<string[]>();
+  const refresh$ = createAsyncIterableSubject<string[]>();
   let loaded = false;
 
   function scheduleTtl(): void {
@@ -117,7 +112,7 @@ export function createCollection<
   }
 
   function runFullRefresh(): void {
-    withRetry(() =>
+    void runWithBackoff(() =>
       projected.refresh().then((map) => {
         const ids = [...map.keys()];
 
@@ -139,7 +134,7 @@ export function createCollection<
       return;
     }
 
-    withRetry(() =>
+    void runWithBackoff(() =>
       projected.refresh(refreshIds).then(() => {
         refresh$.next(changedIds);
         opts.onRefresh?.(changedIds);
@@ -147,7 +142,7 @@ export function createCollection<
     );
   }
 
-  updates$.subscribe((batch) => {
+  const unsubUpdates = updates$.subscribe((batch) => {
     if (!loaded) {
       return;
     }
@@ -200,9 +195,9 @@ export function createCollection<
     runPartialRefresh([...refreshIds], deleted);
   });
 
-  const instance: InternalCollection<TMapped> = {
+  const instance: Collection<TMapped> = {
     name: _def.name,
-    refresh$: refresh$.asObservable(),
+    refresh$,
 
     get(idOrIds: string | string[]): any {
       return projected.get(idOrIds as string);
@@ -227,7 +222,14 @@ export function createCollection<
     },
   };
 
-  return instance;
+  return {
+    instance,
+    destroy() {
+      unsubUpdates();
+      clearTimeout(ttlTimer);
+      refresh$.complete();
+    },
+  };
 }
 
 export function createCollectionSync<
@@ -239,10 +241,16 @@ export function createCollectionSync<
   source: TSource,
   options: CollectionSyncOptions<ExtractSourceResult<TSource>, TMapped, TModels> | undefined,
   client: ContelloClient<TOps>,
-  updates$: Observable<UpdateBatch>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
-): InternalCollectionSync<TMapped> {
-  const base = createCollection<TOps, TSource, TMapped, TModels>(source, options, client, updates$, resolver);
+): Created<CollectionSync<TMapped>> {
+  const { instance: base, destroy } = createCollection<TOps, TSource, TMapped, TModels>(
+    source,
+    options,
+    client,
+    updates$,
+    resolver,
+  );
 
   function assertSync<T>(value: MaybePromise<T>, method: string): T {
     if (value instanceof Promise) {
@@ -253,12 +261,15 @@ export function createCollectionSync<
   }
 
   return {
-    ...base,
-    get(idOrIds: string | string[]): any {
-      return assertSync(base.get(idOrIds as string), 'get');
+    instance: {
+      ...base,
+      get(idOrIds: string | string[]): any {
+        return assertSync(base.get(idOrIds as string), 'get');
+      },
+      getAll(): ReadonlyArray<ReadonlyDeep<TMapped>> {
+        return assertSync(base.getAll(), 'getAll');
+      },
     },
-    getAll(): ReadonlyArray<ReadonlyDeep<TMapped>> {
-      return assertSync(base.getAll(), 'getAll');
-    },
+    destroy,
   };
 }

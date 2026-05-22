@@ -1,5 +1,3 @@
-import type { Observable } from 'rxjs';
-
 export type OperationKind = 'query' | 'mutation' | 'subscription';
 
 export type OperationDef<
@@ -22,8 +20,8 @@ export type InferVariables<T extends OperationDef> = NonNullable<T['__variables'
 
 export type RpcMethod<T extends OperationDef> = T['kind'] extends 'subscription'
   ? InferVariables<T> extends Record<string, never>
-    ? () => Observable<InferResult<T>>
-    : (variables: InferVariables<T>) => Observable<InferResult<T>>
+    ? () => AsyncIterable<InferResult<T>>
+    : (variables: InferVariables<T>) => AsyncIterable<InferResult<T>>
   : InferVariables<T> extends Record<string, never>
     ? () => Promise<InferResult<T>>
     : (variables: InferVariables<T>) => Promise<InferResult<T>>;

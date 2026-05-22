@@ -121,7 +121,7 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   private _assets: Assets | undefined;
   private _routes: Routes | undefined;
   private _i18nMessages: I18nMessages | undefined;
-  private _i18nSubscription: { unsubscribe(): void } | undefined;
+  private _i18nUnsubscribe: (() => void) | undefined;
   private _initialized = false;
   private readonly _als = new AsyncLocalStorage<ContelloRequestContext>();
 
@@ -168,8 +168,20 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
           await applyTranslations(this._i18nMessages);
 
           const messages = this._i18nMessages;
+          const controller = new AbortController();
 
-          this._i18nSubscription = messages.refresh$.subscribe(() => applyTranslations(messages));
+          this._i18nUnsubscribe = () => controller.abort();
+
+          // background loop: re-apply translations on every refresh until destroy()
+          void (async () => {
+            for await (const _ of messages.refresh$) {
+              if (controller.signal.aborted) {
+                return;
+              }
+
+              await applyTranslations(messages);
+            }
+          })();
         }
       }
 
@@ -188,8 +200,8 @@ export class Contello<TOps extends OperationMap | undefined = undefined, TModels
   async destroy(): Promise<void> {
     this._initialized = false;
 
-    this._i18nSubscription?.unsubscribe();
-    this._i18nSubscription = undefined;
+    this._i18nUnsubscribe?.();
+    this._i18nUnsubscribe = undefined;
 
     await this._store.destroy();
 
