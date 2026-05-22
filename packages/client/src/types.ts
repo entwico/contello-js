@@ -88,7 +88,7 @@ type SourceFetcherFor<S> =
             ? (vars: { collection: string }) => Promise<R[]>
             : never;
 
-/** Per-model runtime accessor: `client.sources.category()` → `Promise<CategoryFragment[]>` etc. */
-export type SourceFetchers<TSources extends SourceMap> = {
-  [K in keyof TSources]: SourceFetcherFor<TSources[K]>;
+/** Per-source runtime accessor: `client.sources.category.fetch()` → `Promise<CategoryFragment[]>` etc. */
+export type SourceAccessors<TSources extends SourceMap> = {
+  [K in keyof TSources]: { fetch: SourceFetcherFor<TSources[K]> };
 };

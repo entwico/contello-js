@@ -15,7 +15,7 @@ import { ping } from './ping';
 import { ConnectionPool } from './pool';
 import { buildRpc } from './rpc';
 import { createSources } from './sources';
-import type { Rpc, Schema, SourceFetchers } from './types';
+import type { Rpc, Schema, SourceAccessors } from './types';
 import { type UploadData, type UploadMetadata, type UploadOptions, upload as uploadAsset } from './upload';
 import { wsRetryWait } from './utils';
 
@@ -49,7 +49,7 @@ type PoolState = 'disconnected' | 'connected' | 'reconnecting';
 export class ContelloClient<TSchema extends Schema | undefined = undefined> {
   private _pool: ConnectionPool;
   private _rpc: TSchema extends Schema<infer TOps, any, any> ? Rpc<TOps> : undefined;
-  private _sources: TSchema extends Schema<any, infer TSources, any> ? SourceFetchers<TSources> : undefined;
+  private _sources: TSchema extends Schema<any, infer TSources, any> ? SourceAccessors<TSources> : undefined;
   private _url: string;
   private _project: string;
   private _token: string;
@@ -148,7 +148,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     return this._rpc as any;
   }
 
-  get sources(): TSchema extends Schema<any, infer TSources, any> ? SourceFetchers<TSources> : never {
+  get sources(): TSchema extends Schema<any, infer TSources, any> ? SourceAccessors<TSources> : never {
     if (!this._sources) {
       throw new Error('@contello/client: .sources accessed without a schema containing sources');
     }

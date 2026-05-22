@@ -8,7 +8,7 @@ export type {
   Schema,
   SourceCardinality,
   SourceDef,
-  SourceFetchers,
+  SourceAccessors,
   SourceMap,
 } from './types';
 export { createSourceSubscription } from './source-subscription';
