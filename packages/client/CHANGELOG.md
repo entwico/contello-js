@@ -1,5 +1,17 @@
 # @contello/client
 
+## 2.0.0
+
+### Major Changes
+
+- 1a787d4: `client.subscribe()` and `client.rpc.<subscription>()` now return `AsyncIterable<T>`. Iterate with `for await` or wrap with `rxjs.from(...)` if you need rxjs operators. `rxjs` is no longer a peer dependency.
+- 147d2e5: codegen now emits a single `export const schema = { operations, sources, models }`
+
+### Minor Changes
+
+- 1a787d4: new async-iterable utils + subject
+- 147d2e5: `client.sources.*` typed one-shot fetcher for every source in the schema
+
 ## 1.2.2
 
 ### Patch Changes
