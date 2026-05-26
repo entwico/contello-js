@@ -24,6 +24,7 @@ import type {
   SingletonSyncOptions,
   SourceKeysOf,
 } from './types';
+import { type RefreshByTtlQueue, createRefreshByTtlQueue } from './utils';
 import { type InternalWatcher, type UpdateBatch, createInternalWatcher } from './watcher';
 
 /** Project the model-reference-name union out of a Schema generic, falling back to `string`. */
@@ -45,6 +46,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
   private _watcher: InternalWatcher;
   private _schema: TSchema;
   private _cleanups: (() => void)[] = [];
+  private _refreshByTtl: RefreshByTtlQueue = createRefreshByTtlQueue();
 
   /**
    * Multicast update-batch stream from the watcher. Consume with `for await (const batch of updates$)`;
@@ -127,6 +129,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
       this._client,
       this._watcher.updates$,
       this._resolver,
+      this._refreshByTtl,
     );
 
     this._cleanups.push(destroy);
@@ -145,6 +148,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
       this._client,
       this._watcher.updates$,
       this._resolver,
+      this._refreshByTtl,
     );
 
     this._cleanups.push(destroy);
@@ -168,6 +172,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
       this._client,
       this._watcher.updates$,
       this._resolver,
+      this._refreshByTtl,
     );
 
     this._cleanups.push(destroy);
@@ -189,6 +194,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
       this._client,
       this._watcher.updates$,
       this._resolver,
+      this._refreshByTtl,
     );
 
     this._cleanups.push(destroy);

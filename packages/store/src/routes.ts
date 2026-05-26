@@ -6,7 +6,7 @@ import { type LruCache, createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import type { Created, LazyCacheOptions } from './types';
-import { createRefresher } from './utils';
+import { createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type { StoreRoute, StoreRouteCustomHeader } from './routes-mapping';
@@ -126,7 +126,7 @@ export function createRoutesCollection(
   const _def = {
     cache: {
       max: def?.cache?.max ?? 1000,
-      ttl: def?.cache?.ttl,
+      ttl: resolveTtl(def?.cache?.ttl),
     },
   };
 

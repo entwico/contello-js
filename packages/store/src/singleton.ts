@@ -6,6 +6,7 @@ import {
   createSourceSubscription,
   firstAsync,
   mapAsync,
+  runWithBackoff,
 } from '@contello/client';
 import { type MaybePromise, ProjectedValue, type ReadonlyDeep, maybeThen } from 'projected';
 import { DependencyCollector } from './dependency-collector';
@@ -19,7 +20,7 @@ import type {
   SingletonSync,
   SingletonSyncOptions,
 } from './types';
-import { createRefresher } from './utils';
+import { type RefreshByTtlQueue, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createSingleton<
@@ -32,6 +33,7 @@ export function createSingleton<
   client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
+  refreshByTtl: RefreshByTtlQueue,
 ): Created<Singleton<TMapped>> {
   const opts = options ?? {};
   const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
@@ -39,7 +41,7 @@ export function createSingleton<
     name: opts.name ?? source.__model,
     model: source.__model,
     cache: {
-      ttl: opts.cache?.ttl,
+      ttl: resolveTtl(opts.cache?.ttl),
       eviction: opts.cache?.eviction ?? 'refresh',
     },
   };
@@ -47,6 +49,7 @@ export function createSingleton<
   const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
   const itemKey = `singleton:${_def.name}`;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let loaded = false;
 
   const projected = new ProjectedValue<TMapped>({
     value: () =>
@@ -63,6 +66,13 @@ export function createSingleton<
               maybeThen(mapFn(raw, ref), (mapped) => {
                 register(itemKey);
 
+                // start tracking refresh by ttl on first successful full fetch
+                if (!loaded) {
+                  loaded = true;
+                  scheduleTtl();
+                  opts.onLoad?.();
+                }
+
                 return mapped;
               }),
             ),
@@ -72,20 +82,35 @@ export function createSingleton<
 
   const refresh$ = createAsyncIterableSubject<void>();
 
+  function scheduleTtl(): void {
+    clearTimeout(timer);
+
+    if (_def.cache.ttl === undefined) {
+      return;
+    }
+
+    timer = setTimeout(runTtlRefresh, _def.cache.ttl);
+  }
+
+  function runTtlRefresh(): void {
+    refreshByTtl.enqueue(() =>
+      runWithBackoff(() => projected.refresh()).then(() => {
+        refresh$.next();
+        opts.onRefresh?.();
+        scheduleTtl();
+      }),
+    );
+  }
+
   const scheduleRefresh = createRefresher(
     () => projected.refresh(),
     () => {
       refresh$.next();
       opts.onRefresh?.();
-
-      if (_def.cache.ttl !== undefined) {
-        timer = setTimeout(scheduleRefresh, _def.cache.ttl);
-      }
+      scheduleTtl();
     },
-    () => clearTimeout(timer),
+    () => {},
   );
-
-  let loaded = false;
 
   const unsubUpdates = updates$.subscribe((batch) => {
     if (!loaded) {
@@ -123,15 +148,9 @@ export function createSingleton<
       },
 
       async load() {
-        await projected.get();
-
-        loaded = true;
-
-        if (_def.cache.ttl !== undefined) {
-          timer = setTimeout(scheduleRefresh, _def.cache.ttl);
+        if (!loaded) {
+          await projected.get();
         }
-
-        opts.onLoad?.();
       },
     },
     destroy() {
@@ -152,6 +171,7 @@ export function createSingletonSync<
   client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
+  refreshByTtl: RefreshByTtlQueue,
 ): Created<SingletonSync<TMapped>> {
   const { instance: base, destroy } = createSingleton<TSource, TMapped, TModels>(
     source,
@@ -159,6 +179,7 @@ export function createSingletonSync<
     client,
     updates$,
     resolver,
+    refreshByTtl,
   );
 
   return {

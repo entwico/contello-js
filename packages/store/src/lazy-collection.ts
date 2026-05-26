@@ -13,7 +13,7 @@ import { wrap } from './diagnostics';
 import { createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
 import type { Created, ExtractSourceResult, LazyCollection, LazyCollectionOptions } from './types';
-import { createRefresher } from './utils';
+import { createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createLazyCollection<
@@ -34,7 +34,7 @@ export function createLazyCollection<
     model: source.__model,
     cache: {
       max: opts.cache?.max ?? 1000,
-      ttl: opts.cache?.ttl,
+      ttl: resolveTtl(opts.cache?.ttl),
     },
   };
 

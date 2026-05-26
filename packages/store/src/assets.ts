@@ -18,7 +18,7 @@ import {
 } from './generated/graphql';
 import { createLruCache } from './lru';
 import type { Created, LazyCacheOptions } from './types';
-import { createRefresher } from './utils';
+import { createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type StoreFileMetadata = {
@@ -79,7 +79,7 @@ export function createAssetsCollection(
   const _def = {
     cache: {
       max: def?.cache?.max ?? 1000,
-      ttl: def?.cache?.ttl,
+      ttl: resolveTtl(def?.cache?.ttl),
     },
   };
 

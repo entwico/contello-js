@@ -1,6 +1,24 @@
 import { runWithBackoff } from '@contello/client';
 
 /**
+ * default `cache.ttl` applied across all store kinds. eager stores (collections, singletons)
+ * use it as the interval for a periodic full refresh; lazy stores use it as the per-item
+ * LRU eviction window. 3 hours.
+ */
+export const DEFAULT_TTL_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * resolves the consumer-supplied `ttl` (number | false | undefined) into a runtime
+ * value: undefined → default, false or 0 → disabled (undefined), positive → as-is.
+ */
+export function resolveTtl(ttl: number | false | undefined): number | undefined {
+  if (ttl === undefined) return DEFAULT_TTL_MS;
+  if (ttl === false || ttl <= 0) return undefined;
+
+  return ttl;
+}
+
+/**
  * creates a coalescing refresh scheduler with exponential-backoff retry on failure.
  *
  * at most one refresh runs at a time. if a new refresh is requested while one is in-flight,
@@ -36,4 +54,44 @@ export function createRefresher(fn: () => Promise<unknown>, onRefreshed: () => v
   }
 
   return scheduleRefresh;
+}
+
+/**
+ * FIFO queue for ttl-fired refreshes on eager stores.
+ * Concurrency is fixed at 1 to avoid DDOSing the server
+ */
+export type RefreshByTtlQueue = {
+  enqueue(task: () => Promise<unknown>): void;
+};
+
+export function createRefreshByTtlQueue(): RefreshByTtlQueue {
+  const waiting: (() => Promise<unknown>)[] = [];
+  let running = false;
+
+  function next(): void {
+    if (running) return;
+
+    const task = waiting.shift();
+
+    if (!task) return;
+
+    running = true;
+
+    Promise.resolve()
+      .then(task)
+      .catch(() => {
+        // misbehaving task — keep the queue draining
+      })
+      .finally(() => {
+        running = false;
+        next();
+      });
+  }
+
+  return {
+    enqueue(task) {
+      waiting.push(task);
+      next();
+    },
+  };
 }

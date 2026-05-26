@@ -209,8 +209,8 @@ importers:
         specifier: ^11.3.5
         version: 11.3.5
       projected:
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^3.0.1
+        version: 3.0.1
     devDependencies:
       '@contello/client':
         specifier: workspace:^
@@ -3386,8 +3386,8 @@ packages:
   process-warning@5.0.0:
     resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
 
-  projected@3.0.0:
-    resolution: {integrity: sha512-8MemiejT5V631axrReEUEy/FrcRJQmjdDxE3gtSE8ycODAKy8IOEV8/F5BUWE8A0EpLxQKS2YYQhqWhCFLTnSg==}
+  projected@3.0.1:
+    resolution: {integrity: sha512-XrrIO6dpqsVH8lpCz0g3bp9YGxetchnCgPiqYt+6AKpAx98PjpFWRh1XQgdWuK+x3ETJH1ORxUvsd2dmAu+wYg==}
 
   property-information@7.1.0:
     resolution: {integrity: sha512-TwEZ+X+yCJmYfL7TPUOcvBZ4QfoT5YenQiJuX//0th53DE6w0xxLEtfK3iyryQFddXuvkIk51EEgrJQ0WJkOmQ==}
@@ -7932,7 +7932,7 @@ snapshots:
 
   process-warning@5.0.0: {}
 
-  projected@3.0.0: {}
+  projected@3.0.1: {}
 
   property-information@7.1.0: {}
 

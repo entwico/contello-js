@@ -56,8 +56,11 @@ export type CreateStoreOptions<TSchema extends Schema | undefined = undefined> =
 
 /** Cache options for non-lazy collections and singletons. */
 export type CacheOptions = {
-  /** If set, the cache is refreshed automatically this many ms after each completed fetch. */
-  ttl?: number | undefined;
+  /**
+   * Periodic full refresh — guards against stale data from missed update events.
+   * Defaults to 3 hours; set `0` or `false` to disable.
+   */
+  ttl?: number | false | undefined;
   /**
    * Controls how the cache responds to Contello update events.
    * `'refresh'` (default) serves stale data while a partial fetch runs in the background (SWR);
@@ -70,16 +73,22 @@ export type CacheOptions = {
 
 /** Cache options for sync collections and singletons. `eviction` is omitted — clearing the cache would break the sync guarantee. */
 export type SyncCacheOptions = {
-  /** If set, the cache is refreshed automatically this many ms after each completed fetch. */
-  ttl?: number | undefined;
+  /**
+   * Periodic full refresh — guards against stale data from missed update events.
+   * Defaults to 3 hours; set `0` or `false` to disable.
+   */
+  ttl?: number | false | undefined;
 };
 
 /** Cache options for lazy collections. */
 export type LazyCacheOptions = {
   /** Maximum number of items kept in the LRU cache. Defaults to 1000. */
   max?: number | undefined;
-  /** Items are evicted from the LRU cache after this many ms. */
-  ttl?: number | undefined;
+  /**
+   * Per-item LRU eviction — expired items are dropped on next access and
+   * re-fetched lazily. Defaults to 3 hours; set `0` or `false` to disable.
+   */
+  ttl?: number | false | undefined;
 };
 
 // ---------------------------------------------------------------------------

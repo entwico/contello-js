@@ -20,6 +20,7 @@ import type {
   Created,
   ExtractSourceResult,
 } from './types';
+import { type RefreshByTtlQueue, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 function fetchCollection<S extends SourceDef<string, 'entity'>>(
@@ -45,6 +46,7 @@ export function createCollection<
   client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
+  refreshByTtl: RefreshByTtlQueue,
 ): Created<Collection<TMapped>> {
   const opts = options ?? {};
   const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
@@ -52,7 +54,7 @@ export function createCollection<
     name: opts.name ?? source.__model,
     model: source.__model,
     cache: {
-      ttl: opts.cache?.ttl,
+      ttl: resolveTtl(opts.cache?.ttl),
       eviction: opts.cache?.eviction ?? 'refresh',
     },
   };
@@ -77,6 +79,13 @@ export function createCollection<
           ).then((items) => {
             if (ids === undefined) {
               dependencyCollector.retainOnly(new Set(items.map((item) => item.id)));
+
+              // start tracking refresh by ttl on first successful full fetch
+              if (!loaded) {
+                loaded = true;
+                scheduleTtl();
+                opts.onLoad?.(items.map((item) => item.id));
+              }
             } else {
               const returnedIds = new Set(items.map((item) => item.id));
 
@@ -110,15 +119,17 @@ export function createCollection<
   }
 
   function runFullRefresh(): void {
-    void runWithBackoff(() =>
-      projected.refresh().then((map) => {
-        const ids = [...map.keys()];
+    refreshByTtl.enqueue(() =>
+      runWithBackoff(() =>
+        projected.refresh().then((map) => {
+          const ids = [...map.keys()];
 
-        refresh$.next(ids);
-        opts.onRefresh?.(ids);
+          refresh$.next(ids);
+          opts.onRefresh?.(ids);
 
-        scheduleTtl();
-      }),
+          scheduleTtl();
+        }),
+      ),
     );
   }
 
@@ -210,13 +221,9 @@ export function createCollection<
     },
 
     async load() {
-      const map = await projected.refresh();
-
-      loaded = true;
-
-      scheduleTtl();
-
-      opts.onLoad?.([...map.keys()]);
+      if (!loaded) {
+        await projected.getAllAsMap();
+      }
     },
   };
 
@@ -240,6 +247,7 @@ export function createCollectionSync<
   client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
+  refreshByTtl: RefreshByTtlQueue,
 ): Created<CollectionSync<TMapped>> {
   const { instance: base, destroy } = createCollection<TSource, TMapped, TModels>(
     source,
@@ -247,6 +255,7 @@ export function createCollectionSync<
     client,
     updates$,
     resolver,
+    refreshByTtl,
   );
 
   function assertSync<T>(value: MaybePromise<T>, method: string): T {

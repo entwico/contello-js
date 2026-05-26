@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "lru-cache": "^11.3.5",
-    "projected": "^3.0.0"
+    "projected": "^3.0.1"
   },
   "devDependencies": {
     "@contello/client": "workspace:^",
