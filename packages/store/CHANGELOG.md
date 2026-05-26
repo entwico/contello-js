@@ -1,5 +1,11 @@
 # @contello/store
 
+## 2.0.1
+
+### Patch Changes
+
+- properly return the whole collection from `client.sources.<X>.fetch()`, store collections, and lazy collections
+
 ## 2.0.0
 
 ### Major Changes

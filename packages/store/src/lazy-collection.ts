@@ -2,9 +2,9 @@ import {
   type AsyncIterableSubject,
   type ContelloClient,
   type SourceDef,
+  collectAsync,
   createAsyncIterableSubject,
   createSourceSubscription,
-  firstAsync,
   mapAsync,
 } from '@contello/client';
 import { ProjectedLazyMap, maybeThen } from 'projected';
@@ -50,7 +50,7 @@ export function createLazyCollection<
     values: (keys) =>
       wrap(`lazy-collection:${_def.name}`, () =>
         maybeThen(
-          firstAsync(
+          collectAsync(
             mapAsync(
               client.subscribe<{ source: ExtractSourceResult<TSource>[] }>(createSourceSubscription(source), {
                 ids: keys,

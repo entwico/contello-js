@@ -2,9 +2,9 @@ import {
   type AsyncIterableSubject,
   type ContelloClient,
   type SourceDef,
+  collectAsync,
   createAsyncIterableSubject,
   createSourceSubscription,
-  firstAsync,
   mapAsync,
   runWithBackoff,
 } from '@contello/client';
@@ -27,7 +27,7 @@ function fetchCollection<S extends SourceDef<string, 'entity'>>(
   client: ContelloClient<any>,
   ids: string[] | undefined,
 ): Promise<ExtractSourceResult<S>[]> {
-  return firstAsync(
+  return collectAsync(
     mapAsync(
       client.subscribe<{ source: ExtractSourceResult<S>[] }>(createSourceSubscription(source), { ids }),
       (r) => r.source,

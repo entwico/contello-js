@@ -1,4 +1,4 @@
-import { firstAsync, mapAsync } from './async-iterable-utils';
+import { collectAsync, firstAsync, mapAsync } from './async-iterable-utils';
 import { wrap } from './diagnostics';
 import { createSourceSubscription } from './source-subscription';
 import { transformResponse } from './transform-response';
@@ -30,7 +30,7 @@ export function createSources<TSources extends SourceMap>(
         out[name] = {
           fetch: (vars?: { ids?: string[] }) =>
             wrap(`source:${name}`, () =>
-              firstAsync(
+              collectAsync(
                 mapAsync(
                   subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
                   (r) => transformResponse(r).source,
@@ -44,7 +44,7 @@ export function createSources<TSources extends SourceMap>(
         out[name] = {
           fetch: () =>
             wrap(`source:${name}`, () =>
-              firstAsync(mapAsync(subscribe<{ source: unknown[] }>(doc), (r) => transformResponse(r).source)),
+              collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc), (r) => transformResponse(r).source)),
             ),
         };
         break;
@@ -52,7 +52,7 @@ export function createSources<TSources extends SourceMap>(
         out[name] = {
           fetch: (vars: { collection: string }) =>
             wrap(`source:${name}`, () =>
-              firstAsync(
+              collectAsync(
                 mapAsync(
                   subscribe<{ source: unknown[] }>(doc, { collection: vars.collection }),
                   (r) => transformResponse(r).source,
