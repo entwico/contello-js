@@ -5,7 +5,7 @@ import { type StoreGetRoutesQuery, storeGetRoutesDocument } from './generated/gr
 import { type LruCache, createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
-import type { Created, LazyCacheOptions } from './types';
+import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
 import { createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
@@ -16,7 +16,7 @@ export type RouteCollectionOptions = {
 };
 
 export type Routes = {
-  readonly refresh$: AsyncIterable<string[]>;
+  readonly refresh$: AsyncIterable<RefreshEvent>;
   get(id: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
   get(ids: string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
   getByPath(path: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
@@ -165,11 +165,15 @@ export function createRoutesCollection(
     cache,
   });
 
-  const refresh$ = createAsyncIterableSubject<string[]>();
+  const refresh$ = createAsyncIterableSubject<RefreshEvent>();
+
+  function emit(ids: string[], kind: RefreshKind): void {
+    refresh$.next({ ids, kind });
+  }
 
   let lastRefreshKeys: string[] = [];
 
-  const scheduleRefresh = createRefresher(
+  const scheduleRefresh = createRefresher<RefreshKind>(
     async () => {
       lastRefreshKeys = cache.keys();
 
@@ -179,9 +183,12 @@ export function createRoutesCollection(
 
       await projected.refresh(lastRefreshKeys);
     },
-    () => {
+    (kind) => {
       if (lastRefreshKeys.length > 0) {
-        refresh$.next(lastRefreshKeys.map((key) => key.slice(2)));
+        emit(
+          lastRefreshKeys.map((key) => key.slice(2)),
+          kind,
+        );
       }
     },
     () => {},
@@ -206,7 +213,7 @@ export function createRoutesCollection(
     }
 
     if (evicted.length > 0) {
-      refresh$.next(evicted);
+      emit(evicted, 'upstream-update');
     }
   });
 
@@ -231,7 +238,7 @@ export function createRoutesCollection(
       },
 
       refresh() {
-        scheduleRefresh();
+        scheduleRefresh('on-demand');
       },
 
       clear() {

@@ -27,6 +27,7 @@ import {
   type SourceKeysOf,
   type Store,
   type StoreRoute,
+  type SyncCacheOptions,
   createStore,
 } from '@contello/store';
 
@@ -43,6 +44,7 @@ export type ContelloRequestContext = {
 export type ContelloI18nOptions = {
   collection: string;
   languages: string[];
+  cache?: SyncCacheOptions | undefined;
 };
 
 export type ContelloInitOptions = {
@@ -158,10 +160,10 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
       this._routes = this._store.defineRoutes(this._options.routes);
 
       if (this._options.i18n) {
-        const { collection, languages } = this._options.i18n;
+        const { collection, languages, cache } = this._options.i18n;
         const { register = true, load = true } = options?.i18n ?? {};
 
-        this._i18nMessages = this._store.defineI18nMessages({ collection });
+        this._i18nMessages = this._store.defineI18nMessages({ collection, cache });
 
         await i18n.configure({ locales: languages });
 

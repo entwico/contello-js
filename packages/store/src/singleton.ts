@@ -15,8 +15,10 @@ import type { ModelResolver } from './model-resolver';
 import type {
   Created,
   ExtractSourceResult,
+  RefreshKind,
   Singleton,
   SingletonOptions,
+  SingletonRefreshEvent,
   SingletonSync,
   SingletonSyncOptions,
 } from './types';
@@ -80,7 +82,14 @@ export function createSingleton<
       ),
   });
 
-  const refresh$ = createAsyncIterableSubject<void>();
+  const refresh$ = createAsyncIterableSubject<SingletonRefreshEvent>();
+
+  function emit(kind: RefreshKind): void {
+    const event: SingletonRefreshEvent = { kind };
+
+    refresh$.next(event);
+    opts.onRefresh?.(event);
+  }
 
   function scheduleTtl(): void {
     clearTimeout(timer);
@@ -95,18 +104,16 @@ export function createSingleton<
   function runTtlRefresh(): void {
     refreshByTtl.enqueue(() =>
       runWithBackoff(() => projected.refresh()).then(() => {
-        refresh$.next();
-        opts.onRefresh?.();
+        emit('ttl');
         scheduleTtl();
       }),
     );
   }
 
-  const scheduleRefresh = createRefresher(
+  const scheduleRefresh = createRefresher<RefreshKind>(
     () => projected.refresh(),
-    () => {
-      refresh$.next();
-      opts.onRefresh?.();
+    (kind) => {
+      emit(kind);
       scheduleTtl();
     },
     () => {},
@@ -131,7 +138,7 @@ export function createSingleton<
       return;
     }
 
-    scheduleRefresh();
+    scheduleRefresh('upstream-update');
   });
 
   return {
@@ -144,7 +151,7 @@ export function createSingleton<
       },
 
       refresh() {
-        scheduleRefresh();
+        scheduleRefresh('on-demand');
       },
 
       async load() {

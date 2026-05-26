@@ -244,7 +244,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
   }
 
   public defineI18nMessages(def: I18nMessageDef): I18nMessages {
-    const result = createI18nMessagesCollection(def, this._client, this._watcher.updates$);
+    const result = createI18nMessagesCollection(def, this._client, this._watcher.updates$, this._refreshByTtl);
 
     this._cleanups.push(result.destroy);
 

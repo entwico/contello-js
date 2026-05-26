@@ -19,6 +19,8 @@ import type {
   CollectionSyncOptions,
   Created,
   ExtractSourceResult,
+  RefreshEvent,
+  RefreshKind,
 } from './types';
 import { type RefreshByTtlQueue, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
@@ -103,8 +105,15 @@ export function createCollection<
     sort: opts.sort,
   });
 
-  const refresh$ = createAsyncIterableSubject<string[]>();
+  const refresh$ = createAsyncIterableSubject<RefreshEvent>();
   let loaded = false;
+
+  function emit(ids: string[], kind: RefreshKind): void {
+    const event: RefreshEvent = { ids, kind };
+
+    refresh$.next(event);
+    opts.onRefresh?.(event);
+  }
 
   function scheduleTtl(): void {
     if (_def.cache.ttl === undefined) {
@@ -114,19 +123,15 @@ export function createCollection<
     clearTimeout(ttlTimer);
 
     ttlTimer = setTimeout(() => {
-      runFullRefresh();
+      runFullRefresh('ttl');
     }, _def.cache.ttl);
   }
 
-  function runFullRefresh(): void {
+  function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(() =>
       runWithBackoff(() =>
         projected.refresh().then((map) => {
-          const ids = [...map.keys()];
-
-          refresh$.next(ids);
-          opts.onRefresh?.(ids);
-
+          emit([...map.keys()], kind);
           scheduleTtl();
         }),
       ),
@@ -137,16 +142,14 @@ export function createCollection<
     const changedIds = [...new Set([...refreshIds, ...deletedIds])];
 
     if (refreshIds.length === 0) {
-      refresh$.next(changedIds);
-      opts.onRefresh?.(changedIds);
+      emit(changedIds, 'upstream-update');
 
       return;
     }
 
     void runWithBackoff(() =>
       projected.refresh(refreshIds).then(() => {
-        refresh$.next(changedIds);
-        opts.onRefresh?.(changedIds);
+        emit(changedIds, 'upstream-update');
       }),
     );
   }
@@ -217,7 +220,7 @@ export function createCollection<
     },
 
     refresh() {
-      runFullRefresh();
+      runFullRefresh('on-demand');
     },
 
     async load() {

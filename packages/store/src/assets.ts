@@ -17,7 +17,7 @@ import {
   storeGetAssetsDocument,
 } from './generated/graphql';
 import { createLruCache } from './lru';
-import type { Created, LazyCacheOptions } from './types';
+import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
 import { createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
@@ -44,7 +44,7 @@ export type AssetCollectionOptions = {
 };
 
 export type Assets = {
-  readonly refresh$: AsyncIterable<string[]>;
+  readonly refresh$: AsyncIterable<RefreshEvent>;
   get(id: string): Promise<ReadonlyDeep<StoreAsset> | undefined>;
   get(ids: string[]): Promise<ReadonlyDeep<StoreAsset[]>>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
@@ -102,11 +102,15 @@ export function createAssetsCollection(
     cache,
   });
 
-  const refresh$ = createAsyncIterableSubject<string[]>();
+  const refresh$ = createAsyncIterableSubject<RefreshEvent>();
+
+  function emit(ids: string[], kind: RefreshKind): void {
+    refresh$.next({ ids, kind });
+  }
 
   let lastRefreshKeys: string[] = [];
 
-  const scheduleRefresh = createRefresher(
+  const scheduleRefresh = createRefresher<RefreshKind>(
     async () => {
       lastRefreshKeys = cache.keys();
 
@@ -116,9 +120,9 @@ export function createAssetsCollection(
 
       await projected.refresh(lastRefreshKeys);
     },
-    () => {
+    (kind) => {
       if (lastRefreshKeys.length > 0) {
-        refresh$.next(lastRefreshKeys);
+        emit(lastRefreshKeys, kind);
       }
     },
     () => {},
@@ -131,7 +135,10 @@ export function createAssetsCollection(
       projected.delete(event.id);
     }
 
-    refresh$.next(batch.asset.map((e) => e.id));
+    emit(
+      batch.asset.map((e) => e.id),
+      'upstream-update',
+    );
   });
 
   return {
@@ -155,7 +162,7 @@ export function createAssetsCollection(
       },
 
       refresh() {
-        scheduleRefresh();
+        scheduleRefresh('on-demand');
       },
 
       clear() {

@@ -22,33 +22,46 @@ export function resolveTtl(ttl: number | false | undefined): number | undefined 
  * creates a coalescing refresh scheduler with exponential-backoff retry on failure.
  *
  * at most one refresh runs at a time. if a new refresh is requested while one is in-flight,
- * it is queued as pending. once the in-flight refresh completes, at most one queued refresh
- * starts — collapsing any number of intermediate requests into one.
+ * it is queued as pending — the queued slot keeps the latest `kind` passed via
+ * scheduleRefresh. once the in-flight refresh completes, at most one queued refresh
+ * starts, with that latest kind — collapsing any number of intermediate requests into one.
  *
  * on error, retries indefinitely with exponential backoff. the projected value keeps serving
- * the stale cached value throughout (SWR).
+ * the stale cached value throughout (SWR). the `onRefreshed` callback receives the kind that
+ * triggered the just-completed refresh.
  */
-export function createRefresher(fn: () => Promise<unknown>, onRefreshed: () => void, onStart: () => void): () => void {
+export function createRefresher<K>(
+  fn: () => Promise<unknown>,
+  onRefreshed: (kind: K) => void,
+  onStart: () => void,
+): (kind: K) => void {
   let refreshing = false;
-  let pending = false;
+  let inFlightKind: K | undefined;
+  let pendingKind: { kind: K } | undefined;
 
-  function scheduleRefresh(): void {
+  function scheduleRefresh(kind: K): void {
     if (refreshing) {
-      pending = true;
+      pendingKind = { kind };
 
       return;
     }
 
     refreshing = true;
+    inFlightKind = kind;
     onStart?.();
 
     void runWithBackoff(fn).then(() => {
-      refreshing = false;
-      onRefreshed();
+      const finished = inFlightKind as K;
 
-      if (pending) {
-        pending = false;
-        scheduleRefresh();
+      refreshing = false;
+      inFlightKind = undefined;
+      onRefreshed(finished);
+
+      if (pendingKind) {
+        const { kind: next } = pendingKind;
+
+        pendingKind = undefined;
+        scheduleRefresh(next);
       }
     });
   }

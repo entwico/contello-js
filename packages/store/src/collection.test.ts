@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { createCollection } from './collection';
 import { ModelResolver } from './model-resolver';
+import type { RefreshEvent } from './types';
 import { createRefreshByTtlQueue } from './utils';
 import type { UpdateBatch } from './watcher';
 
@@ -67,7 +68,7 @@ describe('collection refresh-by-ttl', () => {
     const { client, callCount } = makeClient([[{ id: 'a', value: 1 }], [{ id: 'a', value: 2 }]]);
     const updates$ = createAsyncIterableSubject<UpdateBatch>();
     const refreshByTtl = createRefreshByTtlQueue();
-    const onRefresh = vi.fn<(ids: string[]) => void>();
+    const onRefresh = vi.fn<(event: RefreshEvent) => void>();
 
     const { instance, destroy } = createCollection(
       source,
@@ -84,7 +85,7 @@ describe('collection refresh-by-ttl', () => {
     await vi.advanceTimersByTimeAsync(1000);
     await vi.waitFor(() => expect(callCount()).toBe(2));
 
-    expect(onRefresh).toHaveBeenCalledWith(['a']);
+    expect(onRefresh).toHaveBeenCalledWith({ ids: ['a'], kind: 'ttl' });
 
     destroy();
   });
@@ -165,10 +166,11 @@ describe('collection refresh-by-ttl', () => {
     const { client, callCount } = makeClient([[{ id: 'a', value: 1 }], [{ id: 'a', value: 2 }]]);
     const updates$ = createAsyncIterableSubject<UpdateBatch>();
     const onLoad = vi.fn<(ids: string[]) => void>();
+    const onRefresh = vi.fn<(event: RefreshEvent) => void>();
 
     const { instance, destroy } = createCollection(
       source,
-      { cache: { ttl: 1000 }, onLoad },
+      { cache: { ttl: 1000 }, onLoad, onRefresh },
       client,
       updates$,
       new ModelResolver(undefined),
@@ -226,6 +228,52 @@ describe('collection refresh-by-ttl', () => {
     // the ttl timer should still fire at t=10_000, not t=15_000 — partial doesn't reset it
     await vi.advanceTimersByTimeAsync(5000);
     await vi.waitFor(() => expect(callCount()).toBe(3));
+
+    destroy();
+  });
+
+  test('refresh events carry the right kind for each trigger', async () => {
+    const { client } = makeClient([
+      [{ id: 'a', value: 1 }],
+      [{ id: 'a', value: 2 }],
+      [{ id: 'a', value: 3 }],
+      [{ id: 'a', value: 4 }],
+    ]);
+    const updates$ = createAsyncIterableSubject<UpdateBatch>();
+    const onRefresh = vi.fn<(event: RefreshEvent) => void>();
+
+    const { instance, destroy } = createCollection(
+      source,
+      { cache: { ttl: 1000 }, onRefresh },
+      client,
+      updates$,
+      new ModelResolver(undefined),
+      createRefreshByTtlQueue(),
+    );
+
+    await instance.load();
+
+    // 1. ttl-driven full refresh
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(onRefresh).toHaveBeenLastCalledWith({ ids: ['a'], kind: 'ttl' });
+
+    // 2. consumer-called refresh()
+    instance.refresh();
+    await vi.waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(2));
+    expect(onRefresh).toHaveBeenLastCalledWith({ ids: ['a'], kind: 'on-demand' });
+
+    // 3. upstream update event → partial refresh
+    updates$.next({
+      entity: new Map([['thing', [{ id: 'a', mutation: 'update' } as any]]]),
+      events: [],
+      route: [],
+      asset: [],
+      i18nMessage: [],
+      routeByEntityModel: new Map(),
+    } as unknown as UpdateBatch);
+    await vi.waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(3));
+    expect(onRefresh).toHaveBeenLastCalledWith({ ids: ['a'], kind: 'upstream-update' });
 
     destroy();
   });

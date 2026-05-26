@@ -51,6 +51,25 @@ export type CreateStoreOptions<TSchema extends Schema | undefined = undefined> =
 };
 
 // ---------------------------------------------------------------------------
+// refresh events
+// ---------------------------------------------------------------------------
+
+/**
+ * What triggered a refresh:
+ * - `'upstream-update'` — watcher event from the server (partial refresh on collection,
+ *   full on singleton / i18n, cache eviction on lazy stores).
+ * - `'ttl'` — periodic safety-net timer fired.
+ * - `'on-demand'` — consumer called `instance.refresh()`.
+ */
+export type RefreshKind = 'upstream-update' | 'ttl' | 'on-demand';
+
+/** Refresh event shape for stores keyed by id (collection, lazy-collection, routes, assets, i18n). */
+export type RefreshEvent = { ids: string[]; kind: RefreshKind };
+
+/** Refresh event shape for stores with no id concept (singleton). */
+export type SingletonRefreshEvent = { kind: RefreshKind };
+
+// ---------------------------------------------------------------------------
 // cache options
 // ---------------------------------------------------------------------------
 
@@ -100,7 +119,7 @@ export type SingletonOptions<TRaw, TMapped, TModels extends string = string> = {
   map?: ((item: TRaw, ref: MapperContext<TModels>) => MaybePromise<TMapped>) | undefined;
   cache?: CacheOptions | undefined;
   onLoad?: (() => void) | undefined;
-  onRefresh?: (() => void) | undefined;
+  onRefresh?: ((event: SingletonRefreshEvent) => void) | undefined;
 };
 
 export type SingletonSyncOptions<TRaw, TMapped, TModels extends string = string> = {
@@ -108,7 +127,7 @@ export type SingletonSyncOptions<TRaw, TMapped, TModels extends string = string>
   map?: ((item: TRaw, ref: MapperContext<TModels>) => MaybePromise<TMapped>) | undefined;
   cache?: SyncCacheOptions | undefined;
   onLoad?: (() => void) | undefined;
-  onRefresh?: (() => void) | undefined;
+  onRefresh?: ((event: SingletonRefreshEvent) => void) | undefined;
 };
 
 export type Loadable = {
@@ -117,7 +136,7 @@ export type Loadable = {
 
 export type Singleton<T> = {
   readonly name: string;
-  readonly refresh$: AsyncIterable<void>;
+  readonly refresh$: AsyncIterable<SingletonRefreshEvent>;
   load(): Promise<void>;
   get(): MaybePromise<ReadonlyDeep<T>>;
   refresh(): void;
@@ -125,7 +144,7 @@ export type Singleton<T> = {
 
 export type SingletonSync<T> = {
   readonly name: string;
-  readonly refresh$: AsyncIterable<void>;
+  readonly refresh$: AsyncIterable<SingletonRefreshEvent>;
   load(): Promise<void>;
   get(): ReadonlyDeep<T>;
   refresh(): void;
@@ -141,7 +160,7 @@ export type CollectionOptions<TRaw, TMapped extends { id: string }, TModels exte
   sort?: ((a: TMapped, b: TMapped) => number) | undefined;
   cache?: CacheOptions | undefined;
   onLoad?: ((ids: string[]) => void) | undefined;
-  onRefresh?: ((ids: string[]) => void) | undefined;
+  onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
 export type CollectionSyncOptions<TRaw, TMapped extends { id: string }, TModels extends string = string> = {
@@ -150,12 +169,12 @@ export type CollectionSyncOptions<TRaw, TMapped extends { id: string }, TModels 
   sort?: ((a: TMapped, b: TMapped) => number) | undefined;
   cache?: SyncCacheOptions | undefined;
   onLoad?: ((ids: string[]) => void) | undefined;
-  onRefresh?: ((ids: string[]) => void) | undefined;
+  onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
 export type Collection<T> = {
   readonly name: string;
-  readonly refresh$: AsyncIterable<string[]>;
+  readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): MaybePromise<ReadonlyDeep<T> | undefined>;
   get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
@@ -165,7 +184,7 @@ export type Collection<T> = {
 
 export type CollectionSync<T> = {
   readonly name: string;
-  readonly refresh$: AsyncIterable<string[]>;
+  readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): ReadonlyDeep<T> | undefined;
   get(ids: string[]): ReadonlyArray<ReadonlyDeep<T>>;
@@ -181,12 +200,12 @@ export type LazyCollectionOptions<TRaw, TMapped extends { id: string }, TModels 
   name?: string | undefined;
   cache?: LazyCacheOptions | undefined;
   map?: ((item: TRaw, ref: MapperContext<TModels>) => MaybePromise<TMapped>) | undefined;
-  onRefresh?: ((ids: string[]) => void) | undefined;
+  onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
 export type LazyCollection<T> = {
   readonly name: string;
-  readonly refresh$: AsyncIterable<string[]>;
+  readonly refresh$: AsyncIterable<RefreshEvent>;
   get(id: string): MaybePromise<ReadonlyDeep<T> | undefined>;
   get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   refresh(): void;

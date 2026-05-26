@@ -12,7 +12,14 @@ import { DependencyCollector } from './dependency-collector';
 import { wrap } from './diagnostics';
 import { createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
-import type { Created, ExtractSourceResult, LazyCollection, LazyCollectionOptions } from './types';
+import type {
+  Created,
+  ExtractSourceResult,
+  LazyCollection,
+  LazyCollectionOptions,
+  RefreshEvent,
+  RefreshKind,
+} from './types';
 import { createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
@@ -75,11 +82,18 @@ export function createLazyCollection<
     cache,
   });
 
-  const refresh$ = createAsyncIterableSubject<string[]>();
+  const refresh$ = createAsyncIterableSubject<RefreshEvent>();
+
+  function emit(ids: string[], kind: RefreshKind): void {
+    const event: RefreshEvent = { ids, kind };
+
+    refresh$.next(event);
+    opts.onRefresh?.(event);
+  }
 
   let lastRefreshKeys: string[] = [];
 
-  const scheduleRefresh = createRefresher(
+  const scheduleRefresh = createRefresher<RefreshKind>(
     async () => {
       lastRefreshKeys = cache.keys();
 
@@ -89,10 +103,9 @@ export function createLazyCollection<
 
       await projected.refresh(lastRefreshKeys);
     },
-    () => {
+    (kind) => {
       if (lastRefreshKeys.length > 0) {
-        refresh$.next(lastRefreshKeys);
-        opts.onRefresh?.(lastRefreshKeys);
+        emit(lastRefreshKeys, kind);
       }
     },
     () => {},
@@ -120,15 +133,9 @@ export function createLazyCollection<
         projected.delete(key);
       }
 
-      const ids = [...evicted];
-
-      refresh$.next(ids);
-      opts.onRefresh?.(ids);
+      emit([...evicted], 'upstream-update');
     }
   });
-
-  // suppress unused warning for scheduleRefresh; consumers call refresh()
-  void scheduleRefresh;
 
   return {
     instance: {
@@ -140,7 +147,7 @@ export function createLazyCollection<
       },
 
       refresh() {
-        scheduleRefresh();
+        scheduleRefresh('on-demand');
       },
 
       clear() {
