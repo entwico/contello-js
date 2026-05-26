@@ -1,5 +1,6 @@
 export { ContelloClient, createContelloClient } from './client';
 export type { ConnectionContext, ConnectionEvents, ContelloClientOptions } from './client';
+export type { LocalDate, LocalDateTime } from './scalars';
 export type {
   OperationDef,
   OperationKind,

@@ -1,6 +1,8 @@
 import { firstAsync, mapAsync } from './async-iterable-utils';
 import { wrap } from './diagnostics';
 import { createSourceSubscription } from './source-subscription';
+import { transformResponse } from './transform-response';
+import { transformVariables } from './transform-variables';
 import type { SourceAccessors, SourceDef, SourceMap } from './types';
 
 type Subscribe = <TData>(query: string, variables?: Record<string, unknown> | undefined) => AsyncIterable<TData>;
@@ -19,14 +21,21 @@ export function createSources<TSources extends SourceMap>(
       case 'singleton':
         out[name] = {
           fetch: () =>
-            wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source))),
+            wrap(`source:${name}`, () =>
+              firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => transformResponse(r).source)),
+            ),
         };
         break;
       case 'entity':
         out[name] = {
           fetch: (vars?: { ids?: string[] }) =>
             wrap(`source:${name}`, () =>
-              firstAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, { ids: vars?.ids }), (r) => r.source)),
+              firstAsync(
+                mapAsync(
+                  subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
+                  (r) => transformResponse(r).source,
+                ),
+              ),
             ),
         };
         break;
@@ -34,7 +43,9 @@ export function createSources<TSources extends SourceMap>(
       case 'asset':
         out[name] = {
           fetch: () =>
-            wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown[] }>(doc), (r) => r.source))),
+            wrap(`source:${name}`, () =>
+              firstAsync(mapAsync(subscribe<{ source: unknown[] }>(doc), (r) => transformResponse(r).source)),
+            ),
         };
         break;
       case 'i18nMessage':
@@ -42,7 +53,10 @@ export function createSources<TSources extends SourceMap>(
           fetch: (vars: { collection: string }) =>
             wrap(`source:${name}`, () =>
               firstAsync(
-                mapAsync(subscribe<{ source: unknown[] }>(doc, { collection: vars.collection }), (r) => r.source),
+                mapAsync(
+                  subscribe<{ source: unknown[] }>(doc, { collection: vars.collection }),
+                  (r) => transformResponse(r).source,
+                ),
               ),
             ),
         };

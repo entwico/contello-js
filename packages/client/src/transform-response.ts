@@ -1,6 +1,26 @@
+import { decodeLocalDate, decodeLocalDateTime } from './scalars';
+
 const FLAT_PREFIX = '_flat_';
+const LDT_PREFIX = '_ldt_';
+const LD_PREFIX = '_ld_';
 
 const MODEL_SUFFIXES = ['Entity', 'Component'];
+
+function decodeValue(value: unknown, decoder: (s: string) => unknown): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => decodeValue(item, decoder));
+  }
+
+  if (typeof value === 'string') {
+    return decoder(value);
+  }
+
+  return value;
+}
 
 type FlatRef = { _flatId?: string | undefined };
 type FlatComponent = FlatRef & { __typename?: string | undefined };
@@ -70,6 +90,21 @@ export function transformResponse<T>(data: T): T {
 
     obj[fieldKey] = resolveRefs(refArray, flatMap);
     delete obj[flatKey];
+  }
+
+  // decode managed scalar aliases — strings on the wire, structs to consumers
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith(LDT_PREFIX)) {
+      const original = key.slice(LDT_PREFIX.length);
+
+      obj[original] = decodeValue(obj[key], decodeLocalDateTime);
+      delete obj[key];
+    } else if (key.startsWith(LD_PREFIX)) {
+      const original = key.slice(LD_PREFIX.length);
+
+      obj[original] = decodeValue(obj[key], decodeLocalDate);
+      delete obj[key];
+    }
   }
 
   // recurse into all object values

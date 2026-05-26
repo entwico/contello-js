@@ -6,6 +6,8 @@ fragment Product on ProductEntity {
   }
   attributes {
     name
+    activeSince
+    bestBefore
     description {
       markdownData
     }

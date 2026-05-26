@@ -5,7 +5,11 @@ export const SCALAR_MAP: Record<string, string> = {
   Boolean: 'boolean',
   ID: 'string',
   DateTime: 'string',
+  LocalDateTime: 'LocalDateTime',
+  LocalDate: 'LocalDate',
 };
+
+export const MANAGED_SCALARS = ['LocalDateTime', 'LocalDate'] as const;
 
 export const DEFAULT_CUSTOM_SCALAR = 'unknown';
 

@@ -192,6 +192,102 @@ describe('transformResponse', () => {
     });
   });
 
+  describe('managed scalar aliases', () => {
+    test('decodes _ldt_ aliased LocalDateTime to struct and renames key', () => {
+      const data = { _ldt_startDate: '2026-05-26T20:00:00Z' };
+
+      transformResponse(data);
+
+      expect(data).toEqual({
+        startDate: { year: 2026, month: 5, day: 26, hour: 20, minute: 0, second: 0 },
+      });
+    });
+
+    test('decodes _ld_ aliased LocalDate to struct and renames key', () => {
+      const data = { _ld_birthday: '2026-05-26' };
+
+      transformResponse(data);
+
+      expect(data).toEqual({ birthday: { year: 2026, month: 5, day: 26 } });
+    });
+
+    test('preserves user-chosen alias suffix (e.g. _ldt_myDate becomes myDate)', () => {
+      const data = { _ldt_myDate: '2026-05-26T20:00:00Z' };
+
+      transformResponse(data);
+
+      expect(data).toEqual({
+        myDate: { year: 2026, month: 5, day: 26, hour: 20, minute: 0, second: 0 },
+      });
+    });
+
+    test('decodes list of LocalDateTime values', () => {
+      const data = { _ldt_dates: ['2026-05-26T20:00:00Z', '2027-01-01T00:00:00Z'] };
+
+      transformResponse(data);
+
+      expect(data).toEqual({
+        dates: [
+          { year: 2026, month: 5, day: 26, hour: 20, minute: 0, second: 0 },
+          { year: 2027, month: 1, day: 1, hour: 0, minute: 0, second: 0 },
+        ],
+      });
+    });
+
+    test('passes null/undefined values through', () => {
+      const data = { _ldt_startDate: null, _ld_birthday: undefined };
+
+      transformResponse(data);
+
+      expect(data).toEqual({ startDate: null, birthday: undefined });
+    });
+
+    test('decodes inside nested objects', () => {
+      const data = {
+        event: {
+          attributes: {
+            _ldt_startDate: '2026-05-26T20:00:00Z',
+            _ld_releaseDay: '2026-05-26',
+          },
+        },
+      };
+
+      transformResponse(data);
+
+      expect(data).toEqual({
+        event: {
+          attributes: {
+            startDate: { year: 2026, month: 5, day: 26, hour: 20, minute: 0, second: 0 },
+            releaseDay: { year: 2026, month: 5, day: 26 },
+          },
+        },
+      });
+    });
+
+    test('decodes inside unflattened components', () => {
+      const data = {
+        attributes: {
+          content: [{ _flatId: 'a' }],
+          _flat_content: [{ _flatId: 'a', __typename: 'EventComponent', _ldt_startDate: '2026-05-26T20:00:00Z' }],
+        },
+      };
+
+      transformResponse(data);
+
+      const component = data.attributes.content[0] as any;
+
+      expect(component.startDate).toEqual({
+        year: 2026,
+        month: 5,
+        day: 26,
+        hour: 20,
+        minute: 0,
+        second: 0,
+      });
+      expect(component._ldt_startDate).toBeUndefined();
+    });
+  });
+
   describe('primitives and nulls', () => {
     test('returns null as-is', () => {
       expect(transformResponse(null)).toBeNull();
