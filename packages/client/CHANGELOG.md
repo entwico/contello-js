@@ -1,5 +1,11 @@
 # @contello/client
 
+## 2.1.0
+
+### Minor Changes
+
+- 3366494: `LocalDateTime` and `LocalDate` scalars are emitting `{ year, month, day, hour?, minute?, second? }` types
+
 ## 2.0.0
 
 ### Major Changes
