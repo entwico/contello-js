@@ -1,5 +1,33 @@
 # @contello/astro
 
+## 2.0.0
+
+### Major Changes
+
+- fb73267: `ContelloRequestContext.route` is typed `ReadonlyDeep<StoreRoute>` (follows the underlying store change).
+- 147d2e5: codegen now emits a single `export const schema = { operations, sources, models }`
+
+### Minor Changes
+
+- 147d2e5: `defineCollection` / `defineCollectionSync` / `defineLazyCollection` / `defineSingleton` / `defineSingletonSync` now accept either a string key (from `schema.sources`) or a SourceDef directly
+
+### Patch Changes
+
+- Updated dependencies [1a787d4]
+- Updated dependencies [1a787d4]
+- Updated dependencies [147d2e5]
+- Updated dependencies [147d2e5]
+- Updated dependencies [147d2e5]
+- Updated dependencies [fb73267]
+- Updated dependencies [1a787d4]
+- Updated dependencies [1a787d4]
+- Updated dependencies [fb73267]
+- Updated dependencies [fb73267]
+- Updated dependencies [fb73267]
+- Updated dependencies [fb73267]
+  - @contello/client@2.0.0
+  - @contello/store@2.0.0
+
 ## 1.4.2
 
 ### Patch Changes

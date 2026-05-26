@@ -1,5 +1,30 @@
 # @contello/store
 
+## 2.0.0
+
+### Major Changes
+
+- 147d2e5: codegen now emits a single `export const schema = { operations, sources, models }`
+- 1a787d4: `refresh$` on every definer (singleton/collection/lazy/assets/routes/i18n) and `Store.updates$` are now typed as `AsyncIterable<T>` — consume with `for await` or wrap with `rxjs.from(...)` for operators, `rxjs` and `backoff-rxjs` are no longer dependencies
+- fb73267: collections can refresh incrementally instead of re-fetching the whole set on every watcher event
+- fb73267: `projected` moved from a peer dep to a regular dep, and bumped to `^3.0.0`. The relevant utilities — `MaybePromise`, `maybeThen`, `maybeCatch`, `ReadonlyDeep` — are re-exported from `@contello/store`.
+- fb73267: Returned values from `Collection`, `CollectionSync`, `Singleton`, `SingletonSync`, `LazyCollection`, `Assets`, `Routes`, and `I18nMessages` are typed `ReadonlyDeep<V>` (re-exported from `projected`)
+- fb73267: `define{Singleton,SingletonSync,Collection,CollectionSync,LazyCollection}` now take `(source, options?)` instead of `{ model, fetch, … }`
+
+### Minor Changes
+
+- 147d2e5: `defineCollection` / `defineCollectionSync` / `defineLazyCollection` / `defineSingleton` / `defineSingletonSync` now accept either a string key (from `schema.sources`) or a SourceDef directly
+- fb73267: `CollectionDef.sort?: (a, b) => number` — optional sorting for collection items
+- 1a787d4: `Store.destroy()` now completes every internal stream so pending iterators exit cleanly and listeners detach automatically
+
+### Patch Changes
+
+- Updated dependencies [1a787d4]
+- Updated dependencies [1a787d4]
+- Updated dependencies [147d2e5]
+- Updated dependencies [147d2e5]
+  - @contello/client@2.0.0
+
 ## 1.5.1
 
 ### Patch Changes
