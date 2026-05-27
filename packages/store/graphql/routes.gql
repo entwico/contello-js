@@ -1,5 +1,0 @@
-query StoreGetRoutes($request: ContelloRoutesRequestInput!) {
-  contelloRoutes(request: $request) {
-    ...StoreRoute
-  }
-}

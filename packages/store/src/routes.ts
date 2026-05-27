@@ -1,253 +1,310 @@
-import { type AsyncIterableSubject, type ContelloClient, createAsyncIterableSubject } from '@contello/client';
-import { ProjectedLazyMap, type ReadonlyDeep } from 'projected';
+import {
+  type AsyncIterableSubject,
+  type ContelloClient,
+  collectAsync,
+  createSourceSubscription,
+  mapAsync,
+  runWithBackoff,
+} from '@contello/client';
+import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
+
 import { wrap } from './diagnostics';
-import { type StoreGetRoutesQuery, storeGetRoutesDocument } from './generated/graphql';
-import { type LruCache, createLruCache } from './lru';
+import { type StoreRouteFragment, schema as storeSchema } from './generated/graphql';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
-import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
-import { createRefresher, resolveTtl } from './utils';
+import type { CacheOptions, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
+import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
-export type { StoreRoute, StoreRouteCustomHeader } from './routes-mapping';
+export type RoutesOptions = {
+  cache?: CacheOptions | undefined;
+  onLoad?: ((ids: string[]) => void) | undefined;
+  onRefresh?: ((event: RefreshEvent) => void) | undefined;
+};
 
-export type RouteCollectionOptions = {
-  cache?: LazyCacheOptions | undefined;
+export type RoutesSyncOptions = {
+  cache?: SyncCacheOptions | undefined;
+  onLoad?: ((ids: string[]) => void) | undefined;
+  onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
 export type Routes = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
-  get(id: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
-  get(ids: string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
-  getByPath(path: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
-  getByPath(paths: string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
+  load(): Promise<void>;
+  get(id: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined>;
+  get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>>;
+  getByPath(path: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined>;
+  getByPath(paths: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>>;
   refresh(): void;
-  clear(): void;
 };
 
-// cache key prefixes — short nullbyte-separated to allow slice(2) extraction without branching
-const ID_PREFIX = '1\0';
-const PATH_PREFIX = '2\0';
-
-// private symbol used to tag each route with the projected cache key it was requested under,
-// so the key() function can return the right prefixed key for projected to match results back
-const CACHE_KEY = Symbol('cacheKey');
-
-function collectRoutes(
-  data: StoreGetRoutesQuery,
-  keyFn: (route: StoreRoute) => string,
-  resolver: ModelResolver,
-): StoreRoute[] {
-  return (data.contelloRoutes ?? []).reduce<StoreRoute[]>((acc, raw) => {
-    if (!raw) {
-      return acc;
-    }
-
-    const mapped = mapRoute(raw, resolver);
-
-    if (mapped) {
-      (mapped as Record<symbol, string>)[CACHE_KEY] = keyFn(mapped);
-      acc.push(mapped);
-    }
-
-    return acc;
-  }, []);
-}
-
-/**
- * cache wrapper that presents a unified `ID_PREFIX + id` / `PATH_PREFIX + path` key space
- * to ProjectedLazyMap while storing entries in the underlying LRU under ID_PREFIX keys only.
- *
- * path -> id resolution is handled internally via a pathToId map kept in sync with the LRU
- * (populated on set, cleared on natural LRU eviction via onEvict, and on explicit delete).
- */
-function createRoutesCache(max: number, ttl: number | undefined): LruCache<string, StoreRoute> {
-  const pathToId = new Map<string, string>();
-
-  const lru = createLruCache<string, StoreRoute>({
-    max,
-    ttl,
-    onEvict: (route) => {
-      pathToId.delete(route.path);
-    },
-  });
-
-  function resolveKey(key: string): string {
-    if (key.startsWith(PATH_PREFIX)) {
-      const id = pathToId.get(key.slice(2));
-
-      if (id) {
-        return ID_PREFIX + id;
-      }
-
-      return key; // propagate cache miss if path not found
-    }
-
-    return key;
-  }
-
-  return {
-    has: (key) => lru.has(resolveKey(key)),
-    get: (key) => lru.get(resolveKey(key)),
-
-    set: (_key, value) => {
-      // always normalise to ID_PREFIX in lru
-      // regardless of which key projected passes in
-      pathToId.set(value.path, value.id);
-      lru.set(ID_PREFIX + value.id, value);
-    },
-
-    delete: (key) => {
-      const resolved = resolveKey(key);
-      const value = lru.get(resolved);
-
-      if (value) {
-        pathToId.delete(value.path);
-      }
-
-      lru.delete(resolved);
-    },
-
-    clear: () => {
-      pathToId.clear();
-      lru.clear();
-    },
-
-    keys: () => lru.keys(),
-  };
-}
+export type RoutesSync = {
+  readonly refresh$: AsyncIterable<RefreshEvent>;
+  load(): Promise<void>;
+  get(id: string): ReadonlyDeep<StoreRoute> | undefined;
+  get(ids: string[]): ReadonlyArray<ReadonlyDeep<StoreRoute>>;
+  getByPath(path: string): ReadonlyDeep<StoreRoute> | undefined;
+  getByPath(paths: string[]): ReadonlyArray<ReadonlyDeep<StoreRoute>>;
+  refresh(): void;
+};
 
 export function createRoutesCollection(
-  def: RouteCollectionOptions | undefined,
+  options: RoutesOptions | undefined,
   client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
+  refreshByTtl: RefreshByTtlQueue,
 ): Created<Routes> {
-  const _def = {
-    cache: {
-      max: def?.cache?.max ?? 1000,
-      ttl: resolveTtl(def?.cache?.ttl),
+  const opts = options ?? {};
+  const cache = {
+    ttl: resolveTtl(opts.cache?.ttl),
+    eviction: opts.cache?.eviction ?? 'refresh',
+  } as const;
+
+  const channel = createRefreshChannel<RefreshEvent>(opts.onRefresh);
+  const ttl = createTtlOrchestrator({ ttl: cache.ttl, run: () => runFullRefresh('ttl') });
+
+  // id ↔ path indexes — kept in sync with `projected` by the values callback.
+  // any route lookup by path resolves to an id, then the value comes from `projected`.
+  const pathById = new Map<string, string>();
+  const idByPath = new Map<string, string>();
+  let loaded = false;
+
+  const routesSourceDoc = createSourceSubscription(storeSchema.sources.storeRoute);
+
+  const projected = new ProjectedMap<string, StoreRoute>({
+    key: (route) => route.id,
+    values: (ids) =>
+      wrap('routes', () =>
+        collectAsync(
+          mapAsync(client.subscribe<{ source: StoreRouteFragment[] }>(routesSourceDoc, { ids }), (data) => data.source),
+        ).then((rawItems) => {
+          const items = rawItems.reduce<StoreRoute[]>((acc, raw) => {
+            const mapped = mapRoute(raw, resolver);
+
+            if (mapped) {
+              acc.push(mapped);
+            }
+
+            return acc;
+          }, []);
+
+          if (ids === undefined) {
+            pathById.clear();
+            idByPath.clear();
+
+            for (const r of items) {
+              pathById.set(r.id, r.path);
+              idByPath.set(r.path, r.id);
+            }
+
+            if (!loaded) {
+              loaded = true;
+              ttl.mark();
+              opts.onLoad?.(items.map((r) => r.id));
+            }
+          } else {
+            const returnedIds = new Set(items.map((r) => r.id));
+
+            // requested ids missing from the response = deleted; drop their path entries
+            for (const id of ids) {
+              if (!returnedIds.has(id)) {
+                const oldPath = pathById.get(id);
+
+                if (oldPath !== undefined) {
+                  idByPath.delete(oldPath);
+                  pathById.delete(id);
+                }
+              }
+            }
+
+            for (const r of items) {
+              const oldPath = pathById.get(r.id);
+
+              if (oldPath !== undefined && oldPath !== r.path) {
+                idByPath.delete(oldPath);
+              }
+
+              pathById.set(r.id, r.path);
+              idByPath.set(r.path, r.id);
+            }
+          }
+
+          return items;
+        }),
+      ),
+  });
+
+  function emit(ids: string[], kind: RefreshKind): void {
+    channel.emit({ ids, kind });
+  }
+
+  function runFullRefresh(kind: RefreshKind): void {
+    refreshByTtl.enqueue(() =>
+      runWithBackoff(() =>
+        projected.refresh().then((map) => {
+          emit([...map.keys()], kind);
+          ttl.mark();
+        }),
+      ),
+    );
+  }
+
+  function runPartialRefresh(refreshIds: string[], deletedIds: string[]): void {
+    const changedIds = [...new Set([...refreshIds, ...deletedIds])];
+
+    if (refreshIds.length === 0) {
+      emit(changedIds, 'upstream-update');
+
+      return;
+    }
+
+    void runWithBackoff(() =>
+      projected.refresh(refreshIds).then(() => {
+        emit(changedIds, 'upstream-update');
+      }),
+    );
+  }
+
+  const unsubUpdates = updates$.subscribe((batch) => {
+    if (!loaded || batch.route.length === 0) {
+      return;
+    }
+
+    const deleted: string[] = [];
+    const upserted = new Set<string>();
+
+    for (const event of batch.route) {
+      if (event.mutation === 'delete') {
+        deleted.push(event.id);
+      } else {
+        upserted.add(event.id);
+      }
+    }
+
+    if (cache.eviction === 'clear') {
+      pathById.clear();
+      idByPath.clear();
+      projected.clear();
+
+      return;
+    }
+
+    for (const id of deleted) {
+      const oldPath = pathById.get(id);
+
+      if (oldPath !== undefined) {
+        idByPath.delete(oldPath);
+        pathById.delete(id);
+      }
+    }
+
+    if (deleted.length > 0) {
+      projected.delete(deleted);
+    }
+
+    runPartialRefresh([...upserted], deleted);
+  });
+
+  function getByIdSingle(id: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined> {
+    return projected.get(id);
+  }
+
+  function getByIds(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>> {
+    return projected.get(ids);
+  }
+
+  function lookupByPathSingle(path: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined> {
+    return maybeThen(ensureLoaded(), () => {
+      const id = idByPath.get(path);
+
+      return id === undefined ? undefined : projected.get(id);
+    });
+  }
+
+  function lookupByPaths(paths: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>> {
+    return maybeThen(ensureLoaded(), () => {
+      const ids: string[] = [];
+
+      for (const p of paths) {
+        const id = idByPath.get(p);
+
+        if (id !== undefined) {
+          ids.push(id);
+        }
+      }
+
+      return projected.get(ids);
+    });
+  }
+
+  function ensureLoaded(): MaybePromise<void> {
+    if (loaded) {
+      return undefined;
+    }
+
+    return maybeThen(projected.getAllAsMap(), () => undefined);
+  }
+
+  const instance: Routes = {
+    refresh$: channel.stream$,
+
+    async load() {
+      if (!loaded) {
+        await projected.getAllAsMap();
+      }
+    },
+
+    get(idOrIds: string | string[]): any {
+      return Array.isArray(idOrIds) ? getByIds(idOrIds) : getByIdSingle(idOrIds);
+    },
+
+    getByPath(pathOrPaths: string | string[]): any {
+      return Array.isArray(pathOrPaths) ? lookupByPaths(pathOrPaths) : lookupByPathSingle(pathOrPaths);
+    },
+
+    refresh() {
+      runFullRefresh('on-demand');
     },
   };
 
-  const cache = createRoutesCache(_def.cache.max, _def.cache.ttl);
+  return {
+    instance,
+    destroy() {
+      unsubUpdates();
+      ttl.clear();
+      channel.complete();
+    },
+  };
+}
 
-  const projected = new ProjectedLazyMap<string, StoreRoute>({
-    key: (route) => (route as Record<symbol, string>)[CACHE_KEY] ?? ID_PREFIX + route.id,
-    values: (prefixedKeys) =>
-      wrap('routes', () => {
-        const ids: string[] = [];
-        const paths: string[] = [];
+export function createRoutesSyncCollection(
+  options: RoutesSyncOptions | undefined,
+  client: ContelloClient<any>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
+  resolver: ModelResolver,
+  refreshByTtl: RefreshByTtlQueue,
+): Created<RoutesSync> {
+  const { instance: base, destroy } = createRoutesCollection(options, client, updates$, resolver, refreshByTtl);
 
-        for (const key of prefixedKeys) {
-          const value = key.slice(2);
+  function assertSync<T>(value: MaybePromise<T>, method: string): T {
+    if (value instanceof Promise) {
+      throw new Error(`routes.${method}() is not initialized yet — call routes.load() first`);
+    }
 
-          if (key.startsWith(ID_PREFIX)) {
-            ids.push(value);
-          } else {
-            paths.push(value);
-          }
-        }
-
-        return Promise.all([
-          ids.length > 0
-            ? client
-                .execute<StoreGetRoutesQuery>(storeGetRoutesDocument, { request: { ids } })
-                .then((data) => collectRoutes(data, (r) => ID_PREFIX + r.id, resolver))
-            : Promise.resolve([]),
-          paths.length > 0
-            ? client
-                .execute<StoreGetRoutesQuery>(storeGetRoutesDocument, { request: { paths } })
-                .then((data) => collectRoutes(data, (r) => PATH_PREFIX + r.path, resolver))
-            : Promise.resolve([]),
-        ]).then(([byIds, byPaths]) => [...byIds, ...byPaths]);
-      }),
-    cache,
-  });
-
-  const refresh$ = createAsyncIterableSubject<RefreshEvent>();
-
-  function emit(ids: string[], kind: RefreshKind): void {
-    refresh$.next({ ids, kind });
+    return value;
   }
-
-  let lastRefreshKeys: string[] = [];
-
-  const scheduleRefresh = createRefresher<RefreshKind>(
-    async () => {
-      lastRefreshKeys = cache.keys();
-
-      if (lastRefreshKeys.length === 0) {
-        return;
-      }
-
-      await projected.refresh(lastRefreshKeys);
-    },
-    (kind) => {
-      if (lastRefreshKeys.length > 0) {
-        emit(
-          lastRefreshKeys.map((key) => key.slice(2)),
-          kind,
-        );
-      }
-    },
-    () => {},
-  );
-
-  const unsubUpdates = updates$.subscribe((batch) => {
-    const evicted: string[] = [];
-
-    for (const event of batch.route) {
-      const idKey = ID_PREFIX + event.id;
-
-      if (event.mutation === 'delete') {
-        cache.delete(idKey);
-        evicted.push(event.id);
-      } else {
-        if (cache.has(idKey)) {
-          cache.set(idKey, event.after);
-        }
-
-        evicted.push(event.after.path);
-      }
-    }
-
-    if (evicted.length > 0) {
-      emit(evicted, 'upstream-update');
-    }
-  });
 
   return {
     instance: {
-      refresh$,
-
+      ...base,
       get(idOrIds: string | string[]): any {
-        if (Array.isArray(idOrIds)) {
-          return projected.get(idOrIds.map((id) => ID_PREFIX + id));
-        }
-
-        return projected.get(ID_PREFIX + idOrIds);
+        return assertSync(base.get(idOrIds as string), 'get');
       },
-
       getByPath(pathOrPaths: string | string[]): any {
-        if (Array.isArray(pathOrPaths)) {
-          return projected.get(pathOrPaths.map((p) => PATH_PREFIX + p));
-        }
-
-        return projected.get(PATH_PREFIX + pathOrPaths);
-      },
-
-      refresh() {
-        scheduleRefresh('on-demand');
-      },
-
-      clear() {
-        projected.clear();
+        return assertSync(base.getByPath(pathOrPaths as string), 'getByPath');
       },
     },
-    destroy() {
-      unsubUpdates();
-      refresh$.complete();
-    },
+    destroy,
   };
 }

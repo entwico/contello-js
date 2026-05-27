@@ -6,52 +6,52 @@ import {
   type UploadData,
   type UploadMetadata,
   type UploadOptions,
-  createAsyncIterableSubject,
+  collectAsync,
+  createSourceSubscription,
+  mapAsync,
+  runWithBackoff,
 } from '@contello/client';
-import { ProjectedLazyMap, type ReadonlyDeep } from 'projected';
+import { type MaybePromise, ProjectedMap, type ReadonlyDeep } from 'projected';
+
 import { wrap } from './diagnostics';
-import {
-  type StoreAssetFragment,
-  type StoreFileFragment,
-  type StoreGetAssetsQuery,
-  storeGetAssetsDocument,
-} from './generated/graphql';
-import { createLruCache } from './lru';
-import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
-import { createRefresher, resolveTtl } from './utils';
+import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
+import type { StoreAsset, StoreFile } from './lazy-assets';
+import type { CacheOptions, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
+import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
-export type StoreFileMetadata = {
-  width: number;
-  height: number;
+export type AssetsOptions = {
+  cache?: CacheOptions | undefined;
+  onLoad?: ((ids: string[]) => void) | undefined;
+  onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
-export type StoreFile = {
-  uid: string;
-  mimeType: string;
-  metadata: StoreFileMetadata | undefined;
-};
-
-export type StoreAsset = {
-  id: string;
-  original: StoreFile;
-  preview: StoreFile | undefined;
-  optimized: StoreFile[];
-};
-
-export type AssetCollectionOptions = {
-  cache?: LazyCacheOptions | undefined;
+export type AssetsSyncOptions = {
+  cache?: SyncCacheOptions | undefined;
+  onLoad?: ((ids: string[]) => void) | undefined;
+  onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
 export type Assets = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
-  get(id: string): Promise<ReadonlyDeep<StoreAsset> | undefined>;
-  get(ids: string[]): Promise<ReadonlyDeep<StoreAsset[]>>;
+  load(): Promise<void>;
+  get(id: string): MaybePromise<ReadonlyDeep<StoreAsset> | undefined>;
+  get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreAsset>>>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
   download(fileId: string): Promise<DownloadResult>;
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
   refresh(): void;
-  clear(): void;
+};
+
+export type AssetsSync = {
+  readonly refresh$: AsyncIterable<RefreshEvent>;
+  load(): Promise<void>;
+  get(id: string): ReadonlyDeep<StoreAsset> | undefined;
+  get(ids: string[]): ReadonlyArray<ReadonlyDeep<StoreAsset>>;
+  upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
+  download(fileId: string): Promise<DownloadResult>;
+  proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
+  refresh(): void;
 };
 
 function mapFile(raw: StoreFileFragment): StoreFile {
@@ -72,106 +72,166 @@ function mapAsset(raw: StoreAssetFragment): StoreAsset {
 }
 
 export function createAssetsCollection(
-  def: AssetCollectionOptions | undefined,
+  options: AssetsOptions | undefined,
   client: ContelloClient<any>,
   updates$: AsyncIterableSubject<UpdateBatch>,
+  refreshByTtl: RefreshByTtlQueue,
 ): Created<Assets> {
-  const _def = {
-    cache: {
-      max: def?.cache?.max ?? 1000,
-      ttl: resolveTtl(def?.cache?.ttl),
-    },
-  };
+  const opts = options ?? {};
+  const cache = {
+    ttl: resolveTtl(opts.cache?.ttl),
+    eviction: opts.cache?.eviction ?? 'refresh',
+  } as const;
 
-  const cache = createLruCache<string, StoreAsset>({ max: _def.cache.max, ttl: _def.cache.ttl, onEvict: undefined });
+  const channel = createRefreshChannel<RefreshEvent>(opts.onRefresh);
+  const ttl = createTtlOrchestrator({ ttl: cache.ttl, run: () => runFullRefresh('ttl') });
+  let loaded = false;
 
-  const projected = new ProjectedLazyMap<string, StoreAsset>({
+  const assetsSourceDoc = createSourceSubscription(storeSchema.sources.storeAsset);
+
+  const projected = new ProjectedMap<string, StoreAsset>({
     key: (asset) => asset.id,
     values: (ids) =>
       wrap('assets', () =>
-        client.execute<StoreGetAssetsQuery>(storeGetAssetsDocument, { filter: { ids } }).then((data) =>
-          (data.contelloAssets ?? []).reduce<StoreAsset[]>((acc, raw) => {
-            if (raw) {
-              acc.push(mapAsset(raw));
-            }
+        collectAsync(
+          mapAsync(client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }), (data) => data.source),
+        ).then((rawItems) => {
+          const items = rawItems.map(mapAsset);
 
-            return acc;
-          }, []),
-        ),
+          if (ids === undefined && !loaded) {
+            loaded = true;
+            ttl.mark();
+            opts.onLoad?.(items.map((a) => a.id));
+          }
+
+          return items;
+        }),
       ),
-    cache,
   });
-
-  const refresh$ = createAsyncIterableSubject<RefreshEvent>();
 
   function emit(ids: string[], kind: RefreshKind): void {
-    refresh$.next({ ids, kind });
+    channel.emit({ ids, kind });
   }
 
-  let lastRefreshKeys: string[] = [];
+  function runFullRefresh(kind: RefreshKind): void {
+    refreshByTtl.enqueue(() =>
+      runWithBackoff(() =>
+        projected.refresh().then((map) => {
+          emit([...map.keys()], kind);
+          ttl.mark();
+        }),
+      ),
+    );
+  }
 
-  const scheduleRefresh = createRefresher<RefreshKind>(
-    async () => {
-      lastRefreshKeys = cache.keys();
+  function runPartialRefresh(refreshIds: string[], deletedIds: string[]): void {
+    const changedIds = [...new Set([...refreshIds, ...deletedIds])];
 
-      if (lastRefreshKeys.length === 0) {
-        return;
-      }
+    if (refreshIds.length === 0) {
+      emit(changedIds, 'upstream-update');
 
-      await projected.refresh(lastRefreshKeys);
-    },
-    (kind) => {
-      if (lastRefreshKeys.length > 0) {
-        emit(lastRefreshKeys, kind);
-      }
-    },
-    () => {},
-  );
-
-  const unsubUpdates = updates$.subscribe((batch) => {
-    if (batch.asset.length === 0) return;
-
-    for (const event of batch.asset) {
-      projected.delete(event.id);
+      return;
     }
 
-    emit(
-      batch.asset.map((e) => e.id),
-      'upstream-update',
+    void runWithBackoff(() =>
+      projected.refresh(refreshIds).then(() => {
+        emit(changedIds, 'upstream-update');
+      }),
     );
+  }
+
+  const unsubUpdates = updates$.subscribe((batch) => {
+    if (!loaded || batch.asset.length === 0) {
+      return;
+    }
+
+    const deleted: string[] = [];
+    const upserted = new Set<string>();
+
+    for (const event of batch.asset) {
+      if (event.mutation === 'delete') {
+        deleted.push(event.id);
+      } else {
+        upserted.add(event.id);
+      }
+    }
+
+    if (cache.eviction === 'clear') {
+      projected.clear();
+
+      return;
+    }
+
+    if (deleted.length > 0) {
+      projected.delete(deleted);
+    }
+
+    runPartialRefresh([...upserted], deleted);
   });
+
+  const instance: Assets = {
+    refresh$: channel.stream$,
+
+    async load() {
+      if (!loaded) {
+        await projected.getAllAsMap();
+      }
+    },
+
+    get(idOrIds: string | string[]): any {
+      return projected.get(idOrIds as string);
+    },
+
+    upload(data, meta, options) {
+      return client.upload(data, meta, options);
+    },
+
+    download(fileId) {
+      return client.download(fileId);
+    },
+
+    proxyHls(path, signal) {
+      return client.proxyHls(path, signal);
+    },
+
+    refresh() {
+      runFullRefresh('on-demand');
+    },
+  };
+
+  return {
+    instance,
+    destroy() {
+      unsubUpdates();
+      ttl.clear();
+      channel.complete();
+    },
+  };
+}
+
+export function createAssetsSyncCollection(
+  options: AssetsSyncOptions | undefined,
+  client: ContelloClient<any>,
+  updates$: AsyncIterableSubject<UpdateBatch>,
+  refreshByTtl: RefreshByTtlQueue,
+): Created<AssetsSync> {
+  const { instance: base, destroy } = createAssetsCollection(options, client, updates$, refreshByTtl);
+
+  function assertSync<T>(value: MaybePromise<T>, method: string): T {
+    if (value instanceof Promise) {
+      throw new Error(`assets.${method}() is not initialized yet — call assets.load() first`);
+    }
+
+    return value;
+  }
 
   return {
     instance: {
-      refresh$,
-
+      ...base,
       get(idOrIds: string | string[]): any {
-        return projected.get(idOrIds as string);
-      },
-
-      upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string> {
-        return client.upload(data, meta, options);
-      },
-
-      download(fileId: string): Promise<DownloadResult> {
-        return client.download(fileId);
-      },
-
-      proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult> {
-        return client.proxyHls(path, signal);
-      },
-
-      refresh() {
-        scheduleRefresh('on-demand');
-      },
-
-      clear() {
-        projected.clear();
+        return assertSync(base.get(idOrIds as string), 'get');
       },
     },
-    destroy() {
-      unsubUpdates();
-      refresh$.complete();
-    },
+    destroy,
   };
 }

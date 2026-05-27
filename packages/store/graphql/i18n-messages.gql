@@ -1,5 +1,0 @@
-subscription StoreGetI18nMessages($collection: String!) {
-  contelloI18nMessagesBatch(collectionReferenceName: $collection) {
-    ...StoreI18nMessage
-  }
-}

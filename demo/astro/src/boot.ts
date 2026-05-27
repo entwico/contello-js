@@ -25,10 +25,7 @@ export async function onStartup({ dev, host, port }: BootContext) {
 
   checks.register('contello', () => contello.ping());
 
-  await contello.init({
-    load: [categories, config],
-    i18n: { register: !dev },
-  });
+  await contello.init({ load: [categories, config], i18n: { register: !dev } });
 
   log.info({ host, port }, 'server ready');
 }

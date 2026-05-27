@@ -40,21 +40,41 @@ export function createSources<TSources extends SourceMap>(
         };
         break;
       case 'route':
+        out[name] = {
+          fetch: (vars?: { ids?: string[] | undefined; paths?: string[] | undefined } | undefined) =>
+            wrap(`source:${name}`, () =>
+              collectAsync(
+                mapAsync(
+                  subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids, paths: vars?.paths })),
+                  (r) => transformResponse(r).source,
+                ),
+              ),
+            ),
+        };
+        break;
       case 'asset':
         out[name] = {
-          fetch: () =>
+          fetch: (vars?: { ids?: string[] | undefined } | undefined) =>
             wrap(`source:${name}`, () =>
-              collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc), (r) => transformResponse(r).source)),
+              collectAsync(
+                mapAsync(
+                  subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
+                  (r) => transformResponse(r).source,
+                ),
+              ),
             ),
         };
         break;
       case 'i18nMessage':
         out[name] = {
-          fetch: (vars: { collection: string }) =>
+          fetch: (vars: { collection: string; ids?: string[] | undefined }) =>
             wrap(`source:${name}`, () =>
               collectAsync(
                 mapAsync(
-                  subscribe<{ source: unknown[] }>(doc, { collection: vars.collection }),
+                  subscribe<{ source: unknown[] }>(
+                    doc,
+                    transformVariables({ collection: vars.collection, ids: vars.ids }),
+                  ),
                   (r) => transformResponse(r).source,
                 ),
               ),

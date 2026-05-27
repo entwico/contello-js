@@ -3,7 +3,6 @@ import {
   type ContelloClient,
   type SourceDef,
   collectAsync,
-  createAsyncIterableSubject,
   createSourceSubscription,
   mapAsync,
   runWithBackoff,
@@ -22,7 +21,7 @@ import type {
   RefreshEvent,
   RefreshKind,
 } from './types';
-import { type RefreshByTtlQueue, resolveTtl } from './utils';
+import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 function fetchCollection<S extends SourceDef<string, 'entity'>>(
@@ -61,7 +60,9 @@ export function createCollection<
     },
   };
   const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
-  let ttlTimer: ReturnType<typeof setTimeout> | undefined;
+  const channel = createRefreshChannel<RefreshEvent>(opts.onRefresh);
+  const ttl = createTtlOrchestrator({ ttl: _def.cache.ttl, run: () => runFullRefresh('ttl') });
+  let loaded = false;
 
   const projected = new ProjectedMap<string, TMapped>({
     key: (item) => item.id,
@@ -85,7 +86,7 @@ export function createCollection<
               // start tracking refresh by ttl on first successful full fetch
               if (!loaded) {
                 loaded = true;
-                scheduleTtl();
+                ttl.mark();
                 opts.onLoad?.(items.map((item) => item.id));
               }
             } else {
@@ -105,26 +106,8 @@ export function createCollection<
     sort: opts.sort,
   });
 
-  const refresh$ = createAsyncIterableSubject<RefreshEvent>();
-  let loaded = false;
-
   function emit(ids: string[], kind: RefreshKind): void {
-    const event: RefreshEvent = { ids, kind };
-
-    refresh$.next(event);
-    opts.onRefresh?.(event);
-  }
-
-  function scheduleTtl(): void {
-    if (_def.cache.ttl === undefined) {
-      return;
-    }
-
-    clearTimeout(ttlTimer);
-
-    ttlTimer = setTimeout(() => {
-      runFullRefresh('ttl');
-    }, _def.cache.ttl);
+    channel.emit({ ids, kind });
   }
 
   function runFullRefresh(kind: RefreshKind): void {
@@ -132,7 +115,7 @@ export function createCollection<
       runWithBackoff(() =>
         projected.refresh().then((map) => {
           emit([...map.keys()], kind);
-          scheduleTtl();
+          ttl.mark();
         }),
       ),
     );
@@ -209,7 +192,7 @@ export function createCollection<
 
   const instance: Collection<TMapped> = {
     name: _def.name,
-    refresh$,
+    refresh$: channel.stream$,
 
     get(idOrIds: string | string[]): any {
       return projected.get(idOrIds as string);
@@ -234,8 +217,8 @@ export function createCollection<
     instance,
     destroy() {
       unsubUpdates();
-      clearTimeout(ttlTimer);
-      refresh$.complete();
+      ttl.clear();
+      channel.complete();
     },
   };
 }

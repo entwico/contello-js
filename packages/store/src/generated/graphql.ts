@@ -5,6 +5,7 @@
 import type { SourceDef } from '@contello/client';
 
 export type ContelloAssetKind = 'AUDIO' | 'DOCUMENT' | 'IMAGE' | 'OTHER' | 'VIDEO';
+export type ContelloAssetRetentionPolicy = 'deleteIfNotUsed' | 'retain';
 export type ContelloBatchOperationStatus = 'error' | 'success';
 export type ContelloContentDispositionEnum = 'ATTACHMENT' | 'AUTOMATIC' | 'INLINE';
 export type ContelloDictionaryType = 'ENTITY' | 'STATIC';
@@ -14,6 +15,11 @@ export type ContelloRouteTargetTypeEnum = 'ENTITY' | 'FILE' | 'REDIRECT' | 'TEXT
 export type ContelloAnnotationFilterInput = {
   key?: string | undefined;
   value?: string | undefined;
+};
+
+export type ContelloAssetAnnotationInput = {
+  key: string;
+  value: string;
 };
 
 export type ContelloAssetRequestInput = {
@@ -30,6 +36,16 @@ export type ContelloAssetsFilterInput = {
 export type ContelloAssetsPaginationInput = {
   limit?: number | undefined;
   offset?: number | undefined;
+};
+
+export type ContelloAssetUpdateInput = {
+  annotations?: ContelloAssetAnnotationInput[] | undefined;
+  collectionIds?: string[] | undefined;
+  collectionReferenceNames?: string[] | undefined;
+  id: string;
+  name?: string | undefined;
+  retentionPolicy?: ContelloAssetRetentionPolicy | undefined;
+  tags?: string[] | undefined;
 };
 
 export type ContelloEntityRouteInput = {
@@ -454,6 +470,7 @@ export type RootMutation = {
   registerContelloI18nMessages?: ContelloI18nMessageRegisterResponse | undefined;
   truncateContelloRoutes?: ContelloBatchOperationResponse | undefined;
   truncateDummies?: ContelloBatchOperationResponse | undefined;
+  updateContelloAsset?: ContelloAsset | undefined;
   updateContelloRoute?: ContelloRoute | undefined;
   updateDummies?: DummyEntity[] | undefined;
   updateDummy?: DummyEntity | undefined;
@@ -589,22 +606,6 @@ export type StoreRouteFragment = {
   })[];
 };
 
-export type StoreGetAssetsQuery = {
-  contelloAssets?: StoreAssetFragment[] | undefined;
-};
-
-export type StoreGetAssetsQueryVariables = {
-  filter: ContelloAssetsFilterInput;
-};
-
-export type StoreGetI18nMessagesSubscription = {
-  contelloI18nMessagesBatch: StoreI18nMessageFragment[];
-};
-
-export type StoreGetI18nMessagesSubscriptionVariables = {
-  collection: string;
-};
-
 export type StoreRegisterI18nMessagesMutation = {
   registerContelloI18nMessages?: {
     ids: string[];
@@ -614,14 +615,6 @@ export type StoreRegisterI18nMessagesMutation = {
 export type StoreRegisterI18nMessagesMutationVariables = {
   collection: string;
   messages: ContelloI18nMessageInput[];
-};
-
-export type StoreGetRoutesQuery = {
-  contelloRoutes?: StoreRouteFragment[] | undefined;
-};
-
-export type StoreGetRoutesQueryVariables = {
-  request: ContelloRoutesRequestInput;
 };
 
 export type StoreWatchUpdatesSubscription = {
@@ -738,20 +731,6 @@ const StoreRouteFragmentSchema = `fragment StoreRoute on ContelloRoute {
   }
 }`;
 
-export const storeGetAssetsDocument = `${MediaFileFragmentSchema}
-${MediaAssetFragmentSchema}
-${StoreAssetFragmentSchema}
-query StoreGetAssets($filter: ContelloAssetsFilterInput!) {
-  contelloAssets(filter: $filter) {
-    ...StoreAsset
-  }
-}`;
-export const storeGetI18nMessagesDocument = `${StoreI18nMessageFragmentSchema}
-subscription StoreGetI18nMessages($collection: String!) {
-  contelloI18nMessagesBatch(collectionReferenceName: $collection) {
-    ...StoreI18nMessage
-  }
-}`;
 export const storeRegisterI18nMessagesDocument = `mutation StoreRegisterI18nMessages($collection: String!, $messages: [ContelloI18nMessageInput!]!) {
   registerContelloI18nMessages(
     collectionReferenceName: $collection
@@ -759,12 +738,6 @@ export const storeRegisterI18nMessagesDocument = `mutation StoreRegisterI18nMess
     deprecateUnmentioned: true
   ) {
     ids
-  }
-}`;
-export const storeGetRoutesDocument = `${StoreRouteFragmentSchema}
-query StoreGetRoutes($request: ContelloRoutesRequestInput!) {
-  contelloRoutes(request: $request) {
-    ...StoreRoute
   }
 }`;
 export const storeWatchUpdatesDocument = `${StoreRouteFragmentSchema}
@@ -801,29 +774,11 @@ subscription StoreWatchUpdates {
 }`;
 
 export type Operations = {
-  storeGetAssets: {
-    document: string;
-    kind: 'query';
-    __result?: StoreGetAssetsQuery | undefined;
-    __variables?: StoreGetAssetsQueryVariables | undefined;
-  };
-  storeGetI18nMessages: {
-    document: string;
-    kind: 'subscription';
-    __result?: StoreGetI18nMessagesSubscription | undefined;
-    __variables?: StoreGetI18nMessagesSubscriptionVariables | undefined;
-  };
   storeRegisterI18nMessages: {
     document: string;
     kind: 'mutation';
     __result?: StoreRegisterI18nMessagesMutation | undefined;
     __variables?: StoreRegisterI18nMessagesMutationVariables | undefined;
-  };
-  storeGetRoutes: {
-    document: string;
-    kind: 'query';
-    __result?: StoreGetRoutesQuery | undefined;
-    __variables?: StoreGetRoutesQueryVariables | undefined;
   };
   storeWatchUpdates: {
     document: string;
@@ -840,10 +795,7 @@ export type Sources = {
 };
 
 const operations: Operations = {
-  storeGetAssets: { document: storeGetAssetsDocument, kind: 'query' },
-  storeGetI18nMessages: { document: storeGetI18nMessagesDocument, kind: 'subscription' },
   storeRegisterI18nMessages: { document: storeRegisterI18nMessagesDocument, kind: 'mutation' },
-  storeGetRoutes: { document: storeGetRoutesDocument, kind: 'query' },
   storeWatchUpdates: { document: storeWatchUpdatesDocument, kind: 'subscription' },
 };
 

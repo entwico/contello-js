@@ -4,10 +4,4 @@ import { schema } from '@/server/_/gql/graphql';
 
 const { url, project, token, i18nMessageCollection: collection } = Config.services.contello;
 
-export const contello = createContello({
-  url,
-  project,
-  token,
-  i18n: { collection, languages: ['en'] },
-  schema,
-});
+export const contello = createContello({ schema, url, project, token, i18n: { collection, languages: ['en'] } });

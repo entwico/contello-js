@@ -2,7 +2,7 @@ import {
   type AsyncIterableSubject,
   type ContelloClient,
   collectAsync,
-  createAsyncIterableSubject,
+  createSourceSubscription,
   mapAsync,
   runWithBackoff,
 } from '@contello/client';
@@ -10,14 +10,20 @@ import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'p
 import { wrap } from './diagnostics';
 import {
   type ContelloI18nMessageInput,
-  type StoreGetI18nMessagesSubscription,
+  type StoreI18nMessageFragment,
   type StoreRegisterI18nMessagesMutation,
-  storeGetI18nMessagesDocument,
   storeRegisterI18nMessagesDocument,
+  schema as storeSchema,
 } from './generated/graphql';
 import type { RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
 
-import { type RefreshByTtlQueue, createRefresher, resolveTtl } from './utils';
+import {
+  type RefreshByTtlQueue,
+  createRefreshChannel,
+  createRefresher,
+  createTtlOrchestrator,
+  resolveTtl,
+} from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type I18nTranslation = {
@@ -87,32 +93,35 @@ export function createI18nMessagesCollection(
   updates$: AsyncIterableSubject<UpdateBatch>,
   refreshByTtl: RefreshByTtlQueue,
 ): I18nMessages {
-  const ttl = resolveTtl(def.cache?.ttl);
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const channel = createRefreshChannel<RefreshEvent>(def.onRefresh);
+  const ttl = createTtlOrchestrator({ ttl: resolveTtl(def.cache?.ttl), run: () => runTtlRefresh() });
   let loaded = false;
+
+  const i18nSourceDoc = createSourceSubscription(storeSchema.sources.storeI18nMessage);
 
   const projected = new ProjectedMap<string, I18nMessage>({
     key: (msg) => msg.id,
-    values: () =>
+    values: (ids) =>
       wrap(`i18n:${def.collection}`, () =>
         collectAsync(
           mapAsync(
-            client.subscribe<StoreGetI18nMessagesSubscription>(storeGetI18nMessagesDocument, {
+            client.subscribe<{ source: StoreI18nMessageFragment[] }>(i18nSourceDoc, {
               collection: def.collection,
+              ids,
             }),
-            (data) => data.contelloI18nMessagesBatch,
+            (data) => data.source,
           ),
         ).then((msgs) => {
-          const items = msgs.map((msg) => ({
+          const items: I18nMessage[] = msgs.map((msg) => ({
             id: msg.id,
             token: msg.token,
             translations: new Map(msg.translations.map((t) => [t.language, t.value])),
           }));
 
           // start tracking refresh by ttl on first successful full fetch
-          if (!loaded) {
+          if (ids === undefined && !loaded) {
             loaded = true;
-            scheduleTtl();
+            ttl.mark();
           }
 
           return items;
@@ -120,13 +129,8 @@ export function createI18nMessagesCollection(
       ),
   });
 
-  const refresh$ = createAsyncIterableSubject<RefreshEvent>();
-
   function emit(ids: string[], kind: RefreshKind): void {
-    const event: RefreshEvent = { ids, kind };
-
-    refresh$.next(event);
-    def.onRefresh?.(event);
+    channel.emit({ ids, kind });
   }
 
   function emitWithCurrentIds(kind: RefreshKind): void {
@@ -138,21 +142,11 @@ export function createI18nMessagesCollection(
     });
   }
 
-  function scheduleTtl(): void {
-    clearTimeout(timer);
-
-    if (ttl === undefined) {
-      return;
-    }
-
-    timer = setTimeout(runTtlRefresh, ttl);
-  }
-
   function runTtlRefresh(): void {
     refreshByTtl.enqueue(() =>
       runWithBackoff(() => projected.refresh()).then(() => {
         emitWithCurrentIds('ttl');
-        scheduleTtl();
+        ttl.mark();
       }),
     );
   }
@@ -161,19 +155,60 @@ export function createI18nMessagesCollection(
     () => projected.refresh(),
     (kind) => {
       emitWithCurrentIds(kind);
-      scheduleTtl();
+      ttl.mark();
     },
     () => {},
   );
 
-  const unsubUpdates = updates$.subscribe((batch) => {
-    if (batch.i18nMessage.length > 0) {
-      scheduleRefresh('upstream-update');
+  function runPartialRefresh(upsertedIds: string[], deletedIds: string[]): void {
+    const changedIds = [...new Set([...upsertedIds, ...deletedIds])];
+
+    if (changedIds.length === 0) {
+      return;
     }
+
+    if (upsertedIds.length === 0) {
+      emit(changedIds, 'upstream-update');
+
+      return;
+    }
+
+    void runWithBackoff(() =>
+      projected.refresh(upsertedIds).then(() => {
+        emit(changedIds, 'upstream-update');
+      }),
+    );
+  }
+
+  const unsubUpdates = updates$.subscribe((batch) => {
+    if (!loaded) {
+      return;
+    }
+
+    if (batch.i18nMessage.length === 0) {
+      return;
+    }
+
+    const deleted: string[] = [];
+    const upserted = new Set<string>();
+
+    for (const event of batch.i18nMessage) {
+      if (event.mutation === 'delete') {
+        deleted.push(event.id);
+      } else {
+        upserted.add(event.id);
+      }
+    }
+
+    if (deleted.length > 0) {
+      projected.delete(deleted);
+    }
+
+    runPartialRefresh([...upserted], deleted);
   });
 
   return {
-    refresh$,
+    refresh$: channel.stream$,
 
     get(idOrIds: string | string[]): any {
       return projected.get(idOrIds as string);
@@ -200,8 +235,8 @@ export function createI18nMessagesCollection(
 
     destroy() {
       unsubUpdates();
-      clearTimeout(timer);
-      refresh$.complete();
+      ttl.clear();
+      channel.complete();
     },
   };
 }

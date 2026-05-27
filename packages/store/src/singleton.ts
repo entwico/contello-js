@@ -2,7 +2,6 @@ import {
   type AsyncIterableSubject,
   type ContelloClient,
   type SourceDef,
-  createAsyncIterableSubject,
   createSourceSubscription,
   firstAsync,
   mapAsync,
@@ -22,7 +21,13 @@ import type {
   SingletonSync,
   SingletonSyncOptions,
 } from './types';
-import { type RefreshByTtlQueue, createRefresher, resolveTtl } from './utils';
+import {
+  type RefreshByTtlQueue,
+  createRefreshChannel,
+  createRefresher,
+  createTtlOrchestrator,
+  resolveTtl,
+} from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createSingleton<
@@ -50,7 +55,8 @@ export function createSingleton<
 
   const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
   const itemKey = `singleton:${_def.name}`;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const channel = createRefreshChannel<SingletonRefreshEvent>(opts.onRefresh);
+  const ttl = createTtlOrchestrator({ ttl: _def.cache.ttl, run: () => runTtlRefresh() });
   let loaded = false;
 
   const projected = new ProjectedValue<TMapped>({
@@ -71,7 +77,7 @@ export function createSingleton<
                 // start tracking refresh by ttl on first successful full fetch
                 if (!loaded) {
                   loaded = true;
-                  scheduleTtl();
+                  ttl.mark();
                   opts.onLoad?.();
                 }
 
@@ -82,30 +88,15 @@ export function createSingleton<
       ),
   });
 
-  const refresh$ = createAsyncIterableSubject<SingletonRefreshEvent>();
-
   function emit(kind: RefreshKind): void {
-    const event: SingletonRefreshEvent = { kind };
-
-    refresh$.next(event);
-    opts.onRefresh?.(event);
-  }
-
-  function scheduleTtl(): void {
-    clearTimeout(timer);
-
-    if (_def.cache.ttl === undefined) {
-      return;
-    }
-
-    timer = setTimeout(runTtlRefresh, _def.cache.ttl);
+    channel.emit({ kind });
   }
 
   function runTtlRefresh(): void {
     refreshByTtl.enqueue(() =>
       runWithBackoff(() => projected.refresh()).then(() => {
         emit('ttl');
-        scheduleTtl();
+        ttl.mark();
       }),
     );
   }
@@ -114,7 +105,7 @@ export function createSingleton<
     () => projected.refresh(),
     (kind) => {
       emit(kind);
-      scheduleTtl();
+      ttl.mark();
     },
     () => {},
   );
@@ -144,7 +135,7 @@ export function createSingleton<
   return {
     instance: {
       name: _def.name,
-      refresh$,
+      refresh$: channel.stream$,
 
       get(): MaybePromise<ReadonlyDeep<TMapped>> {
         return projected.get();
@@ -162,8 +153,8 @@ export function createSingleton<
     },
     destroy() {
       unsubUpdates();
-      clearTimeout(timer);
-      refresh$.complete();
+      ttl.clear();
+      channel.complete();
     },
   };
 }

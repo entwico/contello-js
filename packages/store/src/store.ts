@@ -1,12 +1,28 @@
 import { type ContelloClient, type Schema, type SourceDef, createContelloClient } from '@contello/client';
 
-import { type AssetCollectionOptions, type Assets, createAssetsCollection } from './assets';
+import {
+  type Assets,
+  type AssetsOptions,
+  type AssetsSync,
+  type AssetsSyncOptions,
+  createAssetsCollection,
+  createAssetsSyncCollection,
+} from './assets';
 import { createCollection, createCollectionSync } from './collection';
 import { wrap } from './diagnostics';
 import { type I18nMessageDef, type I18nMessages, createI18nMessagesCollection } from './i18n';
+import { type LazyAssets, type LazyAssetsOptions, createLazyAssetsCollection } from './lazy-assets';
 import { createLazyCollection } from './lazy-collection';
+import { type LazyRoutes, type LazyRoutesOptions, createLazyRoutesCollection } from './lazy-routes';
 import { ModelResolver } from './model-resolver';
-import { type RouteCollectionOptions, type Routes, createRoutesCollection } from './routes';
+import {
+  type Routes,
+  type RoutesOptions,
+  type RoutesSync,
+  type RoutesSyncOptions,
+  createRoutesCollection,
+  createRoutesSyncCollection,
+} from './routes';
 import { createSingleton, createSingletonSync } from './singleton';
 import type {
   Collection,
@@ -227,16 +243,79 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
   // --- assets / routes / i18n (no source — built-ins) ---
 
-  public defineAssets(options?: AssetCollectionOptions | undefined): Assets {
-    const { instance, destroy } = createAssetsCollection(options, this._client, this._watcher.updates$);
+  // --- assets ---
+
+  public defineAssets(options?: AssetsOptions | undefined): Assets {
+    const { instance, destroy } = createAssetsCollection(
+      options,
+      this._client,
+      this._watcher.updates$,
+      this._refreshByTtl,
+    );
 
     this._cleanups.push(destroy);
 
     return instance;
   }
 
-  public defineRoutes(options?: RouteCollectionOptions | undefined): Routes {
-    const { instance, destroy } = createRoutesCollection(options, this._client, this._watcher.updates$, this._resolver);
+  public defineAssetsSync(options?: AssetsSyncOptions | undefined): AssetsSync {
+    const { instance, destroy } = createAssetsSyncCollection(
+      options,
+      this._client,
+      this._watcher.updates$,
+      this._refreshByTtl,
+    );
+
+    this._cleanups.push(destroy);
+
+    return instance;
+  }
+
+  public defineLazyAssets(options?: LazyAssetsOptions | undefined): LazyAssets {
+    const { instance, destroy } = createLazyAssetsCollection(options, this._client, this._watcher.updates$);
+
+    this._cleanups.push(destroy);
+
+    return instance;
+  }
+
+  // --- routes ---
+
+  public defineRoutes(options?: RoutesOptions | undefined): Routes {
+    const { instance, destroy } = createRoutesCollection(
+      options,
+      this._client,
+      this._watcher.updates$,
+      this._resolver,
+      this._refreshByTtl,
+    );
+
+    this._cleanups.push(destroy);
+
+    return instance;
+  }
+
+  public defineRoutesSync(options?: RoutesSyncOptions | undefined): RoutesSync {
+    const { instance, destroy } = createRoutesSyncCollection(
+      options,
+      this._client,
+      this._watcher.updates$,
+      this._resolver,
+      this._refreshByTtl,
+    );
+
+    this._cleanups.push(destroy);
+
+    return instance;
+  }
+
+  public defineLazyRoutes(options?: LazyRoutesOptions | undefined): LazyRoutes {
+    const { instance, destroy } = createLazyRoutesCollection(
+      options,
+      this._client,
+      this._watcher.updates$,
+      this._resolver,
+    );
 
     this._cleanups.push(destroy);
 

@@ -34,9 +34,9 @@ export type Rpc<T extends OperationMap> = {
  * Discriminator for how a SourceDef binds to a Subscription field:
  * - `entity` — a Contello entity model collection (`categoriesBatch` etc.), accepts optional `{ ids }` filter
  * - `singleton` — a single Contello entity (`config` etc.), no args
- * - `route` — built-in: `contelloRoutesBatch`, no args
- * - `asset` — built-in: `contelloAssetsBatch`, no args
- * - `i18nMessage` — built-in: `contelloI18nMessagesBatch`, requires `{ collection }`
+ * - `route` — built-in: `contelloRoutesBatch`, optional `{ ids, paths }` filter
+ * - `asset` — built-in: `contelloAssetsBatch`, optional `{ ids }` filter
+ * - `i18nMessage` — built-in: `contelloI18nMessagesBatch`, requires `{ collection }` and optional `{ ids }` filter
  */
 export type SourceCardinality = 'entity' | 'singleton' | 'route' | 'asset' | 'i18nMessage';
 
@@ -81,11 +81,11 @@ type SourceFetcherFor<S> =
     : S extends SourceDef<string, 'entity', infer R>
       ? (vars?: { ids?: string[] }) => Promise<R[]>
       : S extends SourceDef<string, 'route', infer R>
-        ? () => Promise<R[]>
+        ? (vars?: { ids?: string[] | undefined; paths?: string[] | undefined } | undefined) => Promise<R[]>
         : S extends SourceDef<string, 'asset', infer R>
-          ? () => Promise<R[]>
+          ? (vars?: { ids?: string[] | undefined } | undefined) => Promise<R[]>
           : S extends SourceDef<string, 'i18nMessage', infer R>
-            ? (vars: { collection: string }) => Promise<R[]>
+            ? (vars: { collection: string; ids?: string[] | undefined }) => Promise<R[]>
             : never;
 
 /** Per-source runtime accessor: `client.sources.category.fetch()` → `Promise<CategoryFragment[]>` etc. */

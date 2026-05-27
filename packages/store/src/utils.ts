@@ -1,4 +1,4 @@
-import { runWithBackoff } from '@contello/client';
+import { type AsyncIterableSubject, createAsyncIterableSubject, runWithBackoff } from '@contello/client';
 
 /**
  * default `cache.ttl` applied across all store kinds. eager stores (collections, singletons)
@@ -67,6 +67,72 @@ export function createRefresher<K>(
   }
 
   return scheduleRefresh;
+}
+
+/**
+ * Refresh channel: bundles the `refresh$` multicast stream and the `onRefresh` callback
+ * so both fire on every emission. Used by every eager and lazy store that exposes refresh
+ * events.
+ */
+export type RefreshChannel<TEvent> = {
+  readonly stream$: AsyncIterableSubject<TEvent>;
+  emit(event: TEvent): void;
+  complete(): void;
+};
+
+export function createRefreshChannel<TEvent>(
+  onRefresh?: ((event: TEvent) => void) | undefined,
+): RefreshChannel<TEvent> {
+  const stream$ = createAsyncIterableSubject<TEvent>();
+
+  return {
+    stream$,
+    emit(event) {
+      stream$.next(event);
+      onRefresh?.(event);
+    },
+    complete() {
+      stream$.complete();
+    },
+  };
+}
+
+/**
+ * TTL orchestrator: owns the safety-net timer for eager stores. Calls into `run` after
+ * `ttl` ms have passed since the last `mark()` (or `reset()`); `run` is responsible for
+ * actually fetching + re-arming via another `mark()` once it succeeds. `clear()` cancels
+ * the timer on destroy. When `ttl` is undefined the orchestrator is a no-op.
+ */
+export type TtlOrchestrator = {
+  /** start (or restart) the timer. consumers call this on first successful full fetch and after every later one. */
+  mark(): void;
+  /** cancel any pending timer; for destroy. */
+  clear(): void;
+};
+
+export function createTtlOrchestrator(options: { ttl: number | undefined; run: () => void }): TtlOrchestrator {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  return {
+    mark() {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+
+      if (options.ttl === undefined) {
+        return;
+      }
+
+      timer = setTimeout(options.run, options.ttl);
+    },
+    clear() {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+    },
+  };
 }
 
 /**

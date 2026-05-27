@@ -11,10 +11,11 @@ function createSelection(source: SourceDef): string {
     case 'entity':
       return `subscription($ids: [ID!]) { source: ${source.subscription}(request: { filter: { ids: $ids } }) ${spread} }`;
     case 'route':
+      return `subscription($ids: [ID!], $paths: [String!]) { source: ${source.subscription}(request: { ids: $ids, paths: $paths }) ${spread} }`;
     case 'asset':
-      return `subscription { source: ${source.subscription} ${spread} }`;
+      return `subscription($ids: [ID!]) { source: ${source.subscription}(filter: { ids: $ids }) ${spread} }`;
     case 'i18nMessage':
-      return `subscription($collection: String!) { source: ${source.subscription}(collectionReferenceName: $collection) ${spread} }`;
+      return `subscription($collection: String!, $ids: [ID!]) { source: ${source.subscription}(collectionReferenceName: $collection, ids: $ids) ${spread} }`;
   }
 }
 

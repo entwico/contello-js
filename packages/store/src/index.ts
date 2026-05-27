@@ -3,7 +3,8 @@ export { createStore, Store } from './store';
 export { maybeThen, maybeCatch } from 'projected';
 export type { MaybePromise, ReadonlyDeep } from 'projected';
 
-export type { AssetCollectionOptions, Assets, StoreAsset, StoreFile, StoreFileMetadata } from './assets';
+export type { Assets, AssetsOptions, AssetsSync, AssetsSyncOptions } from './assets';
+export type { LazyAssets, LazyAssetsOptions, StoreAsset, StoreFile, StoreFileMetadata } from './lazy-assets';
 
 export type {
   I18nInitialTranslation,
@@ -15,7 +16,8 @@ export type {
   I18nVariableInput,
 } from './i18n';
 
-export type { RouteCollectionOptions, Routes, StoreRoute, StoreRouteCustomHeader } from './routes';
+export type { Routes, RoutesOptions, RoutesSync, RoutesSyncOptions } from './routes';
+export type { LazyRoutes, LazyRoutesOptions, StoreRoute, StoreRouteCustomHeader } from './lazy-routes';
 
 export type { MapperContext } from './dependency-collector';
 

@@ -1,10 +1,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
-import type { Schema, SourceDef } from '@contello/client';
+import type { ContelloClient, Schema, SourceDef } from '@contello/client';
 import { type ImageDef, type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
 import {
-  type AssetCollectionOptions,
   type Assets,
+  type AssetsOptions,
+  type AssetsSync,
+  type AssetsSyncOptions,
   type Collection,
   type CollectionOptions,
   type CollectionSync,
@@ -13,13 +15,19 @@ import {
   type ExtractSourceResult,
   type I18nMessageRegistrationDefinition,
   type I18nMessages,
+  type LazyAssets,
+  type LazyAssetsOptions,
   type LazyCollection,
   type LazyCollectionOptions,
+  type LazyRoutes,
+  type LazyRoutesOptions,
   type Loadable,
   type ReadonlyDeep,
   type ResolveSource,
-  type RouteCollectionOptions,
   type Routes,
+  type RoutesOptions,
+  type RoutesSync,
+  type RoutesSyncOptions,
   type Singleton,
   type SingletonOptions,
   type SingletonSync,
@@ -30,6 +38,12 @@ import {
   type SyncCacheOptions,
   createStore,
 } from '@contello/store';
+import { type ContelloAssetsMiddlewareOptions, createBoundAssetsMiddleware } from './assets-middleware';
+import {
+  type AnyRoutes,
+  type ContelloRoutingMiddlewareOptions,
+  createBoundRoutingMiddleware,
+} from './routing-middleware';
 
 const DEFAULT_IMAGES_PREFIX = '/_contello/i/';
 const DEFAULT_FILES_PREFIX = '/_contello/f/';
@@ -65,9 +79,7 @@ export type ContelloMediaConfig = {
 };
 
 export type ContelloOptions<TSchema extends Schema | undefined = undefined> = CreateStoreOptions<TSchema> & {
-  assets?: AssetCollectionOptions | undefined;
   i18n?: ContelloI18nOptions | undefined;
-  routes?: RouteCollectionOptions | undefined;
   media?: Partial<ContelloMediaConfig> | undefined;
 };
 
@@ -129,12 +141,12 @@ type SingletonRaw<TSchema, TArg> = ExtractSourceResult<
 export class Contello<TSchema extends Schema | undefined = undefined> {
   private readonly _store: Store<TSchema>;
   private readonly _options: ContelloOptions<TSchema>;
-  private _assets: Assets | undefined;
-  private _routes: Routes | undefined;
   private _i18nMessages: I18nMessages | undefined;
   private _i18nUnsubscribe: (() => void) | undefined;
   private _initialized = false;
   private readonly _als = new AsyncLocalStorage<ContelloRequestContext>();
+  private _autoEagerRoutes?: RoutesSync;
+  private _autoLazyRoutes?: LazyRoutes;
 
   readonly media: ContelloMediaConfig;
 
@@ -155,9 +167,6 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   async init(options?: ContelloInitOptions | undefined): Promise<void> {
     try {
       await this._store.init();
-
-      this._assets = this._store.defineAssets(this._options.assets);
-      this._routes = this._store.defineRoutes(this._options.routes);
 
       if (this._options.i18n) {
         const { collection, languages, cache } = this._options.i18n;
@@ -196,9 +205,9 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
         }
       }
 
-      if (options?.load) {
-        await Promise.all(options.load.map((l) => l.load()));
-      }
+      const loadables = [...(options?.load ?? []), ...(this._autoEagerRoutes ? [this._autoEagerRoutes] : [])];
+
+      await Promise.all(loadables.map((l) => l.load()));
 
       this._initialized = true;
     } catch (err) {
@@ -216,8 +225,6 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
 
     await this._store.destroy();
 
-    this._assets = undefined;
-    this._routes = undefined;
     this._i18nMessages = undefined;
   }
 
@@ -229,22 +236,8 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
     return this._initialized;
   }
 
-  // --- pre-wired collections ---
-
-  get assets(): Assets {
-    if (!this._assets) {
-      throw new Error('@contello/astro: .assets accessed before init()');
-    }
-
-    return this._assets;
-  }
-
-  get routes(): Routes {
-    if (!this._routes) {
-      throw new Error('@contello/astro: .routes accessed before init()');
-    }
-
-    return this._routes;
+  get client(): ContelloClient<TSchema> {
+    return this._store.client;
   }
 
   get i18nMessages(): I18nMessages {
@@ -321,6 +314,51 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   ): LazyCollection<TMapped> {
     return this._store.defineLazyCollection(sourceOrKey as any, options as any) as LazyCollection<TMapped>;
   }
+
+  defineRoutes(options?: RoutesOptions | undefined): Routes {
+    return this._store.defineRoutes(options);
+  }
+
+  defineRoutesSync(options?: RoutesSyncOptions | undefined): RoutesSync {
+    return this._store.defineRoutesSync(options);
+  }
+
+  defineLazyRoutes(options?: LazyRoutesOptions | undefined): LazyRoutes {
+    return this._store.defineLazyRoutes(options);
+  }
+
+  defineAssets(options?: AssetsOptions | undefined): Assets {
+    return this._store.defineAssets(options);
+  }
+
+  defineAssetsSync(options?: AssetsSyncOptions | undefined): AssetsSync {
+    return this._store.defineAssetsSync(options);
+  }
+
+  defineLazyAssets(options?: LazyAssetsOptions | undefined): LazyAssets {
+    return this._store.defineLazyAssets(options);
+  }
+
+  // --- middleware factories (arrow fields so destructuring works) ---
+
+  createRoutingMiddleware = (options?: ContelloRoutingMiddlewareOptions | undefined) => {
+    const routesOption = options?.routes ?? 'eager';
+    let routes: AnyRoutes;
+
+    if (routesOption === 'eager') {
+      routes = this._autoEagerRoutes ??= this.defineRoutesSync();
+    } else if (routesOption === 'lazy') {
+      routes = this._autoLazyRoutes ??= this.defineLazyRoutes();
+    } else {
+      routes = routesOption;
+    }
+
+    return createBoundRoutingMiddleware(this, routes, options?.exclude);
+  };
+
+  createAssetsMiddleware = (options?: ContelloAssetsMiddlewareOptions | undefined) => {
+    return createBoundAssetsMiddleware(this, options);
+  };
 
   // --- ALS run ---
 
