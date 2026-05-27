@@ -1,5 +1,12 @@
 # @contello/astro
 
+## 2.1.0
+
+### Minor Changes
+
+- 0d1bc9f: `ContelloI18nOptions` accepts a `cache` field, forwarded to the i18n messages store
+- 5d59fe1: middleware factories live on the contello instance: `contello.createRoutingMiddleware()` and `contello.createAssetsMiddleware()`
+
 ## 2.0.0
 
 ### Major Changes
