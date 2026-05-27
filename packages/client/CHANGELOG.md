@@ -1,5 +1,11 @@
 # @contello/client
 
+## 2.2.0
+
+### Minor Changes
+
+- 5d59fe1: built-in source fetchers accept filter args: `route.fetch({ ids?, paths? })`, `asset.fetch({ ids? })`, `i18nMessage.fetch({ collection, ids? })`
+
 ## 2.1.1
 
 ### Patch Changes

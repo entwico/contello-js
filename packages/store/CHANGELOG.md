@@ -1,5 +1,20 @@
 # @contello/store
 
+## 2.1.0
+
+### Minor Changes
+
+- 0d1bc9f: every store kind has a default 3-hour freshness guarantee — eager stores run a periodic full refresh, lazy stores expire LRU entries on next access. `cache.ttl: 0` or `cache.ttl: false` disables
+- 0d1bc9f: `I18nMessages` gains `refresh()` and `onRefresh`
+- 0d1bc9f: `refresh$` streams and `onRefresh` callbacks now deliver `{ ids, kind }` (or `{ kind }` for singletons) with `kind: 'upstream-update' | 'ttl' | 'on-demand'`
+- 5d59fe1: routes and assets ship as three variants each: `defineRoutes` / `defineAssets` (eager async), `defineRoutesSync` / `defineAssetsSync` (eager + sync), `defineLazyRoutes` / `defineLazyAssets` (lazy)
+
+### Patch Changes
+
+- 5d59fe1: i18n update events refetch only the changed ids, delete events remove entries locally without a follow-up fetch, and `refresh$` / `onRefresh` emit only the actually-changed ids. events arriving before the initial load are ignored
+- 5d59fe1: shared TTL orchestrator and refresh-channel helpers extracted (`createTtlOrchestrator`, `createRefreshChannel`)
+- 5d59fe1: routes, assets, and i18n stores now drive their fetches through the built-in `storeRoute` / `storeAsset` / `storeI18nMessage` sources
+
 ## 2.0.1
 
 ### Patch Changes
