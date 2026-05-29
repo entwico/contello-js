@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 2.2.0
+
+### Minor Changes
+
+- fd6c1bf: routing middleware accepts a `resolveRoutePath` callback to derive the lookup path from the request
+
 ## 2.1.0
 
 ### Minor Changes
