@@ -353,7 +353,7 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
       routes = routesOption;
     }
 
-    return createBoundRoutingMiddleware(this, routes, options?.exclude);
+    return createBoundRoutingMiddleware(this, routes, options?.exclude, options?.resolveRoutePath);
   };
 
   createAssetsMiddleware = (options?: ContelloAssetsMiddlewareOptions | undefined) => {

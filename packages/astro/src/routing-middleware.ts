@@ -8,12 +8,23 @@ import {
   type StoreRouteCustomHeader,
   maybeThen,
 } from '@contello/store';
-import type { ValidRedirectStatus } from 'astro';
+import type { APIContext, ValidRedirectStatus } from 'astro';
 import { defineMiddleware } from 'astro/middleware';
 import { type Contello, runRequest } from './contello';
 import { wrap } from './diagnostics';
 
 export type AnyRoutes = Routes | RoutesSync | LazyRoutes;
+
+/**
+ * Derives the path used to look up a Contello route from the request context.
+ *
+ * @default `(ctx) => ctx.url.pathname`
+ *
+ * ```ts
+ * resolveRoutePath: (ctx) => `/${ctx.url.hostname}${ctx.url.pathname}`
+ * ```
+ */
+export type RoutePathResolver = (ctx: APIContext) => string;
 
 export type ContelloRoutingMiddlewareOptions = {
   /**
@@ -23,6 +34,7 @@ export type ContelloRoutingMiddlewareOptions = {
    */
   routes?: 'eager' | 'lazy' | AnyRoutes | undefined;
   exclude?: ExcludePattern[] | undefined;
+  resolveRoutePath?: RoutePathResolver | undefined;
 };
 
 function customHeaders(headers: readonly StoreRouteCustomHeader[]): Record<string, string> {
@@ -39,6 +51,7 @@ export function createBoundRoutingMiddleware(
   contello: Contello<any>,
   routes: AnyRoutes,
   exclude: ExcludePattern[] | undefined,
+  resolveRoutePath: RoutePathResolver | undefined,
 ) {
   return defineMiddleware((ctx, next) => {
     if (shouldExclude(ctx, exclude ?? RECOMMENDED_EXCLUDES)) {
@@ -57,7 +70,8 @@ export function createBoundRoutingMiddleware(
       return contello[runRequest]({ url, route: undefined, rewritten: false }, () => next());
     }
 
-    const lookup = routes.getByPath(url.pathname) as MaybePromise<StoreRoute | undefined>;
+    const path = resolveRoutePath ? resolveRoutePath(ctx) : url.pathname;
+    const lookup = routes.getByPath(path) as MaybePromise<StoreRoute | undefined>;
 
     return maybeThen(lookup, (route) => {
       if (!route) {
