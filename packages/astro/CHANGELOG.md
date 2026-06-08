@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 2.2.1
+
+### Patch Changes
+
+- e9a4a93: routing middleware uses routes lazily by default
+
 ## 2.2.0
 
 ### Minor Changes
