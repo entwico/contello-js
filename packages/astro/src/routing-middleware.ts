@@ -28,11 +28,13 @@ export type RoutePathResolver = (ctx: APIContext) => string;
 
 export type ContelloRoutingMiddlewareOptions = {
   /**
-   * - `'eager'` (default) — use a `RoutesSync` instance managed by contello (auto-loaded by `contello.init()`)
-   * - `'lazy'` — use a `LazyRoutes` instance managed by contello
-   * - a user-defined routes instance (`Routes` / `RoutesSync` / `LazyRoutes`) — consumer manages its lifecycle
+   * Routes instance backing the middleware.
+   *
+   * Defaults to a `LazyRoutes` instance managed by contello (fetched on demand, no init-time load).
+   * For eager routing, create a `RoutesSync` via `contello.defineRoutesSync()`, add it to
+   * `contello.init({ load: [routes] })`, and pass that same instance here.
    */
-  routes?: 'eager' | 'lazy' | AnyRoutes | undefined;
+  routes?: AnyRoutes | undefined;
   exclude?: ExcludePattern[] | undefined;
   resolveRoutePath?: RoutePathResolver | undefined;
 };

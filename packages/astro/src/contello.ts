@@ -39,11 +39,7 @@ import {
   createStore,
 } from '@contello/store';
 import { type ContelloAssetsMiddlewareOptions, createBoundAssetsMiddleware } from './assets-middleware';
-import {
-  type AnyRoutes,
-  type ContelloRoutingMiddlewareOptions,
-  createBoundRoutingMiddleware,
-} from './routing-middleware';
+import { type ContelloRoutingMiddlewareOptions, createBoundRoutingMiddleware } from './routing-middleware';
 
 const DEFAULT_IMAGES_PREFIX = '/_contello/i/';
 const DEFAULT_FILES_PREFIX = '/_contello/f/';
@@ -145,7 +141,6 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   private _i18nUnsubscribe: (() => void) | undefined;
   private _initialized = false;
   private readonly _als = new AsyncLocalStorage<ContelloRequestContext>();
-  private _autoEagerRoutes?: RoutesSync;
   private _autoLazyRoutes?: LazyRoutes;
 
   readonly media: ContelloMediaConfig;
@@ -205,9 +200,7 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
         }
       }
 
-      const loadables = [...(options?.load ?? []), ...(this._autoEagerRoutes ? [this._autoEagerRoutes] : [])];
-
-      await Promise.all(loadables.map((l) => l.load()));
+      await Promise.all((options?.load ?? []).map((l) => l.load()));
 
       this._initialized = true;
     } catch (err) {
@@ -342,16 +335,7 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   // --- middleware factories (arrow fields so destructuring works) ---
 
   createRoutingMiddleware = (options?: ContelloRoutingMiddlewareOptions | undefined) => {
-    const routesOption = options?.routes ?? 'eager';
-    let routes: AnyRoutes;
-
-    if (routesOption === 'eager') {
-      routes = this._autoEagerRoutes ??= this.defineRoutesSync();
-    } else if (routesOption === 'lazy') {
-      routes = this._autoLazyRoutes ??= this.defineLazyRoutes();
-    } else {
-      routes = routesOption;
-    }
+    const routes = options?.routes ?? (this._autoLazyRoutes ??= this.defineLazyRoutes());
 
     return createBoundRoutingMiddleware(this, routes, options?.exclude, options?.resolveRoutePath);
   };
