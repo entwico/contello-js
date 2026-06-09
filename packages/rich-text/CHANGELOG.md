@@ -1,5 +1,11 @@
 # @contello/rich-text
 
+## 8.22.0
+
+### Minor Changes
+
+- 96b0d7e: read helpers (richTextNodeToString, richTextNodesToString, richTextDocumentToString, isRichTextDocumentEmpty) now accept deeply readonly rich text values
+
 ## 8.21.3
 
 ### Patch Changes
