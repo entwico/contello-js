@@ -1,5 +1,11 @@
 # @contello/client
 
+## 2.2.1
+
+### Patch Changes
+
+- 50d01d5: resolve flat component refs and inject `__model` on every subscription
+
 ## 2.2.0
 
 ### Minor Changes
