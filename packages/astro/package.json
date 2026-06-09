@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint": "eslint .",
+    "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit"
   },

@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsup",
     "generate": "node --env-file=../../.env ../client/dist/cli.js generate",
-    "lint": "eslint .",
+    "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit"
   },

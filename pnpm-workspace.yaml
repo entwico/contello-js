@@ -1,3 +1,15 @@
 packages:
   - packages/*
   - demo/*
+
+overrides:
+  vite: ^7.0.0
+
+minimumReleaseAgeExclude:
+  - '@astroscope/*'
+  - projected
+
+allowBuilds:
+  esbuild: true
+  protobufjs: true
+  sharp: true
