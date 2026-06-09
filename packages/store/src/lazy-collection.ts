@@ -20,7 +20,7 @@ import type {
   RefreshEvent,
   RefreshKind,
 } from './types';
-import { createRefresher, resolveTtl } from './utils';
+import { DEFAULT_LRU_MAX, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createLazyCollection<
@@ -40,7 +40,7 @@ export function createLazyCollection<
     name: opts.name ?? source.__model,
     model: source.__model,
     cache: {
-      max: opts.cache?.max ?? 1000,
+      max: opts.cache?.max ?? DEFAULT_LRU_MAX,
       ttl: resolveTtl(opts.cache?.ttl),
     },
   };

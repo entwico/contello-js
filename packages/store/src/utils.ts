@@ -8,6 +8,12 @@ import { type AsyncIterableSubject, createAsyncIterableSubject, runWithBackoff }
 export const DEFAULT_TTL_MS = 3 * 60 * 60 * 1000;
 
 /**
+ * default `cache.max` (LRU capacity) for lazy stores — the maximum number of items kept
+ * before least-recently-used eviction.
+ */
+export const DEFAULT_LRU_MAX = 1000;
+
+/**
  * resolves the consumer-supplied `ttl` (number | false | undefined) into a runtime
  * value: undefined → default, false or 0 → disabled (undefined), positive → as-is.
  */

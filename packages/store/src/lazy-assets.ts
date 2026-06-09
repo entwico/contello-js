@@ -15,7 +15,7 @@ import { wrap } from './diagnostics';
 import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
 import { createLruCache } from './lru';
 import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
-import { createRefreshChannel, createRefresher, resolveTtl } from './utils';
+import { DEFAULT_LRU_MAX, createRefreshChannel, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type StoreFileMetadata = {
@@ -76,7 +76,7 @@ export function createLazyAssetsCollection(
 ): Created<LazyAssets> {
   const _def = {
     cache: {
-      max: def?.cache?.max ?? 1000,
+      max: def?.cache?.max ?? DEFAULT_LRU_MAX,
       ttl: resolveTtl(def?.cache?.ttl),
     },
   };

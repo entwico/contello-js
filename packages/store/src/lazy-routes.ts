@@ -12,7 +12,7 @@ import { type LruCache, createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
-import { createRefreshChannel, createRefresher, resolveTtl } from './utils';
+import { DEFAULT_LRU_MAX, createRefreshChannel, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type { StoreRoute, StoreRouteCustomHeader } from './routes-mapping';
@@ -128,7 +128,7 @@ export function createLazyRoutesCollection(
 ): Created<LazyRoutes> {
   const _def = {
     cache: {
-      max: def?.cache?.max ?? 1000,
+      max: def?.cache?.max ?? DEFAULT_LRU_MAX,
       ttl: resolveTtl(def?.cache?.ttl),
     },
   };
