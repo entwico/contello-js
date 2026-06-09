@@ -15,6 +15,7 @@ import { ping } from './ping';
 import { ConnectionPool } from './pool';
 import { buildRpc } from './rpc';
 import { createSources } from './sources';
+import { transformResponse } from './transform-response';
 import type { Rpc, Schema, SourceAccessors } from './types';
 import { type UploadData, type UploadMetadata, type UploadOptions, upload as uploadAsset } from './upload';
 import { wsRetryWait } from './utils';
@@ -190,7 +191,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
           { query, variables },
           {
             next(msg) {
-              const value = msg.data;
+              const value = transformResponse(msg.data);
 
               if (value === undefined || value === null) {
                 return;

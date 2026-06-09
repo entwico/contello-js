@@ -1,6 +1,5 @@
-import { firstAsync, mapAsync } from './async-iterable-utils';
+import { firstAsync } from './async-iterable-utils';
 import { wrap } from './diagnostics';
-import { transformResponse } from './transform-response';
 import { transformVariables } from './transform-variables';
 import type { OperationMap, Rpc } from './types';
 
@@ -12,12 +11,10 @@ export function buildRpc<T extends OperationMap>(operations: T, subscribe: Subsc
   for (const [name, def] of Object.entries(operations)) {
     if (def.kind === 'subscription') {
       rpc[name] = (variables?: Record<string, unknown>) =>
-        mapAsync(subscribe<unknown>(def.document, transformVariables(variables)), transformResponse);
+        subscribe<unknown>(def.document, transformVariables(variables));
     } else {
       rpc[name] = (variables?: Record<string, unknown>) =>
-        wrap(`rpc:${name}`, () =>
-          firstAsync(mapAsync(subscribe<unknown>(def.document, transformVariables(variables)), transformResponse)),
-        );
+        wrap(`rpc:${name}`, () => firstAsync(subscribe<unknown>(def.document, transformVariables(variables))));
     }
   }
 

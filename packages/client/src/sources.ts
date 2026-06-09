@@ -1,7 +1,6 @@
 import { collectAsync, firstAsync, mapAsync } from './async-iterable-utils';
 import { wrap } from './diagnostics';
 import { createSourceSubscription } from './source-subscription';
-import { transformResponse } from './transform-response';
 import { transformVariables } from './transform-variables';
 import type { SourceAccessors, SourceDef, SourceMap } from './types';
 
@@ -21,9 +20,7 @@ export function createSources<TSources extends SourceMap>(
       case 'singleton':
         out[name] = {
           fetch: () =>
-            wrap(`source:${name}`, () =>
-              firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => transformResponse(r).source)),
-            ),
+            wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source))),
         };
         break;
       case 'entity':
@@ -33,7 +30,7 @@ export function createSources<TSources extends SourceMap>(
               collectAsync(
                 mapAsync(
                   subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
-                  (r) => transformResponse(r).source,
+                  (r) => r.source,
                 ),
               ),
             ),
@@ -46,7 +43,7 @@ export function createSources<TSources extends SourceMap>(
               collectAsync(
                 mapAsync(
                   subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids, paths: vars?.paths })),
-                  (r) => transformResponse(r).source,
+                  (r) => r.source,
                 ),
               ),
             ),
@@ -59,7 +56,7 @@ export function createSources<TSources extends SourceMap>(
               collectAsync(
                 mapAsync(
                   subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
-                  (r) => transformResponse(r).source,
+                  (r) => r.source,
                 ),
               ),
             ),
@@ -75,7 +72,7 @@ export function createSources<TSources extends SourceMap>(
                     doc,
                     transformVariables({ collection: vars.collection, ids: vars.ids }),
                   ),
-                  (r) => transformResponse(r).source,
+                  (r) => r.source,
                 ),
               ),
             ),
