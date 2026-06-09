@@ -161,3 +161,11 @@ export type RichTextMark =
 export type RichTextTextAlign = 'left' | 'center' | 'right';
 
 export type Maybe<T> = T | null | undefined;
+
+// recursively makes every property and array element readonly. used to widen
+// read-only helper signatures so they accept deeply immutable rich text values.
+export type DeepReadonly<T> = T extends (infer U)[]
+  ? readonly DeepReadonly<U>[]
+  : T extends object
+    ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+    : T;

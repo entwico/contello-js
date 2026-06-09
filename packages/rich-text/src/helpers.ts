@@ -1,7 +1,7 @@
-import type { RichTextDocument, RichTextNode } from './types';
+import type { DeepReadonly, RichTextDocument, RichTextNode } from './types';
 
 /** Converts a single rich text node to its plain text representation. */
-export function richTextNodeToString(node: RichTextNode): string {
+export function richTextNodeToString(node: DeepReadonly<RichTextNode>): string {
   if (node.type === 'text') {
     return node.text;
   }
@@ -37,17 +37,17 @@ export function richTextNodeToString(node: RichTextNode): string {
 }
 
 /** Converts an array of rich text nodes to plain text, joining them with newlines. */
-export function richTextNodesToString(nodes: RichTextNode[]): string {
+export function richTextNodesToString(nodes: readonly DeepReadonly<RichTextNode>[]): string {
   return nodes.map(richTextNodeToString).join('\n');
 }
 
 /** Converts a rich text document to its plain text representation. */
-export function richTextDocumentToString(document: RichTextDocument): string {
+export function richTextDocumentToString(document: DeepReadonly<RichTextDocument>): string {
   return richTextNodesToString(document.content ?? []);
 }
 
 /** Returns `true` if the document has no content or only whitespace. */
-export function isRichTextDocumentEmpty(document: RichTextDocument): boolean {
+export function isRichTextDocumentEmpty(document: DeepReadonly<RichTextDocument>): boolean {
   return (
     (document.content ?? []).length === 0 ||
     (document.content ?? []).every((node) => richTextNodeToString(node).trim() === '')
