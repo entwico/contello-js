@@ -26,7 +26,8 @@ export type SourceAt<TSchema, TKey> = TSchema extends { sources: infer TSources 
 
 /**
  * For `define*(arg, options?)` — accepts either a string key (looked up in `schema.sources`) or a SourceDef directly.
- * `ResolveSource` projects the argument to the underlying SourceDef so `ExtractSourceResult` can extract the fragment type.
+ * `ResolveSource` projects the argument to the underlying SourceDef so `ExtractSourceResult`
+ * can extract the fragment type.
  */
 export type ResolveSource<TSchema, T> = T extends string
   ? SourceAt<TSchema, T>
@@ -90,7 +91,10 @@ export type CacheOptions = {
   eviction?: 'refresh' | 'clear' | undefined;
 };
 
-/** Cache options for sync collections and singletons. `eviction` is omitted — clearing the cache would break the sync guarantee. */
+/**
+ * Cache options for sync collections and singletons. `eviction` is omitted — clearing
+ * the cache would break the sync guarantee.
+ */
 export type SyncCacheOptions = {
   /**
    * Periodic full refresh — guards against stale data from missed update events.

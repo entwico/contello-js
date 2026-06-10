@@ -17,22 +17,22 @@ export type ContelloSdkClientParams = {
   middlewares?: ContelloSdkClientMiddleware[] | undefined;
   pooling?:
     | {
-        enabled?: boolean | undefined;
-        size?: number | undefined;
-      }
+      enabled?: boolean | undefined;
+      size?: number | undefined;
+    }
     | undefined;
   client?:
     | {
-        retryAttempts?: number | undefined;
-        onError?: (context: ClientEventContext, error: unknown) => void;
-        onConnected?: (context: ClientEventContext) => void;
-        onClosed?: (context: ClientEventContext) => void;
-        onConnecting?: (context: ClientEventContext) => void;
-        onOpened?: (context: ClientEventContext) => void;
-        onMessage?: (context: ClientEventContext, message: any) => void;
-        onPing?: (context: ClientEventContext) => void;
-        onPong?: (context: ClientEventContext) => void;
-      }
+      retryAttempts?: number | undefined;
+      onError?: (context: ClientEventContext, error: unknown) => void;
+      onConnected?: (context: ClientEventContext) => void;
+      onClosed?: (context: ClientEventContext) => void;
+      onConnecting?: (context: ClientEventContext) => void;
+      onOpened?: (context: ClientEventContext) => void;
+      onMessage?: (context: ClientEventContext, message: any) => void;
+      onPing?: (context: ClientEventContext) => void;
+      onPong?: (context: ClientEventContext) => void;
+    }
     | undefined;
 };
 
@@ -53,7 +53,7 @@ export class ContelloSdkClient<T> {
           url: websocketUrl,
           connectionParams: { authorization: `Bearer ${token}` },
           lazy: false,
-          keepAlive: 30000,
+          keepAlive: 30_000,
           retryAttempts: client?.retryAttempts ?? 3,
           shouldRetry: () => true,
           jsonMessageReplacer: (key, value) => {

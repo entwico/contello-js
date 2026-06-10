@@ -11,8 +11,7 @@ export type ContelloAssetsFilesOptions = {
   cacheControl?: string | undefined;
 };
 
-// eslint-disable-next-line
-export type ContelloAssetsVideoOptions = {};
+export type ContelloAssetsVideoOptions = Record<string, never>;
 
 export type ContelloAssetsMiddlewareOptions = {
   images?: ContelloAssetsImagesOptions | undefined;
@@ -81,7 +80,7 @@ function handleFile(
         headers.set('cache-control', cacheControl);
       }
 
-      if (result.size) {
+      if (result.size > 0) {
         headers.set('content-length', String(result.size));
       }
 

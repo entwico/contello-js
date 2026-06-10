@@ -108,8 +108,7 @@ export class ContelloInstrumentation extends InstrumentationBase<ContelloInstrum
       endChannel.subscribe(onEnd);
       errorChannel.subscribe(onError);
 
-      this._subscriptions.push({ channel: endChannel, handler: onEnd });
-      this._subscriptions.push({ channel: errorChannel, handler: onError });
+      this._subscriptions.push({ channel: endChannel, handler: onEnd }, { channel: errorChannel, handler: onError });
     }
 
     // message decorator for trace context propagation on WebSocket messages

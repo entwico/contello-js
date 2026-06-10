@@ -6,16 +6,21 @@ function createSelection(source: SourceDef): string {
   const spread = `{ ...${source.fragment} }`;
 
   switch (source.__cardinality) {
-    case 'singleton':
+    case 'singleton': {
       return `subscription { source: ${source.subscription} ${spread} }`;
-    case 'entity':
+    }
+    case 'entity': {
       return `subscription($ids: [ID!]) { source: ${source.subscription}(request: { filter: { ids: $ids } }) ${spread} }`;
-    case 'route':
+    }
+    case 'route': {
       return `subscription($ids: [ID!], $paths: [String!]) { source: ${source.subscription}(request: { ids: $ids, paths: $paths }) ${spread} }`;
-    case 'asset':
+    }
+    case 'asset': {
       return `subscription($ids: [ID!]) { source: ${source.subscription}(filter: { ids: $ids }) ${spread} }`;
-    case 'i18nMessage':
+    }
+    case 'i18nMessage': {
       return `subscription($collection: String!, $ids: [ID!]) { source: ${source.subscription}(collectionReferenceName: $collection, ids: $ids) ${spread} }`;
+    }
   }
 }
 

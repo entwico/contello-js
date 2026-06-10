@@ -243,7 +243,7 @@ export function createRoutesCollection(
       return undefined;
     }
 
-    return maybeThen(projected.getAllAsMap(), () => undefined);
+    return maybeThen(projected.getAllAsMap(), () => {});
   }
 
   const instance: Routes = {
@@ -289,7 +289,7 @@ export function createRoutesSyncCollection(
 
   function assertSync<T>(value: MaybePromise<T>, method: string): T {
     if (value instanceof Promise) {
-      throw new Error(`routes.${method}() is not initialized yet — call routes.load() first`);
+      throw new TypeError(`routes.${method}() is not initialized yet — call routes.load() first`);
     }
 
     return value;

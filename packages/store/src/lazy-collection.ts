@@ -68,12 +68,14 @@ export function createLazyCollection<
           (rawItems) =>
             Promise.all(
               rawItems.map((item) =>
-                dependencyCollector.createContext((ref, register) =>
-                  maybeThen(mapFn(item, ref), (mapped) => {
-                    register(mapped.id);
+                Promise.resolve(
+                  dependencyCollector.createContext((ref, register) =>
+                    maybeThen(mapFn(item, ref), (mapped) => {
+                      register(mapped.id);
 
-                    return mapped;
-                  }),
+                      return mapped;
+                    }),
+                  ),
                 ),
               ),
             ),

@@ -67,6 +67,6 @@ export const createSdk = <T>(client: () => Client, middlewares: ContelloSdkClien
 
     const res = executeWithMiddlewares(middlewares, 0);
 
-    return kind !== 'subscription' ? firstValueFrom(res) : res;
+    return kind === 'subscription' ? res : firstValueFrom(res);
   }) as T;
 };

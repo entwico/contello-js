@@ -81,7 +81,7 @@ export function createBoundRoutingMiddleware(
       }
 
       switch (route.type) {
-        case 'redirect':
+        case 'redirect': {
           return contello[runRequest]({ url, route, rewritten: false }, () =>
             wrap(
               'route:redirect',
@@ -95,8 +95,9 @@ export function createBoundRoutingMiddleware(
                 }),
             ),
           );
+        }
 
-        case 'text':
+        case 'text': {
           return contello[runRequest]({ url, route, rewritten: false }, () =>
             wrap(
               'route:text',
@@ -110,14 +111,15 @@ export function createBoundRoutingMiddleware(
                 }),
             ),
           );
+        }
 
-        case 'asset':
+        case 'asset': {
           return contello[runRequest]({ url, route, rewritten: false }, () =>
             wrap('route:asset', async () => {
               const result = await contello.client.download(route.fileId);
               const headers = new Headers({ 'content-type': result.mimeType });
 
-              if (result.size) {
+              if (result.size > 0) {
                 headers.set('content-length', String(result.size));
               }
 
@@ -128,8 +130,9 @@ export function createBoundRoutingMiddleware(
               return new Response(result.stream(), { headers });
             }),
           );
+        }
 
-        case 'entity':
+        case 'entity': {
           return contello[runRequest]({ url, route, rewritten: true }, () =>
             wrap(`route:entity:${route.model}`, async () => {
               const response = await next(`/contello/entities/${route.model}/${route.entityId}${url.search}`);
@@ -141,6 +144,7 @@ export function createBoundRoutingMiddleware(
               return response;
             }),
           );
+        }
       }
     });
   });

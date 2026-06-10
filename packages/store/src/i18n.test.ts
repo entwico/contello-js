@@ -15,7 +15,7 @@ function makeClient(messagesByCall: RawMessage[][]): {
 
   const client = {
     subscribe<T>(_query: string, _variables?: Record<string, unknown> | undefined): AsyncIterable<T> {
-      const msgs = messagesByCall[callIndex] ?? messagesByCall[messagesByCall.length - 1]!;
+      const msgs = messagesByCall[callIndex] ?? messagesByCall.at(-1)!;
 
       callIndex += 1;
 

@@ -9,13 +9,9 @@ export function buildRpc<T extends OperationMap>(operations: T, subscribe: Subsc
   const rpc = {} as Record<string, (...args: any[]) => any>;
 
   for (const [name, def] of Object.entries(operations)) {
-    if (def.kind === 'subscription') {
-      rpc[name] = (variables?: Record<string, unknown>) =>
-        subscribe<unknown>(def.document, transformVariables(variables));
-    } else {
-      rpc[name] = (variables?: Record<string, unknown>) =>
-        wrap(`rpc:${name}`, () => firstAsync(subscribe<unknown>(def.document, transformVariables(variables))));
-    }
+    rpc[name] = def.kind === 'subscription' ? (variables?: Record<string, unknown>) =>
+      subscribe<unknown>(def.document, transformVariables(variables)) : (variables?: Record<string, unknown>) =>
+      wrap(`rpc:${name}`, () => firstAsync(subscribe<unknown>(def.document, transformVariables(variables))));
   }
 
   return rpc as Rpc<T>;

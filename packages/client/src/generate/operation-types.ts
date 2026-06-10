@@ -62,112 +62,135 @@ function resolveSelectionSet(
   let hasTypenameField = false;
 
   for (const selection of selectionSet.selections) {
-    if (selection.kind === Kind.FIELD) {
-      const fieldName = selection.alias?.value ?? selection.name.value;
+    switch (selection.kind) {
+      case Kind.FIELD: {
+        const fieldName = selection.alias?.value ?? selection.name.value;
 
-      if (selection.name.value === '__typename') {
-        hasTypenameField = true;
+        if (selection.name.value === '__typename') {
+          hasTypenameField = true;
 
-        continue;
-      }
-
-      const schemaField =
-        isObjectType(parentType) || isInterfaceType(parentType)
-          ? parentType.getFields()[selection.name.value]
-          : undefined;
-
-      if (!schemaField) {
-        throw new Error(`field "${selection.name.value}" does not exist on type "${parentType.name}"`);
-      }
-
-      const { namedType, isList, isNonNull } = unwrapType(schemaField.type);
-
-      let tsType: string;
-
-      if (selection.selectionSet && isCompositeType(namedType)) {
-        tsType = resolveSelectionSetType(schema, selection.selectionSet, namedType, fragments, `${indent}  `);
-      } else if (isScalarType(namedType)) {
-        tsType = resolveScalarType(namedType.name);
-      } else if (isEnumType(namedType)) {
-        tsType = namedType.name;
-      } else {
-        tsType = namedType.toString();
-      }
-
-      if (isList) {
-        const wrapped = /[ |&]/.test(tsType) ? `(${tsType})` : tsType;
-
-        tsType = `${wrapped}[]`;
-      }
-
-      if (isNonNull) {
-        fields.push(`${indent}  ${fieldName}: ${tsType};`);
-      } else {
-        fields.push(`${indent}  ${fieldName}?: ${tsType} | undefined;`);
-      }
-    } else if (selection.kind === Kind.INLINE_FRAGMENT) {
-      if (selection.typeCondition && selection.selectionSet) {
-        const typeName = selection.typeCondition.name.value;
-        const conditionalType = schema.getType(typeName);
-
-        if (!conditionalType) {
-          throw new Error(`unknown type "${typeName}" in inline fragment`);
+          continue;
         }
 
-        if (isCompositeType(conditionalType)) {
-          if (isInterfaceType(conditionalType)) {
+        const schemaField =
+          isObjectType(parentType) || isInterfaceType(parentType)
+            ? parentType.getFields()[selection.name.value]
+            : undefined;
+
+        if (!schemaField) {
+          throw new Error(`field "${selection.name.value}" does not exist on type "${parentType.name}"`);
+        }
+
+        const { namedType, isList, isNonNull } = unwrapType(schemaField.type);
+
+        let tsType: string;
+
+        if (selection.selectionSet && isCompositeType(namedType)) {
+          tsType = resolveSelectionSetType(schema, selection.selectionSet, namedType, fragments, `${indent}  `);
+        } else if (isScalarType(namedType)) {
+          tsType = resolveScalarType(namedType.name);
+        } else if (isEnumType(namedType)) {
+          tsType = namedType.name;
+        } else {
+          tsType = namedType.toString();
+        }
+
+        if (isList) {
+          const wrapped = /[ |&]/.test(tsType) ? `(${tsType})` : tsType;
+
+          tsType = `${wrapped}[]`;
+        }
+
+        if (isNonNull) {
+          fields.push(`${indent}  ${fieldName}: ${tsType};`);
+        } else {
+          fields.push(`${indent}  ${fieldName}?: ${tsType} | undefined;`);
+        }
+
+        break;
+      }
+      case Kind.INLINE_FRAGMENT: {
+        if (selection.typeCondition && selection.selectionSet) {
+          const typeName = selection.typeCondition.name.value;
+          const conditionalType = schema.getType(typeName);
+
+          if (!conditionalType) {
+            throw new Error(`unknown type "${typeName}" in inline fragment`);
+          }
+
+          if (isCompositeType(conditionalType)) {
+            if (isInterfaceType(conditionalType)) {
             // interface spreads merge fields into the base (not a discriminated branch)
-            const inner = resolveSelectionSet(schema, selection.selectionSet, conditionalType, fragments, indent);
+              const inner = resolveSelectionSet(schema, selection.selectionSet, conditionalType, fragments, indent);
 
-            fields.push(...inner.fields);
-            fragmentRefs.push(...inner.fragmentRefs);
-          } else if (isObjectType(conditionalType)) {
+              fields.push(...inner.fields);
+              fragmentRefs.push(...inner.fragmentRefs);
+            } else if (isObjectType(conditionalType)) {
             // inject __typename discriminant for proper narrowing
-            const nested = resolveSelectionSetType(schema, selection.selectionSet, conditionalType, fragments, indent);
+              const nested = resolveSelectionSetType(
+                schema,
+                selection.selectionSet,
+                conditionalType,
+                fragments,
+                indent,
+              );
 
-            if (nested.startsWith('{')) {
-              const model = isContelloModel(schema, conditionalType.name)
-                ? deriveModelName(conditionalType.name)
-                : undefined;
-              const discriminant = model
-                ? `${indent}  __typename: '${conditionalType.name}';\n${indent}  __model: '${model}';`
-                : `${indent}  __typename: '${conditionalType.name}';`;
+              if (nested.startsWith('{')) {
+                const model = isContelloModel(schema, conditionalType.name)
+                  ? deriveModelName(conditionalType.name)
+                  : undefined;
+                const discriminant = model
+                  ? `${indent}  __typename: '${conditionalType.name}';\n${indent}  __model: '${model}';`
+                  : `${indent}  __typename: '${conditionalType.name}';`;
 
-              inlineUnions.push(`{\n${discriminant}\n${nested.slice(2)}`);
+                inlineUnions.push(`{\n${discriminant}\n${nested.slice(2)}`);
+              } else {
+                const model = isContelloModel(schema, conditionalType.name)
+                  ? deriveModelName(conditionalType.name)
+                  : undefined;
+                const discriminant = model
+                  ? `{\n${indent}  __typename: '${conditionalType.name}';\n${indent}  __model: '${model}';\n${indent}}`
+                  : `{\n${indent}  __typename: '${conditionalType.name}';\n${indent}}`;
+
+                inlineUnions.push(`${discriminant} & ${nested}`);
+              }
             } else {
-              const model = isContelloModel(schema, conditionalType.name)
-                ? deriveModelName(conditionalType.name)
-                : undefined;
-              const discriminant = model
-                ? `{\n${indent}  __typename: '${conditionalType.name}';\n${indent}  __model: '${model}';\n${indent}}`
-                : `{\n${indent}  __typename: '${conditionalType.name}';\n${indent}}`;
+              const nested = resolveSelectionSetType(
+                schema,
+                selection.selectionSet,
+                conditionalType,
+                fragments,
+                indent,
+              );
 
-              inlineUnions.push(`${discriminant} & ${nested}`);
+              inlineUnions.push(nested);
             }
-          } else {
-            const nested = resolveSelectionSetType(schema, selection.selectionSet, conditionalType, fragments, indent);
-
-            inlineUnions.push(nested);
           }
         }
+
+        break;
       }
-    } else if (selection.kind === Kind.FRAGMENT_SPREAD) {
-      const fragmentName = selection.name.value;
-      const fragment = fragments.get(fragmentName);
+      case Kind.FRAGMENT_SPREAD: {
+        const fragmentName = selection.name.value;
+        const fragment = fragments.get(fragmentName);
 
-      if (fragment?.selectionSet) {
-        const fragmentType = schema.getType(fragment.typeCondition.name.value);
+        if (fragment?.selectionSet) {
+          const fragmentType = schema.getType(fragment.typeCondition.name.value);
 
-        if (fragmentType && isCompositeType(fragmentType)) {
-          if (!checkTypesOverlap(schema, parentType, fragmentType)) {
-            throw new Error(
-              `fragment "${fragmentName}" (on ${fragmentType.name}) cannot be spread on type "${parentType.name}"`,
-            );
+          if (fragmentType && isCompositeType(fragmentType)) {
+            if (!checkTypesOverlap(schema, parentType, fragmentType)) {
+              throw new Error(
+                `fragment "${fragmentName}" (on ${fragmentType.name}) cannot be spread on type "${parentType.name}"`,
+              );
+            }
+
+            fragmentRefs.push(`${fragmentName}Fragment`);
           }
-
-          fragmentRefs.push(`${fragmentName}Fragment`);
         }
+
+        break;
       }
+    // No default
     }
   }
 
@@ -310,9 +333,9 @@ export function generateOperationTypes(
     const rootType =
       op.operation === 'query'
         ? schema.getQueryType()
-        : op.operation === 'mutation'
-          ? schema.getMutationType()
-          : schema.getSubscriptionType();
+        : (op.operation === 'mutation'
+            ? schema.getMutationType()
+            : schema.getSubscriptionType());
 
     if (rootType && op.selectionSet) {
       const resultType = resolveSelectionSetType(schema, op.selectionSet, rootType, fragments, '');
@@ -327,8 +350,7 @@ export function generateOperationTypes(
     // variables type
     const variablesType = generateVariablesType(schema, op);
 
-    lines.push(`export type ${variablesTypeName} = ${variablesType};`);
-    lines.push('');
+    lines.push(`export type ${variablesTypeName} = ${variablesType};`, '');
   }
 
   return lines.join('\n');

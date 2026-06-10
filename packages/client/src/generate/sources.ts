@@ -161,15 +161,15 @@ function organize(entries: SourceEntry[]): SourceEntry[] {
     if (existing) {
       throw new Error(
         `multiple fragments target the same source key "${entry.binding.sourceKey}": ` +
-          `"${existing.fragmentName}" and "${entry.fragmentName}". A source key can have at most one fragment — ` +
-          `merge the fragments or use the raw client for the alternative shape.`,
+        `"${existing.fragmentName}" and "${entry.fragmentName}". A source key can have at most one fragment — ` +
+        `merge the fragments or use the raw client for the alternative shape.`,
       );
     }
 
     byKey.set(entry.binding.sourceKey, entry);
   }
 
-  return [...byKey.values()].sort((a, b) => a.binding.sourceKey.localeCompare(b.binding.sourceKey));
+  return [...byKey.values()].toSorted((a, b) => a.binding.sourceKey.localeCompare(b.binding.sourceKey));
 }
 
 /** Emits `export type Sources = { ... }`. */
@@ -180,9 +180,7 @@ export function generateSourcesType(entries: SourceEntry[]): string {
     return '';
   }
 
-  const lines: string[] = [];
-
-  lines.push('export type Sources = {');
+  const lines: string[] = ['export type Sources = {'];
 
   for (const { fragmentName, binding } of sorted) {
     const type = `SourceDef<'${binding.sourceKey}', '${binding.cardinality}', ${fragmentName}Fragment>`;
@@ -203,18 +201,10 @@ export function generateSourcesConst(entries: SourceEntry[]): string {
     return '';
   }
 
-  const lines: string[] = [];
-
-  lines.push('const sources: Sources = {');
+  const lines: string[] = ['const sources: Sources = {'];
 
   for (const { fragmentName, binding, fragmentExpression } of sorted) {
-    lines.push(`  ${binding.sourceKey}: {`);
-    lines.push(`    document: ${fragmentExpression},`);
-    lines.push(`    fragment: '${fragmentName}',`);
-    lines.push(`    subscription: '${binding.fieldName}',`);
-    lines.push(`    __model: '${binding.sourceKey}',`);
-    lines.push(`    __cardinality: '${binding.cardinality}',`);
-    lines.push(`  },`);
+    lines.push(`  ${binding.sourceKey}: {`, `    document: ${fragmentExpression},`, `    fragment: '${fragmentName}',`, `    subscription: '${binding.fieldName}',`, `    __model: '${binding.sourceKey}',`, `    __cardinality: '${binding.cardinality}',`, `  },`);
   }
 
   lines.push('};');

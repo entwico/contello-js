@@ -71,12 +71,14 @@ export function createCollection<
         maybeThen(fetchCollection(source, client, ids), (rawItems) =>
           Promise.all(
             rawItems.map((item) =>
-              dependencyCollector.createContext((ref, register) =>
-                maybeThen(mapFn(item, ref), (mapped) => {
-                  register(mapped.id);
+              Promise.resolve(
+                dependencyCollector.createContext((ref, register) =>
+                  maybeThen(mapFn(item, ref), (mapped) => {
+                    register(mapped.id);
 
-                  return mapped;
-                }),
+                    return mapped;
+                  }),
+                ),
               ),
             ),
           ).then((items) => {
@@ -246,7 +248,7 @@ export function createCollectionSync<
 
   function assertSync<T>(value: MaybePromise<T>, method: string): T {
     if (value instanceof Promise) {
-      throw new Error(`collection "${base.name}".${method}() is not initialized yet — call collection.load() first`);
+      throw new TypeError(`collection "${base.name}".${method}() is not initialized yet — call collection.load() first`);
     }
 
     return value;

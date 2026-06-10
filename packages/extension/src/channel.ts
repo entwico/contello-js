@@ -83,7 +83,7 @@ export class ExtensionChannel<OWN extends ContelloMethods, REMOTE extends Contel
         } else if (this.listeners.has(method)) {
           Promise.resolve(this.listeners.get(method)?.(event.data.payload))
             .then((responsePayload: any) => this.respond(event.data, responsePayload))
-            .catch((err) => this.respondError(event.data, err));
+            .catch((error) => this.respondError(event.data, error));
         }
       }
     }
@@ -124,11 +124,12 @@ export class ExtensionChannel<OWN extends ContelloMethods, REMOTE extends Contel
   }
 
   private createChannelId() {
-    return `contello-channel-${++channelIdIterator}-${Math.random().toString(36).substring(2)}`;
+    return `contello-channel-${++channelIdIterator}-${Math.random().toString(36).slice(2)}`;
   }
+
   private createRequestId() {
     return `${this.isParent ? 'parent' : 'child'}-request-${++requestIdIterator}-${Math.random()
       .toString(36)
-      .substring(2)}`;
+      .slice(2)}`;
   }
 }

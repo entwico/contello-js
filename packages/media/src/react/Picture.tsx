@@ -9,7 +9,10 @@ export type PictureProps = {
   src: PictureSource;
   /** attributes for the outer `<picture>` element (className, style, ref, data-*, aria-*, event handlers) */
   picture?: ComponentPropsWithRef<'picture'> | undefined;
-  /** shortcut for LCP images: sets `loading="eager"` + `fetchPriority="high"`. explicit `loading` / `fetchPriority` props still win. */
+  /**
+   * shortcut for LCP images: sets `loading="eager"` + `fetchPriority="high"`.
+   * explicit `loading` / `fetchPriority` props still win.
+   */
   priority?: boolean | undefined;
 } & ImgSpread;
 
@@ -26,7 +29,7 @@ export type PictureProps = {
  * `picture={{...}}` prop targets the outer `<picture>` element.
  */
 export const Picture = forwardRef<HTMLImageElement, PictureProps>(function Picture(props, ref) {
-  const { src, picture: pictureProps, priority, loading, fetchPriority, decoding, ...imgProps } = props;
+  const { src, picture: pictureProps, priority, loading, fetchPriority, decoding, alt, ...imgProps } = props;
 
   const resolvedLoading = loading ?? (priority ? 'eager' : 'lazy');
   const resolvedFetchPriority = fetchPriority ?? (priority ? 'high' : undefined);
@@ -44,6 +47,7 @@ export const Picture = forwardRef<HTMLImageElement, PictureProps>(function Pictu
         height={src.image?.height}
         {...imgProps}
         ref={ref}
+        alt={alt}
         src={src.image?.url}
         srcSet={src.image?.srcset}
         sizes={src.image?.sizes}

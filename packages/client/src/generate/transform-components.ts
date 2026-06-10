@@ -113,11 +113,11 @@ function transformSelectionSet(
 
     const transformed = transformSelectionSet(schema, node.selectionSet, typeName, fragments, refsOnly);
 
-    if (transformed !== node.selectionSet) {
+    if (transformed === node.selectionSet) {
+      newSelections.push(node as any);
+    } else {
       changed = true;
       newSelections.push({ ...node, selectionSet: transformed } as any);
-    } else {
-      newSelections.push(node as any);
     }
   }
 
@@ -193,9 +193,9 @@ export function transformOperation(
   const rootType =
     operation.operation === 'query'
       ? schema.getQueryType()
-      : operation.operation === 'mutation'
-        ? schema.getMutationType()
-        : schema.getSubscriptionType();
+      : (operation.operation === 'mutation'
+          ? schema.getMutationType()
+          : schema.getSubscriptionType());
 
   if (!rootType || !operation.selectionSet) {
     return operation;

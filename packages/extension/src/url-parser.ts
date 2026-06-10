@@ -1,5 +1,5 @@
 export function parseUrl(trustedOrigins: string[]) {
-  const url = new URL(location.href);
+  const url = new URL(globalThis.location.href);
 
   const channelId = url.searchParams.get('channelId');
   const targetOrigin = url.searchParams.get('origin');

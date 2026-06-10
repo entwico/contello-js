@@ -127,7 +127,7 @@ describe('generateOperationTypes', () => {
     `;
     const result = generate(sdl, `query GetUser { user { __typename id } }`);
 
-    expect(result).toContain("__typename: 'User';");
+    expect(result).toContain('__typename: \'User\';');
   });
 
   test('handles inline fragments', () => {
@@ -268,7 +268,7 @@ describe('generateOperationTypes', () => {
     );
 
     // user branch carries __typename discriminant intersected with the fragment ref
-    expect(result).toContain("__typename: 'User'");
+    expect(result).toContain('__typename: \'User\'');
     expect(result).toContain('& UserFieldsFragment');
   });
 

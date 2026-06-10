@@ -1,4 +1,4 @@
-const MAX_DELAY_MS = 30000;
+const MAX_DELAY_MS = 30_000;
 const JITTER_MIN_MS = 300;
 const JITTER_MAX_MS = 3000;
 

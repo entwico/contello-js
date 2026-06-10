@@ -216,7 +216,7 @@ export function fragmentBundleExpression(
 
 /** Emits `const <Name>FragmentSchema = \`...\`;` for each (transformed) fragment. */
 export function generateFragmentSchemas(fragments: Map<string, FragmentDefinitionNode>): string {
-  const sorted = [...fragments.values()].sort((a, b) => a.name.value.localeCompare(b.name.value));
+  const sorted = [...fragments.values()].toSorted((a, b) => a.name.value.localeCompare(b.name.value));
   const lines: string[] = [];
 
   for (const fragment of sorted) {

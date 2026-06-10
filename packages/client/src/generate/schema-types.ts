@@ -30,13 +30,7 @@ function typeToTs(type: GraphQLType, nonNull = false): string {
     return nonNull ? `${wrapped}[]` : `${wrapped}[] | undefined`;
   }
 
-  let name: string;
-
-  if (isScalarType(type)) {
-    name = resolveScalarType(type.name);
-  } else {
-    name = type.name;
-  }
+  const name = isScalarType(type) ? resolveScalarType(type.name) : type.name;
 
   return nonNull ? name : `${name} | undefined`;
 }
@@ -49,14 +43,14 @@ function generateEnum(type: GraphQLEnumType): string {
   const values = type
     .getValues()
     .map((v) => `'${v.value}'`)
-    .sort()
+    .toSorted()
     .join(' | ');
 
   return `export type ${type.name} = ${values};`;
 }
 
 function sortedFields(type: GraphQLObjectType | GraphQLInputObjectType) {
-  return Object.values(type.getFields()).sort((a, b) => a.name.localeCompare(b.name));
+  return Object.values(type.getFields()).toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
 function generateObjectType(type: GraphQLObjectType, modelNames: Map<string, string>): string {
@@ -64,8 +58,7 @@ function generateObjectType(type: GraphQLObjectType, modelNames: Map<string, str
   const lines: string[] = [];
   const model = modelNames.get(type.name);
 
-  lines.push(`export type ${type.name} = {`);
-  lines.push(`  __typename?: '${type.name}' | undefined;`);
+  lines.push(`export type ${type.name} = {`, `  __typename?: '${type.name}' | undefined;`);
 
   if (model) {
     lines.push(`  __model?: '${model}' | undefined;`);
@@ -82,9 +75,7 @@ function generateObjectType(type: GraphQLObjectType, modelNames: Map<string, str
 
 function generateInputType(type: GraphQLInputObjectType): string {
   const fields = sortedFields(type);
-  const lines: string[] = [];
-
-  lines.push(`export type ${type.name} = {`);
+  const lines: string[] = [`export type ${type.name} = {`];
 
   for (const field of fields) {
     lines.push(`  ${field.name}${isNonNullType(field.type) ? '' : '?'}: ${inputTypeToTs(field.type)};`);
@@ -99,7 +90,7 @@ function generateUnion(type: GraphQLUnionType): string {
   const members = type
     .getTypes()
     .map((t) => t.name)
-    .sort();
+    .toSorted();
 
   return `export type ${type.name} = ${members.join(' | ')};`;
 }
@@ -117,7 +108,7 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
   // scalars (as a reference type)
   const customScalars = Object.values(typeMap)
     .filter((t) => isScalarType(t) && !isInternalType(t.name) && !SCALAR_MAP[t.name])
-    .sort(byName);
+    .toSorted(byName);
 
   if (customScalars.length > 0) {
     for (const scalar of customScalars) {
@@ -130,7 +121,7 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
   // enums
   const enums = Object.values(typeMap)
     .filter((t): t is GraphQLEnumType => isEnumType(t) && !isInternalType(t.name))
-    .sort(byName);
+    .toSorted(byName);
 
   for (const e of enums) {
     lines.push(generateEnum(e));
@@ -143,11 +134,10 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
   // input types
   const inputs = Object.values(typeMap)
     .filter((t): t is GraphQLInputObjectType => isInputObjectType(t) && !isInternalType(t.name))
-    .sort(byName);
+    .toSorted(byName);
 
   for (const input of inputs) {
-    lines.push(generateInputType(input));
-    lines.push('');
+    lines.push(generateInputType(input), '');
   }
 
   // build model name map from ContelloEntity and ContelloComponent unions
@@ -175,40 +165,35 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
   // object types
   const objects = Object.values(typeMap)
     .filter((t): t is GraphQLObjectType => isObjectType(t) && !isInternalType(t.name))
-    .sort(byName);
+    .toSorted(byName);
 
   for (const obj of objects) {
-    lines.push(generateObjectType(obj, modelNames));
-    lines.push('');
+    lines.push(generateObjectType(obj, modelNames), '');
   }
 
   // interfaces (generate as object types)
   const interfaces = Object.values(typeMap)
     .filter((t): t is GraphQLObjectType => isInterfaceType(t) && !isInternalType(t.name))
-    .sort(byName);
+    .toSorted(byName);
 
   for (const iface of interfaces) {
-    const fields = Object.values((iface as any).getFields() as Record<string, GraphQLField<any, any>>).sort((a, b) =>
-      a.name.localeCompare(b.name),
+    const fields = Object.values((iface as any).getFields() as Record<string, GraphQLField<any, any>>).toSorted(
+      (a, b) => a.name.localeCompare(b.name),
     );
-    const fieldLines: string[] = [];
-
-    fieldLines.push(`export type ${iface.name} = {`);
-    fieldLines.push(`  __typename?: string | undefined;`);
+    const fieldLines: string[] = [`export type ${iface.name} = {`, `  __typename?: string | undefined;`];
 
     for (const field of fields) {
       fieldLines.push(`  ${field.name}${isNonNullType(field.type) ? '' : '?'}: ${typeToTs(field.type)};`);
     }
 
     fieldLines.push('};');
-    lines.push(fieldLines.join('\n'));
-    lines.push('');
+    lines.push(fieldLines.join('\n'), '');
   }
 
   // unions
   const unions = Object.values(typeMap)
     .filter((t): t is GraphQLUnionType => isUnionType(t) && !isInternalType(t.name))
-    .sort(byName);
+    .toSorted(byName);
 
   for (const union of unions) {
     lines.push(generateUnion(union));

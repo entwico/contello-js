@@ -4,9 +4,7 @@ import { pascalCase, uncapitalize } from './utils';
 
 /** Emits `export type Operations = { ... }`. */
 export function generateOperationsType(operations: OperationDefinitionNode[]): string {
-  const lines: string[] = [];
-
-  lines.push('export type Operations = {');
+  const lines: string[] = ['export type Operations = {'];
 
   for (const op of operations) {
     const name = op.name!.value;
@@ -15,12 +13,7 @@ export function generateOperationsType(operations: OperationDefinitionNode[]): s
     const resultType = `${name}${typeSuffix}`;
     const variablesType = `${resultType}Variables`;
 
-    lines.push(`  ${camelName}: {`);
-    lines.push(`    document: string;`);
-    lines.push(`    kind: '${op.operation}';`);
-    lines.push(`    __result?: ${resultType} | undefined;`);
-    lines.push(`    __variables?: ${variablesType} | undefined;`);
-    lines.push('  };');
+    lines.push(`  ${camelName}: {`, `    document: string;`, `    kind: '${op.operation}';`, `    __result?: ${resultType} | undefined;`, `    __variables?: ${variablesType} | undefined;`, '  };');
   }
 
   lines.push('};');
@@ -33,9 +26,7 @@ export function generateOperationsType(operations: OperationDefinitionNode[]): s
  *   const operations: Operations = { getProducts: { document: getProductsDocument, kind: 'query' }, ... };
  */
 export function generateOperationsConst(operations: OperationDefinitionNode[]): string {
-  const lines: string[] = [];
-
-  lines.push('const operations: Operations = {');
+  const lines: string[] = ['const operations: Operations = {'];
 
   for (const op of operations) {
     const camelName = uncapitalize(op.name!.value);

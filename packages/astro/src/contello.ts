@@ -61,9 +61,9 @@ export type ContelloInitOptions = {
   load?: Loadable[] | undefined;
   i18n?:
     | {
-        register?: boolean | undefined;
-        load?: boolean | undefined;
-      }
+      register?: boolean | undefined;
+      load?: boolean | undefined;
+    }
     | undefined;
 };
 
@@ -203,10 +203,10 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
       await Promise.all((options?.load ?? []).map((l) => l.load()));
 
       this._initialized = true;
-    } catch (err) {
+    } catch (error) {
       await this.destroy().catch(() => {});
 
-      throw err;
+      throw error;
     }
   }
 

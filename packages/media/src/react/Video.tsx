@@ -43,6 +43,7 @@ export const Video = forwardRef<HTMLVideoElement, VideoProps>(function Video(pro
   );
 
   return (
+    // eslint-disable-next-line jsx-a11y/media-has-caption -- caption tracks are supplied by consumers via children
     <video ref={setRef} poster={poster} {...rest}>
       {children}
     </video>

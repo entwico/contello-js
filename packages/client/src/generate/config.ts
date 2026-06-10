@@ -39,12 +39,12 @@ export async function loadConfig(cwd: string): Promise<ContelloConfig> {
       }
 
       return config as ContelloConfig;
-    } catch (e: any) {
-      if (e.code === 'ERR_MODULE_NOT_FOUND' || e.code === 'ENOENT') {
+    } catch (error: any) {
+      if (error.code === 'ERR_MODULE_NOT_FOUND' || error.code === 'ENOENT') {
         continue;
       }
 
-      throw e;
+      throw error;
     }
   }
 

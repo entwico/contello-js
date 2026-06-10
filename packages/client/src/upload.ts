@@ -81,8 +81,8 @@ export function upload(
         }
 
         ws.send(JSON.stringify({ type: 'done' }));
-      } catch (err) {
-        reject(err);
+      } catch (error) {
+        reject(error);
         ws.close();
       }
     }
@@ -90,7 +90,7 @@ export function upload(
     ws.addEventListener('open', () => {
       const initFrame: InitFrame = {
         type: 'init',
-        metadata: { ...meta, ...(size !== undefined ? { size } : {}), projectRef: project },
+        metadata: { ...meta, ...(size === undefined ? {} : { size }), projectRef: project },
         token,
       };
 

@@ -67,7 +67,7 @@ function mapAsset(raw: StoreAssetFragment): StoreAsset {
     id: raw.id,
     original: mapFile(raw.original),
     preview: raw.preview ? mapFile(raw.preview) : undefined,
-    optimized: raw.optimized.map(mapFile),
+    optimized: raw.optimized.map((file) => mapFile(file)),
   };
 }
 
@@ -96,7 +96,7 @@ export function createAssetsCollection(
         collectAsync(
           mapAsync(client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }), (data) => data.source),
         ).then((rawItems) => {
-          const items = rawItems.map(mapAsset);
+          const items = rawItems.map((item) => mapAsset(item));
 
           if (ids === undefined && !loaded) {
             loaded = true;
@@ -219,7 +219,7 @@ export function createAssetsSyncCollection(
 
   function assertSync<T>(value: MaybePromise<T>, method: string): T {
     if (value instanceof Promise) {
-      throw new Error(`assets.${method}() is not initialized yet — call assets.load() first`);
+      throw new TypeError(`assets.${method}() is not initialized yet — call assets.load() first`);
     }
 
     return value;

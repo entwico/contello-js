@@ -65,7 +65,7 @@ function mapAsset(raw: StoreAssetFragment): StoreAsset {
     id: raw.id,
     original: mapFile(raw.original),
     preview: raw.preview ? mapFile(raw.preview) : undefined,
-    optimized: raw.optimized.map(mapFile),
+    optimized: raw.optimized.map((file) => mapFile(file)),
   };
 }
 
@@ -91,7 +91,7 @@ export function createLazyAssetsCollection(
       wrap('assets', () =>
         collectAsync(
           mapAsync(client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }), (data) => data.source),
-        ).then((rawItems) => rawItems.map(mapAsset)),
+        ).then((rawItems) => rawItems.map((item) => mapAsset(item))),
       ),
     cache,
   });

@@ -154,13 +154,13 @@ describe('generateSourcesType', () => {
 
       const binding: SourceBinding | undefined = entity
         ? { cardinality: entity.cardinality, fieldName: entity.fieldName, sourceKey: entity.model }
-        : builtIn
-          ? {
-              cardinality: builtIn.cardinality,
-              fieldName: builtIn.fieldName,
-              sourceKey: name.charAt(0).toLowerCase() + name.slice(1),
-            }
-          : undefined;
+        : (builtIn
+            ? {
+                cardinality: builtIn.cardinality,
+                fieldName: builtIn.fieldName,
+                sourceKey: name.charAt(0).toLowerCase() + name.slice(1),
+              }
+            : undefined);
 
       if (binding) {
         entries.push({ fragmentName: name, binding, fragmentExpression: `${name}FragmentSchema` });
@@ -170,11 +170,11 @@ describe('generateSourcesType', () => {
     const out = generateSourcesType(entries);
 
     expect(out).toContain('export type Sources = {');
-    expect(out).toContain("category: SourceDef<'category', 'entity', CategoryFragment>;");
-    expect(out).toContain("config: SourceDef<'config', 'singleton', ConfigFragment>;");
-    expect(out).toContain("storeRoute: SourceDef<'storeRoute', 'route', StoreRouteFragment>;");
-    expect(out).toContain("storeAsset: SourceDef<'storeAsset', 'asset', StoreAssetFragment>;");
-    expect(out).toContain("storeI18nMessage: SourceDef<'storeI18nMessage', 'i18nMessage', StoreI18nMessageFragment>;");
+    expect(out).toContain('category: SourceDef<\'category\', \'entity\', CategoryFragment>;');
+    expect(out).toContain('config: SourceDef<\'config\', \'singleton\', ConfigFragment>;');
+    expect(out).toContain('storeRoute: SourceDef<\'storeRoute\', \'route\', StoreRouteFragment>;');
+    expect(out).toContain('storeAsset: SourceDef<\'storeAsset\', \'asset\', StoreAssetFragment>;');
+    expect(out).toContain('storeI18nMessage: SourceDef<\'storeI18nMessage\', \'i18nMessage\', StoreI18nMessageFragment>;');
   });
 
   test('returns empty string when there are no entries', () => {
@@ -202,9 +202,9 @@ describe('generateSourcesConst', () => {
     expect(out).toContain('const sources: Sources = {');
     expect(out).not.toContain('export const sources');
     expect(out).toContain('category: {');
-    expect(out).toContain("fragment: 'Category',");
-    expect(out).toContain("subscription: 'categoriesBatch',");
-    expect(out).toContain("__cardinality: 'entity',");
+    expect(out).toContain('fragment: \'Category\',');
+    expect(out).toContain('subscription: \'categoriesBatch\',');
+    expect(out).toContain('__cardinality: \'entity\',');
   });
 
   test('emits a built-in entry keyed by uncapitalized fragment name with cardinality + subscription', () => {
@@ -220,9 +220,9 @@ describe('generateSourcesConst', () => {
     ]);
 
     expect(out).toContain('storeRoute: {');
-    expect(out).toContain("subscription: 'contelloRoutesBatch',");
-    expect(out).toContain("__cardinality: 'route',");
-    expect(out).toContain("__model: 'storeRoute',");
+    expect(out).toContain('subscription: \'contelloRoutesBatch\',');
+    expect(out).toContain('__cardinality: \'route\',');
+    expect(out).toContain('__model: \'storeRoute\',');
   });
 
   test('returns empty string when there are no entries', () => {

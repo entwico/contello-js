@@ -36,7 +36,7 @@ export class ModelResolver<TModels extends string = string> {
   }
 
   hasModel(model: string): boolean {
-    return !this._toTypeName.size || this._toTypeName.has(model as TModels);
+    return this._toTypeName.size === 0 || this._toTypeName.has(model as TModels);
   }
 
   resolveModel(typeName: string): string {

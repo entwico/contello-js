@@ -63,7 +63,7 @@ function createUpdateBatch(events: UpdateEvent[]): UpdateBatch {
 
   for (const event of events) {
     switch (event.target) {
-      case 'route':
+      case 'route': {
         route.push(event);
 
         if ('after' in event && event.after.type === 'entity') {
@@ -75,12 +75,15 @@ function createUpdateBatch(events: UpdateEvent[]): UpdateBatch {
         }
 
         break;
-      case 'asset':
+      }
+      case 'asset': {
         asset.push(event);
         break;
-      case 'i18nMessage':
+      }
+      case 'i18nMessage': {
         i18nMessage.push(event);
         break;
+      }
       case 'entity': {
         let list = entity.get(event.model);
 
@@ -103,12 +106,15 @@ type RawEvent = RawBatch['events'][number];
 
 function castMutationType(type: ContelloMutationType): UpdateMutationType {
   switch (type) {
-    case 'CREATE':
+    case 'CREATE': {
       return 'create';
-    case 'UPDATE':
+    }
+    case 'UPDATE': {
       return 'update';
-    case 'DELETE':
+    }
+    case 'DELETE': {
       return 'delete';
+    }
   }
 }
 
@@ -145,11 +151,13 @@ function mapEvent(raw: RawEvent, resolver: ModelResolver): UpdateEvent | undefin
       return { id, mutation, target: 'route', after, before };
     }
 
-    case 'ContelloAsset':
+    case 'ContelloAsset': {
       return { id, mutation, target: 'asset' };
+    }
 
-    case 'ContelloI18nMessage':
+    case 'ContelloI18nMessage': {
       return { id, mutation, target: 'i18nMessage', token: target.token };
+    }
 
     default: {
       if (!__typename || !resolver.hasTypeName(__typename)) {

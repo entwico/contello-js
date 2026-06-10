@@ -96,7 +96,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
         url: websocketUrl,
         connectionParams: { token },
         lazy: false,
-        keepAlive: 30000,
+        keepAlive: 30_000,
         retryAttempts: Infinity,
         retryWait: wsRetryWait,
         shouldRetry: () => true,

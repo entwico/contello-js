@@ -42,23 +42,23 @@ export type PictureSource = {
   id?: string | undefined;
   image?:
     | {
-        url?: string | undefined;
-        /** multi-width srcset — set only when there's more than one variant of the main format */
-        srcset?: string | undefined;
-        /** sizes attribute — set only when a non-default (non-`100vw`) value applies */
-        sizes?: string | undefined;
-        /** intrinsic dimensions — set only when source metadata was present */
-        width?: number | undefined;
-        height?: number | undefined;
-      }
+      url?: string | undefined;
+      /** multi-width srcset — set only when there's more than one variant of the main format */
+      srcset?: string | undefined;
+      /** sizes attribute — set only when a non-default (non-`100vw`) value applies */
+      sizes?: string | undefined;
+      /** intrinsic dimensions — set only when source metadata was present */
+      width?: number | undefined;
+      height?: number | undefined;
+    }
     | undefined;
   /** `<source>` entries — set only when additional-format variants are available */
   sources?:
     | Array<{
-        type: string;
-        srcset: string;
-        sizes: string;
-      }>
+      type: string;
+      srcset: string;
+      sizes: string;
+    }>
     | undefined;
 };
 

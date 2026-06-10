@@ -12,7 +12,7 @@ export function uploadViaXhr(
   return new Observable<UploadAssetProgress | { id: string }>((obs) => {
     const data = new FormData();
 
-    data.append('metadata', JSON.stringify({ ...(meta ?? {}), projectRef: project }));
+    data.append('metadata', JSON.stringify({ ...meta, projectRef: project }));
     data.append('file', file);
 
     const xhr = new XMLHttpRequest();
@@ -21,13 +21,13 @@ export function uploadViaXhr(
 
     xhr.open('POST', `${url}/api/v1/assets`, true);
 
-    xhr.upload.onprogress = async (event) => {
+    xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {
         obs.next({ progress: (event.loaded / event.total) * 100 });
       }
-    };
+    });
 
-    xhr.onload = async () => {
+    xhr.addEventListener('load', () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         const { id }: { id: string } = JSON.parse(xhr.responseText);
 
@@ -37,9 +37,9 @@ export function uploadViaXhr(
       }
 
       obs.error(new Error(`${xhr.status}: ${xhr.statusText}`));
-    };
+    });
 
-    xhr.onerror = (error) => obs.error(error);
+    xhr.addEventListener('error', (error) => obs.error(error));
     xhr.send(data);
 
     options?.abort?.addEventListener('abort', () => xhr.abort());

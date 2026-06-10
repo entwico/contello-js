@@ -148,9 +148,9 @@ export function transformScalarOperation(
   const rootType =
     operation.operation === 'query'
       ? schema.getQueryType()
-      : operation.operation === 'mutation'
-        ? schema.getMutationType()
-        : schema.getSubscriptionType();
+      : (operation.operation === 'mutation'
+          ? schema.getMutationType()
+          : schema.getSubscriptionType());
 
   if (!rootType || !operation.selectionSet) {
     return operation;

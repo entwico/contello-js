@@ -377,9 +377,8 @@ function groupVariantsByType(variants: ImageDefVariant[]): Map<string, ImageDefV
 }
 
 function toSrcset(variants: ImageDefVariant[]): string {
-  return variants
-    .slice()
-    .sort((a, b) => a.width - b.width)
+  return [...variants]
+    .toSorted((a, b) => a.width - b.width)
     .map((v) => `${v.url} ${v.width}w`)
     .join(', ');
 }
@@ -406,12 +405,12 @@ function toSizesString(
     return '100vw';
   }
 
-  entries.sort((a, b) => b.minWidth - a.minWidth);
+  const sortedEntries = entries.toSorted((a, b) => b.minWidth - a.minWidth);
 
   const parts: string[] = [];
   let hasDefault = false;
 
-  for (const entry of entries) {
+  for (const entry of sortedEntries) {
     if (entry.mediaQuery === undefined) {
       parts.push(`${entry.widthPx}px`);
       hasDefault = true;
@@ -485,11 +484,11 @@ function pickByPriorityWithOrder(
     const ofFormat = variants.filter((v) => v.type === format);
 
     if (ofFormat.length > 0) {
-      return ofFormat.slice().sort(cmp)[0]!;
+      return [...ofFormat].toSorted(cmp)[0]!;
     }
   }
 
-  return variants.slice().sort(cmp)[0]!;
+  return [...variants].toSorted(cmp)[0]!;
 }
 
 function pickByPriority(variants: ImageDefVariant[], priority: string[]): ImageDefVariant | undefined {
@@ -497,7 +496,7 @@ function pickByPriority(variants: ImageDefVariant[], priority: string[]): ImageD
     const match = variants.filter((v) => v.type === format);
 
     if (match.length > 0) {
-      return match.slice().sort((a, b) => b.width - a.width)[0];
+      return [...match].toSorted((a, b) => b.width - a.width)[0];
     }
   }
 

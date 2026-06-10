@@ -25,7 +25,7 @@ function makeClient(itemsByCall: Item[][]): {
 
   const client = {
     subscribe<T>(_query: string, _variables?: Record<string, unknown> | undefined): AsyncIterable<T> {
-      const items = itemsByCall[callIndex] ?? itemsByCall[itemsByCall.length - 1]!;
+      const items = itemsByCall[callIndex] ?? itemsByCall.at(-1)!;
 
       callIndex += 1;
 

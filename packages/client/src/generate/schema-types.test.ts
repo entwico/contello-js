@@ -12,7 +12,7 @@ describe('generateSchemaTypes', () => {
 
     const result = generateSchemaTypes(schema);
 
-    expect(result).toContain("export type Status = 'ACTIVE' | 'DELETED' | 'INACTIVE';");
+    expect(result).toContain('export type Status = \'ACTIVE\' | \'DELETED\' | \'INACTIVE\';');
   });
 
   test('generates object types with __typename', () => {
@@ -24,7 +24,7 @@ describe('generateSchemaTypes', () => {
     const result = generateSchemaTypes(schema);
 
     expect(result).toContain('export type User = {');
-    expect(result).toContain("__typename?: 'User' | undefined;");
+    expect(result).toContain('__typename?: \'User\' | undefined;');
     expect(result).toContain('id: string;');
     expect(result).toContain('name?: string | undefined;');
   });

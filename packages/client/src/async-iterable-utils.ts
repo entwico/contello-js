@@ -1,6 +1,6 @@
 const MAX_BACKOFF_MS = 30_000;
 const JITTER_MIN_MS = 300;
-const JITTER_MAX_MS = 3_000;
+const JITTER_MAX_MS = 3000;
 
 /**
  * Returns the first value yielded by `iter`, then disposes the iterator. Throws if the iterable
@@ -135,12 +135,12 @@ export async function* asyncKeepalive<T>(
       }
       // source completed cleanly — re-subscribe immediately
       attempt = 0;
-    } catch (err) {
+    } catch (error) {
       if (signal?.aborted) {
         return;
       }
       // swallow + back off, then retry. callers that want the error to surface should not use keepalive
-      void err;
+      void error;
       await exponentialBackoffWithSignal(attempt, signal);
       attempt++;
     }

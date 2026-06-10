@@ -81,7 +81,7 @@ function buildProxyResult(response: Dispatcher.ResponseData, signal: AbortSignal
   for (const [key, value] of Object.entries(response.headers)) {
     if (Array.isArray(value)) {
       for (const v of value) headers.append(key, v);
-    } else if (value != null) {
+    } else if (value !== null && value !== undefined) {
       headers.set(key, String(value));
     }
   }

@@ -223,7 +223,7 @@ export function createI18nMessagesCollection(
         client
           .execute<StoreRegisterI18nMessagesMutation>(storeRegisterI18nMessagesDocument, {
             collection: def.collection,
-            messages: messages.map(toGqlMessageInput),
+            messages: messages.map((message) => toGqlMessageInput(message)),
           })
           .then(() => {}),
       );

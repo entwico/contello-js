@@ -13,7 +13,7 @@ describe('generateOperationsType', () => {
     expect(result).toContain('export type Operations = {');
     expect(result).toContain('  getUsers: {');
     expect(result).toContain('    document: string;');
-    expect(result).toContain("    kind: 'query';");
+    expect(result).toContain('    kind: \'query\';');
     expect(result).toContain('    __result?: GetUsersQuery | undefined;');
     expect(result).toContain('    __variables?: GetUsersQueryVariables | undefined;');
   });
@@ -26,9 +26,9 @@ describe('generateOperationsType', () => {
     `);
     const result = generateOperationsType(collectOperations([doc]));
 
-    expect(result).toContain("    kind: 'query';");
-    expect(result).toContain("    kind: 'mutation';");
-    expect(result).toContain("    kind: 'subscription';");
+    expect(result).toContain('    kind: \'query\';');
+    expect(result).toContain('    kind: \'mutation\';');
+    expect(result).toContain('    kind: \'subscription\';');
   });
 
   test('uncapitalizes operation names', () => {
@@ -51,7 +51,7 @@ describe('generateOperationsConst', () => {
 
     expect(result).toContain('const operations: Operations = {');
     expect(result).not.toContain('export const operations'); // internal, not exported
-    expect(result).toContain("  getUsers: { document: getUsersDocument, kind: 'query' },");
+    expect(result).toContain('  getUsers: { document: getUsersDocument, kind: \'query\' },');
   });
 
   test('handles multiple operations of mixed kinds', () => {
@@ -62,8 +62,8 @@ describe('generateOperationsConst', () => {
     `);
     const result = generateOperationsConst(collectOperations([doc]));
 
-    expect(result).toContain("getUser: { document: getUserDocument, kind: 'query' },");
-    expect(result).toContain("deleteUser: { document: deleteUserDocument, kind: 'mutation' },");
-    expect(result).toContain("onUserUpdate: { document: onUserUpdateDocument, kind: 'subscription' },");
+    expect(result).toContain('getUser: { document: getUserDocument, kind: \'query\' },');
+    expect(result).toContain('deleteUser: { document: deleteUserDocument, kind: \'mutation\' },');
+    expect(result).toContain('onUserUpdate: { document: onUserUpdateDocument, kind: \'subscription\' },');
   });
 });

@@ -21,7 +21,7 @@ export function uploadViaWebSocket(
   meta: UploadAssetMetadata | undefined,
   options: { abort?: AbortSignal } | undefined,
 ) {
-  const metadata = { ...(meta ?? {}), projectRef: project };
+  const metadata = { ...meta, projectRef: project };
 
   return new Observable<UploadAssetProgress | { id: string }>((obs) => {
     const parsedUrl = new URL(url);
@@ -31,13 +31,12 @@ export function uploadViaWebSocket(
       'contello-file-upload-v1',
     );
 
-    const reader = typeof FileReader !== 'undefined' ? new FileReader() : null;
     let offset = 0;
 
     let done = false;
     let ackReceived = false;
 
-    ws.onopen = async () => {
+    ws.addEventListener('open', () => {
       const initFrame: InitFrame = {
         type: 'init',
         metadata: {
@@ -52,24 +51,18 @@ export function uploadViaWebSocket(
       ws.send(JSON.stringify(initFrame));
 
       function readSlice() {
-        const slice = file.slice(offset, offset + chunkSize);
-        if (reader) {
-          reader.readAsArrayBuffer(slice);
-        } else {
-          // Node.js environment - convert Blob to ArrayBuffer
-          slice
-            .arrayBuffer()
-            .then((buffer) => {
-              handleArrayBuffer(buffer);
-            })
-            .catch((err) => {
-              obs.error(err);
-            });
-        }
+        file
+          .slice(offset, offset + chunkSize)
+          .arrayBuffer()
+          .then((buffer) => {
+            handleArrayBuffer(buffer);
+          })
+          .catch((error) => {
+            obs.error(error);
+          });
       }
 
       function markAsDone() {
-        reader?.abort();
         ws.send(JSON.stringify({ type: 'done' }));
       }
 
@@ -80,6 +73,11 @@ export function uploadViaWebSocket(
       }
 
       function handleArrayBuffer(buffer: ArrayBuffer) {
+        // bail between chunks if the upload was aborted — abortHandler already closed the socket and errored
+        if (options?.abort?.aborted) {
+          return;
+        }
+
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(buffer);
           offset += buffer.byteLength;
@@ -91,21 +89,10 @@ export function uploadViaWebSocket(
           }
         } else {
           obs.error(new Error('WebSocket is closed'));
-          reader?.abort();
         }
       }
 
-      if (reader) {
-        reader.onload = () => {
-          if (reader.result && reader.result instanceof ArrayBuffer) {
-            handleArrayBuffer(reader.result);
-          } else {
-            markAsDone();
-          }
-        };
-      }
-
-      ws.onmessage = (event) => {
+      ws.addEventListener('message', (event) => {
         const message: AckMessage | ProgressMessage | DoneMessage = JSON.parse(event.data);
 
         if (message.type === 'ack') {
@@ -133,20 +120,19 @@ export function uploadViaWebSocket(
 
         obs.error(new Error(`WebSocket message with unknown type ${JSON.stringify(message)}`));
         ws.close();
-      };
-    };
+      });
+    });
 
-    ws.onerror = (error) => obs.error(error);
+    ws.addEventListener('error', (error) => obs.error(error));
 
-    ws.onclose = () => {
+    ws.addEventListener('close', () => {
       if (!done) {
         obs.error(new Error('Connection closed'));
       }
-    };
+    });
 
     const abortHandler = () => {
       if (!done) {
-        reader?.abort();
         ws.close();
         obs.error(new Error('Upload aborted'));
       }

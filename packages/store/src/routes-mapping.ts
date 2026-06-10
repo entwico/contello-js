@@ -25,23 +25,25 @@ export function mapRoute(raw: StoreRouteFragment, resolver: ModelResolver): Stor
   };
 
   switch (raw.target.__typename) {
-    case 'ContelloRouteTargetRedirect':
+    case 'ContelloRouteTargetRedirect': {
       return {
         ...base,
         type: 'redirect',
         location: raw.target.location,
         status: raw.target.responseCode,
       };
+    }
 
-    case 'ContelloRouteTargetText':
+    case 'ContelloRouteTargetText': {
       return {
         ...base,
         type: 'text',
         content: raw.target.content,
         mimeType: raw.target.mimeType,
       };
+    }
 
-    case 'ContelloRouteTargetAsset':
+    case 'ContelloRouteTargetAsset': {
       return {
         ...base,
         type: 'asset',
@@ -50,6 +52,7 @@ export function mapRoute(raw: StoreRouteFragment, resolver: ModelResolver): Stor
         contentDisposition: raw.target.contentDisposition === 'INLINE' ? 'inline' : 'attachment',
         mimeType: raw.target.asset.original.mimeType,
       };
+    }
 
     case 'ContelloRouteTargetEntity': {
       if (!raw.target.entity) {
@@ -67,7 +70,8 @@ export function mapRoute(raw: StoreRouteFragment, resolver: ModelResolver): Stor
       };
     }
 
-    default:
+    default: {
       return undefined;
+    }
   }
 }

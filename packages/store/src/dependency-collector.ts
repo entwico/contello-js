@@ -88,12 +88,14 @@ export class DependencyCollector<TKey, TModels extends string = string> {
         }
 
         switch (obj.__typename) {
-          case 'ContelloAsset':
+          case 'ContelloAsset': {
             deps.push(createDependencyKey('asset', obj.id));
             break;
-          case 'ContelloRoute':
+          }
+          case 'ContelloRoute': {
             deps.push(createDependencyKey('route', obj.id));
             break;
+          }
           default: {
             const model = this.resolver.getModel(obj.__typename);
 

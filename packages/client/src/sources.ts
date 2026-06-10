@@ -17,13 +17,14 @@ export function createSources<TSources extends SourceMap>(
     const doc = createSourceSubscription(def);
 
     switch (def.__cardinality) {
-      case 'singleton':
+      case 'singleton': {
         out[name] = {
           fetch: () =>
             wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source))),
         };
         break;
-      case 'entity':
+      }
+      case 'entity': {
         out[name] = {
           fetch: (vars?: { ids?: string[] }) =>
             wrap(`source:${name}`, () =>
@@ -36,7 +37,8 @@ export function createSources<TSources extends SourceMap>(
             ),
         };
         break;
-      case 'route':
+      }
+      case 'route': {
         out[name] = {
           fetch: (vars?: { ids?: string[] | undefined; paths?: string[] | undefined } | undefined) =>
             wrap(`source:${name}`, () =>
@@ -49,7 +51,8 @@ export function createSources<TSources extends SourceMap>(
             ),
         };
         break;
-      case 'asset':
+      }
+      case 'asset': {
         out[name] = {
           fetch: (vars?: { ids?: string[] | undefined } | undefined) =>
             wrap(`source:${name}`, () =>
@@ -62,7 +65,8 @@ export function createSources<TSources extends SourceMap>(
             ),
         };
         break;
-      case 'i18nMessage':
+      }
+      case 'i18nMessage': {
         out[name] = {
           fetch: (vars: { collection: string; ids?: string[] | undefined }) =>
             wrap(`source:${name}`, () =>
@@ -78,6 +82,7 @@ export function createSources<TSources extends SourceMap>(
             ),
         };
         break;
+      }
     }
   }
 

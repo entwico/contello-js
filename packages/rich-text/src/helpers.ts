@@ -10,35 +10,44 @@ export function richTextNodeToString(node: DeepReadonly<RichTextNode>): string {
     case 'heading':
     case 'paragraph':
     case 'codeBlock':
-    case 'blockquote':
-      return (node.content ?? []).map(richTextNodeToString).join('');
+    case 'blockquote': {
+      return (node.content ?? []).map((node) => richTextNodeToString(node)).join('');
+    }
     case 'bulletList':
-    case 'orderedList':
-      return (node.content ?? []).map((item) => (item.content ?? []).map(richTextNodeToString).join('')).join('');
-    case 'listItem':
-      return (node.content ?? []).map(richTextNodeToString).join('');
-    case 'horizontalRule':
+    case 'orderedList': {
+      return (node.content ?? []).map((item) => (item.content ?? []).map((node) => richTextNodeToString(node)).join('')).join('');
+    }
+    case 'listItem': {
+      return (node.content ?? []).map((node) => richTextNodeToString(node)).join('');
+    }
+    case 'horizontalRule': {
       return '---';
-    case 'hardBreak':
+    }
+    case 'hardBreak': {
       return '\n';
-    case 'table':
+    }
+    case 'table': {
       return (node.content ?? [])
         .map((row) =>
-          (row.content ?? []).map((cell) => (cell.content ?? []).map(richTextNodeToString).join('')).join(' | '),
+          (row.content ?? []).map((cell) => (cell.content ?? []).map((node) => richTextNodeToString(node)).join('')).join(' | '),
         )
         .join('\n');
-    case 'tableRow':
-      return (node.content ?? []).map((cell) => (cell.content ?? []).map(richTextNodeToString).join('')).join(' | ');
-    case 'tableCell':
-      return (node.content ?? []).map(richTextNodeToString).join('');
-    case 'tableHeader':
-      return (node.content ?? []).map(richTextNodeToString).join('');
+    }
+    case 'tableRow': {
+      return (node.content ?? []).map((cell) => (cell.content ?? []).map((node) => richTextNodeToString(node)).join('')).join(' | ');
+    }
+    case 'tableCell': {
+      return (node.content ?? []).map((node) => richTextNodeToString(node)).join('');
+    }
+    case 'tableHeader': {
+      return (node.content ?? []).map((node) => richTextNodeToString(node)).join('');
+    }
   }
 }
 
 /** Converts an array of rich text nodes to plain text, joining them with newlines. */
 export function richTextNodesToString(nodes: readonly DeepReadonly<RichTextNode>[]): string {
-  return nodes.map(richTextNodeToString).join('\n');
+  return nodes.map((node) => richTextNodeToString(node)).join('\n');
 }
 
 /** Converts a rich text document to its plain text representation. */
@@ -74,7 +83,10 @@ function createEmptyRichTextDocument(): RichTextDocument {
   };
 }
 
-/** Parses a JSON string into a {@link RichTextDocument}. Returns an empty document if parsing fails or the input is nullish. */
+/**
+ * Parses a JSON string into a {@link RichTextDocument}.
+ * Returns an empty document if parsing fails or the input is nullish.
+ */
 export function parseRichTextDocument(text: string | null | undefined): RichTextDocument {
   if (!text) {
     return createEmptyRichTextDocument();

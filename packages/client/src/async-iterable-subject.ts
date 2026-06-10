@@ -24,10 +24,10 @@ export type AsyncIterableSubject<T> = AsyncIterable<T> & {
   subscribe: (
     observerOrNext:
       | {
-          next?: (value: T) => void;
-          error?: (err: unknown) => void;
-          complete?: () => void;
-        }
+        next?: (value: T) => void;
+        error?: (err: unknown) => void;
+        complete?: () => void;
+      }
       | ((value: T) => void),
   ) => () => void;
 };
@@ -117,10 +117,10 @@ export function createAsyncIterableSubject<T>(): AsyncIterableSubject<T> {
   const subscribe = (
     observerOrNext:
       | {
-          next?: (value: T) => void;
-          error?: (err: unknown) => void;
-          complete?: () => void;
-        }
+        next?: (value: T) => void;
+        error?: (err: unknown) => void;
+        complete?: () => void;
+      }
       | ((value: T) => void),
   ): (() => void) => {
     if (status.state !== 'open') {

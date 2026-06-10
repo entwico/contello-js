@@ -138,7 +138,7 @@ export class ContelloClient<D, O extends ContelloClientChildMethods, R extends C
   }
 
   private getDialogController(id: string) {
-    const key = Array.from(this.dialogs.keys()).find((dialog) => dialog.id === id);
+    const key = [...this.dialogs.keys()].find((dialog) => dialog.id === id);
 
     if (!key) {
       return;
