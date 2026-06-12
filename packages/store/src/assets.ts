@@ -36,7 +36,7 @@ export type Assets = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): MaybePromise<ReadonlyDeep<StoreAsset> | undefined>;
-  get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreAsset>>>;
+  get(ids: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreAsset>>>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
   download(fileId: string): Promise<DownloadResult>;
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
@@ -47,7 +47,7 @@ export type AssetsSync = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): ReadonlyDeep<StoreAsset> | undefined;
-  get(ids: string[]): ReadonlyArray<ReadonlyDeep<StoreAsset>>;
+  get(ids: readonly string[]): ReadonlyArray<ReadonlyDeep<StoreAsset>>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
   download(fileId: string): Promise<DownloadResult>;
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
@@ -178,7 +178,7 @@ export function createAssetsCollection(
       }
     },
 
-    get(idOrIds: string | string[]): any {
+    get(idOrIds: string | readonly string[]): any {
       return projected.get(idOrIds as string);
     },
 
@@ -228,7 +228,7 @@ export function createAssetsSyncCollection(
   return {
     instance: {
       ...base,
-      get(idOrIds: string | string[]): any {
+      get(idOrIds: string | readonly string[]): any {
         return assertSync(base.get(idOrIds as string), 'get');
       },
     },

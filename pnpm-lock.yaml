@@ -185,8 +185,8 @@ importers:
         specifier: ^11.3.5
         version: 11.3.5
       projected:
-        specifier: ^3.0.1
-        version: 3.0.1
+        specifier: ^3.0.2
+        version: 3.0.2
     devDependencies:
       '@contello/client':
         specifier: workspace:^
@@ -2858,10 +2858,6 @@ packages:
     resolution: {integrity: sha512-1BC0BVFhS/p0qtw6enp8e+8OD0UrK0oFLztSjNzhcKA3WDuJxxAPXzPuPtKkjEY9UUoEWlX/8fgKeu2S8i9JTA==}
     engines: {node: '>= 0.4'}
 
-  is-core-module@2.16.1:
-    resolution: {integrity: sha512-UfoeMA6fIJ8wTYFEUjelnaGI67v6+N7qXJEvQuIGa99l4xsCruSYOVSQ0uPANn4dAzm8lkYPaKLrrijLq7x23w==}
-    engines: {node: '>= 0.4'}
-
   is-core-module@2.16.2:
     resolution: {integrity: sha512-evOr8xfXKxE6qSR0hSXL2r3sd7ALj8+7jQEUvPYcm5sgZFdJ+AYzT6yNmJenvIYQBgIGwfwz08sL8zoL7yq2BA==}
     engines: {node: '>= 0.4'}
@@ -3653,8 +3649,8 @@ packages:
   process-warning@5.0.0:
     resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
 
-  projected@3.0.1:
-    resolution: {integrity: sha512-XrrIO6dpqsVH8lpCz0g3bp9YGxetchnCgPiqYt+6AKpAx98PjpFWRh1XQgdWuK+x3ETJH1ORxUvsd2dmAu+wYg==}
+  projected@3.0.2:
+    resolution: {integrity: sha512-chJGZFkOWJK1wB4GmxwQ6Tk+8cpSXcd10fQ0j6pKXm3pB3nz1ZheSpNKiW0l6DQlR0hNHvKU9IJiZ0nN3BJwHQ==}
 
   prop-types@15.8.1:
     resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
@@ -7135,7 +7131,7 @@ snapshots:
   eslint-import-resolver-node@0.3.9:
     dependencies:
       debug: 3.2.7
-      is-core-module: 2.16.1
+      is-core-module: 2.16.2
       resolve: 1.22.11
     transitivePeerDependencies:
       - supports-color
@@ -7751,11 +7747,6 @@ snapshots:
       builtin-modules: 5.2.0
 
   is-callable@1.2.7: {}
-
-  is-core-module@2.16.1:
-    dependencies:
-      hasown: 2.0.2
-    optional: true
 
   is-core-module@2.16.2:
     dependencies:
@@ -8654,7 +8645,7 @@ snapshots:
 
   process-warning@5.0.0: {}
 
-  projected@3.0.1: {}
+  projected@3.0.2: {}
 
   prop-types@15.8.1:
     dependencies:
@@ -8848,7 +8839,7 @@ snapshots:
 
   resolve@1.22.11:
     dependencies:
-      is-core-module: 2.16.1
+      is-core-module: 2.16.2
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
     optional: true

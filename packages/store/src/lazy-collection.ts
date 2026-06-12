@@ -144,7 +144,7 @@ export function createLazyCollection<
       name: _def.name,
       refresh$,
 
-      get(idOrIds: string | string[]): any {
+      get(idOrIds: string | readonly string[]): any {
         return projected.get(idOrIds as string);
       },
 

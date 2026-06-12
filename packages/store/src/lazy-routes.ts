@@ -25,9 +25,9 @@ export type LazyRoutesOptions = {
 export type LazyRoutes = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   get(id: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
-  get(ids: string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
+  get(ids: readonly string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
   getByPath(path: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
-  getByPath(paths: string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
+  getByPath(paths: readonly string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
   refresh(): void;
   clear(): void;
 };
@@ -228,7 +228,7 @@ export function createLazyRoutesCollection(
     instance: {
       refresh$: channel.stream$,
 
-      get(idOrIds: string | string[]): any {
+      get(idOrIds: string | readonly string[]): any {
         if (Array.isArray(idOrIds)) {
           return projected.get(idOrIds.map((id) => ID_PREFIX + id));
         }
@@ -236,7 +236,7 @@ export function createLazyRoutesCollection(
         return projected.get(ID_PREFIX + idOrIds);
       },
 
-      getByPath(pathOrPaths: string | string[]): any {
+      getByPath(pathOrPaths: string | readonly string[]): any {
         if (Array.isArray(pathOrPaths)) {
           return projected.get(pathOrPaths.map((p) => PATH_PREFIX + p));
         }

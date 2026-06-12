@@ -196,7 +196,7 @@ export function createCollection<
     name: _def.name,
     refresh$: channel.stream$,
 
-    get(idOrIds: string | string[]): any {
+    get(idOrIds: string | readonly string[]): any {
       return projected.get(idOrIds as string);
     },
 
@@ -257,7 +257,7 @@ export function createCollectionSync<
   return {
     instance: {
       ...base,
-      get(idOrIds: string | string[]): any {
+      get(idOrIds: string | readonly string[]): any {
         return assertSync(base.get(idOrIds as string), 'get');
       },
       getAll(): ReadonlyArray<ReadonlyDeep<TMapped>> {

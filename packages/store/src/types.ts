@@ -181,7 +181,7 @@ export type Collection<T> = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): MaybePromise<ReadonlyDeep<T> | undefined>;
-  get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
+  get(ids: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   getAll(): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   refresh(): void;
 };
@@ -191,7 +191,7 @@ export type CollectionSync<T> = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): ReadonlyDeep<T> | undefined;
-  get(ids: string[]): ReadonlyArray<ReadonlyDeep<T>>;
+  get(ids: readonly string[]): ReadonlyArray<ReadonlyDeep<T>>;
   getAll(): ReadonlyArray<ReadonlyDeep<T>>;
   refresh(): void;
 };
@@ -211,7 +211,7 @@ export type LazyCollection<T> = {
   readonly name: string;
   readonly refresh$: AsyncIterable<RefreshEvent>;
   get(id: string): MaybePromise<ReadonlyDeep<T> | undefined>;
-  get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
+  get(ids: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   refresh(): void;
   clear(): void;
 };

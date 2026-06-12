@@ -44,7 +44,7 @@ export type LazyAssetsOptions = {
 export type LazyAssets = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   get(id: string): Promise<ReadonlyDeep<StoreAsset> | undefined>;
-  get(ids: string[]): Promise<ReadonlyDeep<StoreAsset[]>>;
+  get(ids: readonly string[]): Promise<ReadonlyDeep<StoreAsset[]>>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
   download(fileId: string): Promise<DownloadResult>;
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
@@ -139,7 +139,7 @@ export function createLazyAssetsCollection(
     instance: {
       refresh$: channel.stream$,
 
-      get(idOrIds: string | string[]): any {
+      get(idOrIds: string | readonly string[]): any {
         return projected.get(idOrIds as string);
       },
 

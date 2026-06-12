@@ -68,7 +68,7 @@ export type I18nMessage = {
 export type I18nMessages = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   get(id: string): MaybePromise<ReadonlyDeep<I18nMessage> | undefined>;
-  get(ids: string[]): MaybePromise<ReadonlyDeep<I18nMessage[]>>;
+  get(ids: readonly string[]): MaybePromise<ReadonlyDeep<I18nMessage[]>>;
   getAll(): MaybePromise<ReadonlyDeep<I18nMessage[]>>;
   register(messages: I18nMessageRegistrationDefinition[]): Promise<void>;
   refresh(): void;
@@ -210,7 +210,7 @@ export function createI18nMessagesCollection(
   return {
     refresh$: channel.stream$,
 
-    get(idOrIds: string | string[]): any {
+    get(idOrIds: string | readonly string[]): any {
       return projected.get(idOrIds as string);
     },
 

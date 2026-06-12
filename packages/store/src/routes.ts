@@ -32,9 +32,9 @@ export type Routes = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined>;
-  get(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>>;
+  get(ids: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>>;
   getByPath(path: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined>;
-  getByPath(paths: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>>;
+  getByPath(paths: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>>;
   refresh(): void;
 };
 
@@ -42,9 +42,9 @@ export type RoutesSync = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): ReadonlyDeep<StoreRoute> | undefined;
-  get(ids: string[]): ReadonlyArray<ReadonlyDeep<StoreRoute>>;
+  get(ids: readonly string[]): ReadonlyArray<ReadonlyDeep<StoreRoute>>;
   getByPath(path: string): ReadonlyDeep<StoreRoute> | undefined;
-  getByPath(paths: string[]): ReadonlyArray<ReadonlyDeep<StoreRoute>>;
+  getByPath(paths: readonly string[]): ReadonlyArray<ReadonlyDeep<StoreRoute>>;
   refresh(): void;
 };
 
@@ -210,7 +210,7 @@ export function createRoutesCollection(
     return projected.get(id);
   }
 
-  function getByIds(ids: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>> {
+  function getByIds(ids: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>> {
     return projected.get(ids);
   }
 
@@ -222,7 +222,7 @@ export function createRoutesCollection(
     });
   }
 
-  function lookupByPaths(paths: string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>> {
+  function lookupByPaths(paths: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>> {
     return maybeThen(ensureLoaded(), () => {
       const ids: string[] = [];
 
@@ -255,12 +255,12 @@ export function createRoutesCollection(
       }
     },
 
-    get(idOrIds: string | string[]): any {
-      return Array.isArray(idOrIds) ? getByIds(idOrIds) : getByIdSingle(idOrIds);
+    get(idOrIds: string | readonly string[]): any {
+      return typeof idOrIds === 'string' ? getByIdSingle(idOrIds) : getByIds(idOrIds);
     },
 
-    getByPath(pathOrPaths: string | string[]): any {
-      return Array.isArray(pathOrPaths) ? lookupByPaths(pathOrPaths) : lookupByPathSingle(pathOrPaths);
+    getByPath(pathOrPaths: string | readonly string[]): any {
+      return typeof pathOrPaths === 'string' ? lookupByPathSingle(pathOrPaths) : lookupByPaths(pathOrPaths);
     },
 
     refresh() {
@@ -298,10 +298,10 @@ export function createRoutesSyncCollection(
   return {
     instance: {
       ...base,
-      get(idOrIds: string | string[]): any {
+      get(idOrIds: string | readonly string[]): any {
         return assertSync(base.get(idOrIds as string), 'get');
       },
-      getByPath(pathOrPaths: string | string[]): any {
+      getByPath(pathOrPaths: string | readonly string[]): any {
         return assertSync(base.getByPath(pathOrPaths as string), 'getByPath');
       },
     },
