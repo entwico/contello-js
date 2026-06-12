@@ -1,5 +1,11 @@
 # @contello/store
 
+## 2.1.1
+
+### Patch Changes
+
+- 58cfc09: accept readonly string arrays in `get()` (and routes' `getByPath()`)
+
 ## 2.1.0
 
 ### Minor Changes
