@@ -1,12 +1,12 @@
 import { type ComponentPropsWithRef, type ComponentPropsWithoutRef, forwardRef } from 'react';
 
-import type { PictureSource } from '../types';
+import type { DeepReadonly, PictureSource } from '../types';
 
 type ImgSpread = Omit<ComponentPropsWithoutRef<'img'>, 'src' | 'srcSet' | 'sizes'>;
 
 export type PictureProps = {
   /** pre-resolved picture data — obtain via `mediaResolver.picture.src(source, options?)` */
-  src: PictureSource;
+  src: DeepReadonly<PictureSource>;
   /** attributes for the outer `<picture>` element (className, style, ref, data-*, aria-*, event handlers) */
   picture?: ComponentPropsWithRef<'picture'> | undefined;
   /**

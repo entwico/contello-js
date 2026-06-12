@@ -1,3 +1,12 @@
+// recursively makes every property and array element readonly. used to widen
+// the resolver's input signatures so they accept deeply immutable media values
+// (e.g. frozen store entities) without forcing casts at the call site.
+export type DeepReadonly<T> = T extends (infer U)[]
+  ? readonly DeepReadonly<U>[]
+  : T extends object
+    ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+    : T;
+
 export type MediaFileMetadata = {
   width: number;
   height: number;

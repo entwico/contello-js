@@ -1,4 +1,13 @@
-import type { FileDef, ImageDef, ImageDefVariant, MediaAsset, MediaFile, PictureSource, VideoDef } from './types';
+import type {
+  DeepReadonly,
+  FileDef,
+  ImageDef,
+  ImageDefVariant,
+  MediaAsset,
+  MediaFile,
+  PictureSource,
+  VideoDef,
+} from './types';
 
 export type BreakpointConfig = {
   /** media query fragment for the `sizes` attribute (e.g. `(min-width: 768px)`). `undefined` = default clause */
@@ -9,8 +18,14 @@ export type BreakpointConfig = {
 
 export type ImageUrlTarget = 'web' | 'email' | 'pdf' | 'og' | 'videoPoster' | 'safe';
 
-type WithFallback = { fallback?: ImageDef | undefined };
-type HasFallback<O> = O extends { fallback: ImageDef } ? true : false;
+// input aliases — the resolver only reads its sources, so it accepts deeply
+// immutable values (e.g. frozen store entities) and builds fresh mutable output.
+type ImageDefInput = DeepReadonly<ImageDef>;
+type MediaAssetInput = DeepReadonly<MediaAsset>;
+type VideoDefInput = DeepReadonly<VideoDef>;
+
+type WithFallback = { fallback?: ImageDefInput | undefined };
+type HasFallback<O> = O extends { fallback: ImageDefInput } ? true : false;
 
 export type ImageUrlOverrides = {
   minWidth?: number | undefined;
@@ -35,9 +50,9 @@ export type MediaResolverOptions = {
 } & WithFallback;
 
 type ImageDefMethod<HasDefault extends boolean> = {
-  (source: MediaAsset, fallback?: ImageDef): ImageDef;
-  (source: MediaAsset | null | undefined, fallback: ImageDef): ImageDef;
-  (source: MediaAsset | null | undefined): HasDefault extends true ? ImageDef : ImageDef | undefined;
+  (source: MediaAssetInput, fallback?: ImageDefInput): ImageDef;
+  (source: MediaAssetInput | null | undefined, fallback: ImageDefInput): ImageDef;
+  (source: MediaAssetInput | null | undefined): HasDefault extends true ? ImageDef : ImageDef | undefined;
 };
 
 const DEFAULT_BREAKPOINTS: Record<string, BreakpointConfig> = {
@@ -95,23 +110,23 @@ export class MediaResolver<HasDefault extends boolean = false> {
   readonly image: {
     def: ImageDefMethod<HasDefault>;
     url(
-      source: ImageDef | MediaAsset | null | undefined,
+      source: ImageDefInput | MediaAssetInput | null | undefined,
       target: ImageUrlTarget,
       overrides?: ImageUrlOverrides,
     ): string;
   };
 
   readonly picture: {
-    src(source: ImageDef | MediaAsset | null | undefined, options?: PictureOptions): PictureSource;
+    src(source: ImageDefInput | MediaAssetInput | null | undefined, options?: PictureOptions): PictureSource;
   };
 
   readonly video: {
-    def(source: MediaAsset): VideoDef;
-    m3u8(source: VideoDef | MediaAsset): string;
+    def(source: MediaAssetInput): VideoDef;
+    m3u8(source: VideoDefInput | MediaAssetInput): string;
   };
 
   readonly file: {
-    def(source: MediaAsset): FileDef;
+    def(source: MediaAssetInput): FileDef;
   };
 
   constructor(options: MediaResolverOptions) {
@@ -124,7 +139,7 @@ export class MediaResolver<HasDefault extends boolean = false> {
     this.formats = options.pictureFormats ?? DEFAULT_FORMATS;
 
     this.image = {
-      def: ((source: MediaAsset | null | undefined, fallback?: ImageDef) =>
+      def: ((source: MediaAssetInput | null | undefined, fallback?: ImageDefInput) =>
         this.resolveImageDef(source, fallback)) as ImageDefMethod<HasDefault>,
 
       url: (source, target, overrides) => this.resolveImageUrl(source, target, overrides),
@@ -160,16 +175,18 @@ export class MediaResolver<HasDefault extends boolean = false> {
     return `${this.baseUrl}${this.videosPath}${assetId}/master.m3u8`;
   }
 
-  private resolveImageDef(source: MediaAsset | null | undefined, fallback?: ImageDef): ImageDef | undefined {
+  private resolveImageDef(source: MediaAssetInput | null | undefined, fallback?: ImageDefInput): ImageDef | undefined {
     if (source) {
       return this.assetToImageDef(source);
     }
 
-    return fallback ?? this.fallback;
+    // fallback passthrough — the input is read-only by contract but the value is
+    // a frozen def we hand straight back; widen it to the mutable output type
+    return (fallback ?? this.fallback) as ImageDef | undefined;
   }
 
   private resolveImageUrl(
-    source: ImageDef | MediaAsset | null | undefined,
+    source: ImageDefInput | MediaAssetInput | null | undefined,
     target: ImageUrlTarget,
     overrides?: ImageUrlOverrides,
   ): string {
@@ -187,7 +204,10 @@ export class MediaResolver<HasDefault extends boolean = false> {
     return variant?.url ?? '';
   }
 
-  private resolvePicture(source: ImageDef | MediaAsset | null | undefined, options?: PictureOptions): PictureSource {
+  private resolvePicture(
+    source: ImageDefInput | MediaAssetInput | null | undefined,
+    options?: PictureOptions,
+  ): PictureSource {
     const def = this.toImageDef(source, options?.fallback);
 
     if (!def || def.variants.length === 0) {
@@ -257,7 +277,7 @@ export class MediaResolver<HasDefault extends boolean = false> {
     return result;
   }
 
-  private resolveVideoDef(source: MediaAsset): VideoDef {
+  private resolveVideoDef(source: MediaAssetInput): VideoDef {
     return {
       id: source.id,
       url: this.buildM3u8(source.id),
@@ -266,7 +286,7 @@ export class MediaResolver<HasDefault extends boolean = false> {
     };
   }
 
-  private resolveM3u8(source: VideoDef | MediaAsset): string {
+  private resolveM3u8(source: VideoDefInput | MediaAssetInput): string {
     if (isVideoDef(source)) {
       return source.url;
     }
@@ -274,26 +294,31 @@ export class MediaResolver<HasDefault extends boolean = false> {
     return this.buildM3u8(source.id);
   }
 
-  private resolveFileDef(source: MediaAsset): FileDef {
+  private resolveFileDef(source: MediaAssetInput): FileDef {
     return {
       id: source.id,
       url: this.fileUrl(source.original.uid, source.original.mimeType),
     };
   }
 
-  private toImageDef(source: ImageDef | MediaAsset | null | undefined, fallback?: ImageDef): ImageDef | undefined {
+  private toImageDef(
+    source: ImageDefInput | MediaAssetInput | null | undefined,
+    fallback?: ImageDefInput,
+  ): ImageDef | undefined {
+    // read-only inputs flow straight through to the (mutable) output type — the
+    // values are frozen defs we never mutate, so the cast is safe at this boundary
     if (!source) {
-      return fallback ?? this.fallback;
+      return (fallback ?? this.fallback) as ImageDef | undefined;
     }
 
     if (isImageDef(source)) {
-      return source;
+      return source as ImageDef;
     }
 
     return this.assetToImageDef(source);
   }
 
-  private assetToImageDef(asset: MediaAsset): ImageDef {
+  private assetToImageDef(asset: MediaAssetInput): ImageDef {
     const { id, original, preview, optimized } = asset;
 
     // SVG originals are already scalable and universally supported — use the
@@ -324,7 +349,7 @@ export class MediaResolver<HasDefault extends boolean = false> {
     return { id, variants };
   }
 
-  private fileToVariant(file: MediaFile | null | undefined): ImageDefVariant | null {
+  private fileToVariant(file: DeepReadonly<MediaFile> | null | undefined): ImageDefVariant | null {
     if (!file?.metadata) {
       return null;
     }
@@ -348,11 +373,11 @@ function normalizePath(path: string): string {
   return withLeading.endsWith('/') ? withLeading : `${withLeading}/`;
 }
 
-function isImageDef(source: ImageDef | MediaAsset): source is ImageDef {
+function isImageDef(source: ImageDefInput | MediaAssetInput): source is ImageDefInput {
   return 'variants' in source;
 }
 
-function isVideoDef(source: VideoDef | MediaAsset): source is VideoDef {
+function isVideoDef(source: VideoDefInput | MediaAssetInput): source is VideoDefInput {
   return 'url' in source;
 }
 

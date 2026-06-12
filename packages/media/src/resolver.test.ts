@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 
 import { type MediaResolverOptions, createMediaResolver } from './resolver';
-import type { ImageDef, MediaAsset } from './types';
+import type { DeepReadonly, ImageDef, MediaAsset, PictureSource, VideoDef } from './types';
 
 const baseUrl = 'https://cdn.example.com';
 
@@ -464,5 +464,42 @@ describe('MediaResolver.file', () => {
     );
 
     expect(def).toEqual({ id: 'f1', url: `${baseUrl}/f/f-uid.pdf` });
+  });
+});
+
+describe('MediaResolver deeply-readonly inputs', () => {
+  const media = createMediaResolver({ baseUrl, ...testPaths, filesPath: '/f/' });
+
+  const roAsset: DeepReadonly<MediaAsset> = asset({
+    id: 'ro',
+    optimized: [{ uid: 'o', mimeType: 'image/webp', metadata: { width: 800, height: 600 } }],
+  });
+  const roDef: DeepReadonly<ImageDef> = {
+    id: 'ro-def',
+    variants: [{ type: 'image/jpeg', url: '/ro.jpg', width: 100, height: 100 }],
+  };
+
+  test('image.def / image.url / picture.src accept readonly sources and fallback', () => {
+    expect(media.image.def(roAsset).id).toBe('ro');
+    expect(media.image.def(null, roDef)).toBe(roDef);
+    expect(media.image.url(roDef, 'web')).toBe('/ro.jpg');
+    expect(media.image.url(roAsset, 'web')).toContain('/i/');
+    expect(media.picture.src(roAsset).id).toBe('ro');
+    expect(media.picture.src(roDef, { fallback: roDef }).id).toBe('ro-def');
+  });
+
+  test('video / file accept readonly sources', () => {
+    const roVideoDef: DeepReadonly<VideoDef> = media.video.def(roAsset);
+
+    expect(media.video.m3u8(roVideoDef)).toBe(roVideoDef.url);
+    expect(media.video.m3u8(roAsset)).toContain('/master.m3u8');
+    expect(media.file.def(roAsset).id).toBe('ro');
+  });
+
+  test('outputs stay mutable so they re-feed the resolver', () => {
+    const def = media.image.def(roAsset);
+
+    expectTypeOf(def).toEqualTypeOf<ImageDef>();
+    expectTypeOf(media.picture.src(roAsset)).toEqualTypeOf<PictureSource>();
   });
 });

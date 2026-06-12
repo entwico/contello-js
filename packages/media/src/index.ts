@@ -1,4 +1,5 @@
 export type {
+  DeepReadonly,
   FileDef,
   ImageDef,
   ImageDefVariant,
