@@ -171,9 +171,10 @@ export function generateDocumentString(
 
 /**
  * Returns the TS-source expression for an operation's document — a template literal
- * interpolating each used fragment's `<Name>FragmentSchema` const, followed by the
- * inlined operation body. The atomic schema consts are shared with sources, so the
- * fragment text appears once in the generated file even if reused across operations.
+ * interpolating each used fragment's `<Name>FragmentSchema` const on a single line
+ * (refs joined by escaped `\n`), followed by the inlined operation body on its own
+ * lines. The atomic schema consts are shared with sources, so the fragment text
+ * appears once in the generated file even if reused across operations.
  */
 export function operationDocumentExpression(
   operation: OperationDefinitionNode,
@@ -184,9 +185,8 @@ export function operationDocumentExpression(
   collectUsedFragments(operation, allFragments, usedFragments);
 
   const sortedFragments = sortFragmentsByDependency(usedFragments);
-  const parts = sortedFragments.map((f) => `\${${f.name.value}FragmentSchema}`);
-
-  parts.push(print(operation));
+  const refs = sortedFragments.map((f) => `\${${f.name.value}FragmentSchema}`);
+  const parts = refs.length > 0 ? [refs.join(String.raw`\n`), print(operation)] : [print(operation)];
 
   return `\`${parts.join('\n')}\``;
 }
@@ -211,7 +211,7 @@ export function fragmentBundleExpression(
     return `${sortedFragments[0]!.name.value}FragmentSchema`;
   }
 
-  return `\`${sortedFragments.map((f) => `\${${f.name.value}FragmentSchema}`).join('\n')}\``;
+  return `\`${sortedFragments.map((f) => `\${${f.name.value}FragmentSchema}`).join(String.raw`\n`)}\``;
 }
 
 /** Emits `const <Name>FragmentSchema = \`...\`;` for each (transformed) fragment. */
