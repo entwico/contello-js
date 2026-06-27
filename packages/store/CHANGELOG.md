@@ -1,5 +1,20 @@
 # @contello/store
 
+## 3.0.0
+
+### Patch Changes
+
+- 878333d: looking up a lazily-cached route by its previous path after the route's path changed no longer returns the stale route.
+- 878333d: the update watcher survives a malformed event or a throwing subscriber
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+  - @contello/media@2.0.0
+
 ## 2.1.1
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # @contello/client
 
+## 2.2.2
+
+### Patch Changes
+
+- 878333d: generated documents no longer request `__typename` on flattened component references, shrinking responses (re-run codegen to pick this up).
+- 878333d: flattened component responses resolve in a single pass and no longer hang on cyclic component references.
+- 878333d: the connection pool now routes around disconnected clients and no longer hangs on `init()` when an endpoint is unreachable.
+- 878333d: the asset and HLS proxy now validate file ids and stream paths and forward a focused set of upstream response headers.
+- 878333d: streaming uploads apply backpressure instead of buffering the whole file into the socket send queue at once.
+- ffc7a05: emit fragment reference lists on a single line in generated documents
+
 ## 2.2.1
 
 ### Patch Changes
