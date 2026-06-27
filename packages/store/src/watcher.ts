@@ -169,6 +169,14 @@ function mapEvent(raw: RawEvent, resolver: ModelResolver): UpdateEvent | undefin
   }
 }
 
+function safeMapEvent(raw: RawEvent, resolver: ModelResolver): UpdateEvent | undefined {
+  try {
+    return mapEvent(raw, resolver);
+  } catch {
+    return undefined;
+  }
+}
+
 export type InternalWatcher = {
   /** Multicast stream of update batches. Internal-only; the public `Store.updates$` is the AsyncIterable view. */
   readonly updates$: AsyncIterableSubject<UpdateBatch>;
@@ -200,7 +208,9 @@ export function createInternalWatcher(client: ContelloClient<any>, resolver: Mod
 
           const events = mapAsync(source, (data) =>
             (data.contelloUpdatesBatch?.events ?? [])
-              .map((e) => mapEvent(e, resolver))
+              // a single malformed event must not throw out of the loop and kill
+              // the watcher — skip it and keep consuming the stream
+              .map((e) => safeMapEvent(e, resolver))
               .filter((e): e is UpdateEvent => e !== undefined),
           );
 
@@ -213,9 +223,16 @@ export function createInternalWatcher(client: ContelloClient<any>, resolver: Mod
               continue;
             }
 
-            updates$.next(createUpdateBatch(list));
+            try {
+              updates$.next(createUpdateBatch(list));
+            } catch {
+              // a subscriber threw — isolate it so it can't tear down the watcher
+            }
           }
-        })();
+        })().catch(() => {
+          // asyncKeepalive only exits on abort; swallow so a terminal failure
+          // never surfaces as an unhandled rejection
+        });
       });
     },
 

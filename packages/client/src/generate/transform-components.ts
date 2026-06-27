@@ -51,10 +51,21 @@ function getNamedTypeName(type: any): string | undefined {
 }
 
 /**
- * the flat ref selection: `{ __typename ... on ContelloFlatComponent { _flatId } }`
+ * the flat ref selection for the `_flat_*` companion: `{ __typename ... on ContelloFlatComponent { _flatId } }`.
+ * `__typename` is kept here because the companion carries the full components and the runtime derives
+ * `__model` from it.
  */
 const FLAT_REF_SELECTIONS: SelectionSetNode = parse(
   `{ __typename ... on ${FLAT_COMPONENT_TYPE} { _flatId } }`,
+).definitions.flatMap((d) => ('selectionSet' in d ? [d.selectionSet] : []))[0]!;
+
+/**
+ * the lightweight ref selection for the inline component field: `{ ... on ContelloFlatComponent { _flatId } }`.
+ * only `_flatId` is needed — the runtime resolves these refs against the `_flat_*` companion by id and never
+ * reads their `__typename`, so it is omitted to keep the wire payload small.
+ */
+const FLAT_REF_ONLY_SELECTIONS: SelectionSetNode = parse(
+  `{ ... on ${FLAT_COMPONENT_TYPE} { _flatId } }`,
 ).definitions.flatMap((d) => ('selectionSet' in d ? [d.selectionSet] : []))[0]!;
 
 /**
@@ -146,7 +157,7 @@ function transformSelectionSet(
 
         changed = true;
 
-        newSelections.push({ ...selection, selectionSet: FLAT_REF_SELECTIONS } as FieldNode);
+        newSelections.push({ ...selection, selectionSet: FLAT_REF_ONLY_SELECTIONS } as FieldNode);
 
         if (!refsOnly) {
           newSelections.push({

@@ -1,5 +1,36 @@
 import { Agent, type Dispatcher, request as undiciRequest } from 'undici';
 
+const SAFE_SEGMENT = /^[A-Za-z0-9._-]+$/;
+
+const FORWARDED_PROXY_HEADERS = new Set([
+  'content-type',
+  'content-length',
+  'content-range',
+  'content-encoding',
+  'accept-ranges',
+  'cache-control',
+  'etag',
+  'last-modified',
+  'expires',
+  'age',
+]);
+
+function assertSafeSegment(segment: string, kind: string): void {
+  if (!SAFE_SEGMENT.test(segment) || segment === '.' || segment === '..') {
+    throw new Error(`invalid ${kind}`);
+  }
+}
+
+function assertSafeAssetPath(path: string, kind: string): void {
+  if (path === '') {
+    throw new Error(`invalid ${kind}`);
+  }
+
+  for (const segment of path.split('/')) {
+    assertSafeSegment(segment, kind);
+  }
+}
+
 export type HttpAgentOptions = {
   pipelining?: number | undefined;
   allowH2?: boolean | undefined;
@@ -31,6 +62,8 @@ export async function downloadFile(
   token: string,
   fileId: string,
 ): Promise<DownloadResult> {
+  assertSafeSegment(fileId, 'file id');
+
   const response = await undiciRequest(`${url}/api/v1/assets/files/${fileId}`, {
     headers: { token },
     dispatcher: agent,
@@ -66,6 +99,8 @@ export async function proxyHls(
   path: string,
   signal?: AbortSignal | undefined,
 ): Promise<ProxyResult> {
+  assertSafeAssetPath(path, 'hls path');
+
   const response = await undiciRequest(`${url}/api/v1/assets/video/hls/${path}`, {
     headers: { token },
     dispatcher: agent,
@@ -79,6 +114,10 @@ function buildProxyResult(response: Dispatcher.ResponseData, signal: AbortSignal
   const headers = new Headers();
 
   for (const [key, value] of Object.entries(response.headers)) {
+    if (!FORWARDED_PROXY_HEADERS.has(key.toLowerCase())) {
+      continue;
+    }
+
     if (Array.isArray(value)) {
       for (const v of value) headers.append(key, v);
     } else if (value !== null && value !== undefined) {

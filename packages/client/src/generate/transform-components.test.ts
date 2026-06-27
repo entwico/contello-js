@@ -125,7 +125,8 @@ describe('transformOperation', () => {
     const contentMatch = result.match(/content \{([^}]+)\}/);
 
     expect(contentMatch).toBeTruthy();
-    expect(contentMatch![1]).toContain('__typename');
+    // the inline ref carries only _flatId — __typename lives on the _flat_ companion
+    expect(contentMatch![1]).not.toContain('__typename');
     expect(contentMatch![1]).toContain('_flatId');
     expect(contentMatch![1]).not.toContain('TextComponent');
   });

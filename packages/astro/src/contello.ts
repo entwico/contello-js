@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
 import type { ContelloClient, Schema, SourceDef } from '@contello/client';
-import { type ImageDef, type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
+import { type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
 import {
   type Assets,
   type AssetsOptions,
@@ -79,7 +79,7 @@ export type ContelloOptions<TSchema extends Schema | undefined = undefined> = Cr
   media?: Partial<ContelloMediaConfig> | undefined;
 };
 
-type HasFallback<O> = O extends { fallback: ImageDef } ? true : false;
+type HasFallback<O> = O extends { fallback: infer F } ? ([F] extends [undefined] ? false : true) : false;
 
 export const runRequest = Symbol('@contello/astro/runRequest');
 

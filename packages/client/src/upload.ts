@@ -68,6 +68,30 @@ export function upload(
       ws.send(JSON.stringify({ type: 'done' }));
     }
 
+    const MAX_BUFFER_SIZE = 8 * 1024 * 1024;
+
+    function waitForBufferedDrain(): Promise<void> {
+      return new Promise((resolveDrain, rejectDrain) => {
+        const check = () => {
+          if (options?.abort?.aborted) {
+            rejectDrain(new Error('upload aborted'));
+
+            return;
+          }
+
+          if (ws.bufferedAmount <= MAX_BUFFER_SIZE) {
+            resolveDrain();
+
+            return;
+          }
+
+          setTimeout(check, 50);
+        };
+
+        check();
+      });
+    }
+
     async function sendStream(stream: UploadData) {
       const reader = (stream as ReadableStream<Uint8Array>).getReader();
 
@@ -77,6 +101,7 @@ export function upload(
 
           if (streamDone) break;
 
+          await waitForBufferedDrain();
           ws.send(value);
         }
 

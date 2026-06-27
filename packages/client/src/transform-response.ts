@@ -38,24 +38,46 @@ function deriveModel(typename: string): string | undefined {
 }
 
 /**
- * transforms a GraphQL response:
- * - resolves `_flat_{field}` refs into nested component arrays
+ * transforms a GraphQL response in a single depth-first pass:
+ * - resolves `_flat_{field}` companions into nested component arrays (refs are
+ *   matched against the companion map by `_flatId`, at any nesting depth — the
+ *   companion lists the whole subtree, so one map serves every ref below it)
  * - injects `__model` on objects with entity/component `__typename`
+ * - decodes managed scalar aliases (`_ldt_` / `_ld_`) into structured values
+ *
+ * a `seen` set guards against shared or cyclic references so every object is
+ * visited exactly once.
  */
 export function transformResponse<T>(data: T): T {
-  if (data === null || data === undefined || typeof data !== 'object') {
-    return data;
+  transformNode(data, undefined, new WeakSet());
+
+  return data;
+}
+
+function transformNode(
+  value: unknown,
+  flatMap: Map<string, FlatComponent> | undefined,
+  seen: WeakSet<object>,
+): void {
+  if (!value || typeof value !== 'object') {
+    return;
   }
 
-  if (Array.isArray(data)) {
-    for (const item of data) {
-      transformResponse(item);
+  if (seen.has(value)) {
+    return;
+  }
+
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      transformNode(item, flatMap, seen);
     }
 
-    return data;
+    return;
   }
 
-  const obj = data as Record<string, unknown>;
+  const obj = value as Record<string, unknown>;
 
   // inject __model from __typename
   const typename = obj['__typename'];
@@ -68,106 +90,84 @@ export function transformResponse<T>(data: T): T {
     }
   }
 
-  // resolve _flat_ siblings
-  const flatKeys = Object.keys(obj).filter((k) => k.startsWith(FLAT_PREFIX));
+  // collect `_flat_*` companions into this scope's resolution map, extending any
+  // map inherited from an ancestor so refs nested below resolve against the same
+  // companion set
+  let ownMap: Map<string, FlatComponent> | undefined;
 
-  for (const flatKey of flatKeys) {
-    const fieldKey = flatKey.slice(FLAT_PREFIX.length);
-    const flatArray = obj[flatKey] as FlatComponent[] | undefined;
-    const refArray = obj[fieldKey] as FlatRef[] | undefined;
-
-    if (!flatArray || !refArray) {
+  for (const key of Object.keys(obj)) {
+    if (!key.startsWith(FLAT_PREFIX)) {
       continue;
     }
 
-    const flatMap = new Map<string, FlatComponent>();
+    const flatArray = obj[key] as FlatComponent[] | undefined;
+
+    delete obj[key];
+
+    if (!flatArray) {
+      continue;
+    }
+
+    if (!ownMap) {
+      ownMap = flatMap ? new Map(flatMap) : new Map();
+    }
 
     for (const component of flatArray) {
       if (component._flatId) {
-        flatMap.set(component._flatId, component);
+        ownMap.set(component._flatId, component);
       }
     }
-
-    obj[fieldKey] = resolveRefs(refArray, flatMap);
-    delete obj[flatKey];
   }
 
-  // decode managed scalar aliases — strings on the wire, structs to consumers
+  // decode scalar aliases, resolve ref arrays, and recurse — one pass over keys.
+  // refs resolve against this object's own companion map if it had `_flat_*`
+  // siblings, otherwise against the inherited ancestor map
+  const resolveMap = ownMap ?? flatMap;
+
   for (const key of Object.keys(obj)) {
     if (key.startsWith(LDT_PREFIX)) {
-      const original = key.slice(LDT_PREFIX.length);
-
-      obj[original] = decodeValue(obj[key], decodeLocalDateTime);
+      obj[key.slice(LDT_PREFIX.length)] = decodeValue(obj[key], decodeLocalDateTime);
       delete obj[key];
-    } else if (key.startsWith(LD_PREFIX)) {
-      const original = key.slice(LD_PREFIX.length);
 
-      obj[original] = decodeValue(obj[key], decodeLocalDate);
+      continue;
+    }
+
+    if (key.startsWith(LD_PREFIX)) {
+      obj[key.slice(LD_PREFIX.length)] = decodeValue(obj[key], decodeLocalDate);
       delete obj[key];
+
+      continue;
     }
-  }
 
-  // recurse into all object values
-  for (const key of Object.keys(obj)) {
-    const value = obj[key];
+    const inner = obj[key];
 
-    if (value && typeof value === 'object') {
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          if (item && typeof item === 'object') {
-            transformResponse(item);
-          }
-        }
-      } else {
-        transformResponse(value);
-      }
+    if (
+      resolveMap &&
+      Array.isArray(inner) &&
+      inner.length > 0 &&
+      (inner[0] as FlatRef | undefined)?._flatId !== undefined
+    ) {
+      obj[key] = resolveRefs(inner as FlatRef[], resolveMap);
     }
-  }
 
-  return data;
+    transformNode(obj[key], resolveMap, seen);
+  }
 }
 
 function resolveRefs(refs: readonly FlatRef[], flatMap: Map<string, FlatComponent>): FlatComponent[] {
-  return refs.flatMap((ref) => {
-    if (!ref._flatId) return [];
+  const resolved: FlatComponent[] = [];
+
+  for (const ref of refs) {
+    if (!ref._flatId) {
+      continue;
+    }
 
     const component = flatMap.get(ref._flatId);
 
-    if (!component) return [];
-
-    // ref-arrays may be nested arbitrarily deep inside the resolved component
-    // (e.g. items[i].contentSection1) — the `_flat_<field>` companion only ever
-    // sits at the owning entity level, so resolve all nested refs against the
-    // same flatMap.
-    resolveNestedRefs(component, flatMap);
-
-    // inject __model on resolved components
-    transformResponse(component);
-
-    return [component];
-  });
-}
-
-function resolveNestedRefs(value: unknown, flatMap: Map<string, FlatComponent>): void {
-  if (!value || typeof value !== 'object') return;
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      resolveNestedRefs(item, flatMap);
-    }
-
-    return;
-  }
-
-  const obj = value as Record<string, unknown>;
-
-  for (const key of Object.keys(obj)) {
-    const inner = obj[key];
-
-    if (Array.isArray(inner) && inner.length > 0 && (inner[0] as FlatRef | undefined)?._flatId !== undefined) {
-      obj[key] = resolveRefs(inner as FlatRef[], flatMap);
-    } else if (inner && typeof inner === 'object') {
-      resolveNestedRefs(inner, flatMap);
+    if (component) {
+      resolved.push(component);
     }
   }
+
+  return resolved;
 }

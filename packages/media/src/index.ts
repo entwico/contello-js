@@ -1,22 +1,11 @@
-export type {
-  DeepReadonly,
-  FileDef,
-  ImageDef,
-  ImageDefVariant,
-  MediaAsset,
-  MediaFile,
-  MediaFileMetadata,
-  MediaOptimizedFile,
-  PictureSource,
-  VideoDef,
-} from './types';
+export type { FileSource, ImageInput, ImageMetadata, ImageSource, MediaAsset, VideoSource } from './types';
+export type { SizeValue, SizesInput, SizesMap, TwBreakpoint } from './sizes';
 
 export {
   MediaResolver,
   createMediaResolver,
-  type BreakpointConfig,
-  type ImageUrlOverrides,
+  type ImageSourceOptions,
   type ImageUrlTarget,
+  type MediaConfig,
   type MediaResolverOptions,
-  type PictureOptions,
 } from './resolver';

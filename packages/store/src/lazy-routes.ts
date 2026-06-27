@@ -66,12 +66,17 @@ function collectRoutes(
  */
 function createRoutesCache(max: number, ttl: number | undefined): LruCache<string, StoreRoute> {
   const pathToId = new Map<string, string>();
+  // reverse of pathToId, so a route whose path changed can have its previous
+  // path entry removed (otherwise getByPath(oldPath) would resolve to the route
+  // that no longer lives there)
+  const idToPath = new Map<string, string>();
 
   const lru = createLruCache<string, StoreRoute>({
     max,
     ttl,
     onEvict: (route) => {
       pathToId.delete(route.path);
+      idToPath.delete(route.id);
     },
   });
 
@@ -96,7 +101,14 @@ function createRoutesCache(max: number, ttl: number | undefined): LruCache<strin
     set: (_key, value) => {
       // always normalise to ID_PREFIX in lru
       // regardless of which key projected passes in
+      const previousPath = idToPath.get(value.id);
+
+      if (previousPath !== undefined && previousPath !== value.path) {
+        pathToId.delete(previousPath);
+      }
+
       pathToId.set(value.path, value.id);
+      idToPath.set(value.id, value.path);
       lru.set(ID_PREFIX + value.id, value);
     },
 
@@ -106,6 +118,7 @@ function createRoutesCache(max: number, ttl: number | undefined): LruCache<strin
 
       if (value) {
         pathToId.delete(value.path);
+        idToPath.delete(value.id);
       }
 
       lru.delete(resolved);
@@ -113,6 +126,7 @@ function createRoutesCache(max: number, ttl: number | undefined): LruCache<strin
 
     clear: () => {
       pathToId.clear();
+      idToPath.clear();
       lru.clear();
     },
 

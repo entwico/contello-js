@@ -24,6 +24,10 @@ export type MapperContext<TModels extends string = string> = {
   trackRoute(id: string): void;
 };
 
+// shared empty result so the hot path (an event no item depends on) allocates
+// nothing — callers only ever iterate or read `.size`, never mutate.
+const EMPTY_KEYS: ReadonlySet<never> = new Set();
+
 // dep key for non-entity targets (route, asset) — `${target}\0${id}`
 function createDependencyKey(target: NonEntityTarget, id: string): string {
   return `${target}\0${id}`;
@@ -149,9 +153,9 @@ export class DependencyCollector<TKey, TModels extends string = string> {
    * looks up which item keys are affected by an update event.
    * for route events, checks route-target deps for both the new and previous entity targets.
    */
-  getAffectedKeys(event: UpdateEvent): Set<TKey> {
+  getAffectedKeys(event: UpdateEvent): ReadonlySet<TKey> {
     if (event.target === 'entity') {
-      return this.reverseIndex.get(createEntityDependencyKey(event.model, event.id)) ?? new Set();
+      return this.reverseIndex.get(createEntityDependencyKey(event.model, event.id)) ?? EMPTY_KEYS;
     }
 
     let affected = this.reverseIndex.get(createDependencyKey(event.target, event.id));
@@ -166,7 +170,7 @@ export class DependencyCollector<TKey, TModels extends string = string> {
       }
     }
 
-    return affected ?? new Set();
+    return affected ?? EMPTY_KEYS;
   }
 
   private mergeRouteTargetKeys(

@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, test } from 'vitest';
 
 import { type MediaResolverOptions, createMediaResolver } from './resolver';
-import type { DeepReadonly, ImageDef, MediaAsset, PictureSource, VideoDef } from './types';
+import type { DeepReadonly, ImageDef, ImageMetadata, ImageSource, MediaAsset, VideoSource } from './types';
 
 const baseUrl = 'https://cdn.example.com';
 
@@ -15,21 +15,31 @@ function asset(partial: Partial<MediaAsset> & Pick<MediaAsset, 'id'>): MediaAsse
   };
 }
 
-const fallbackImage: ImageDef = {
-  id: 'fallback',
-  variants: [{ type: 'image/jpeg', url: '/fallback.jpg', width: 100, height: 100 }],
-};
+// bundled-image (astro `ImageMetadata`) fixtures — these map 1:1 to variants
+const multiFormat: ImageMetadata[] = [
+  { src: '/a-400', format: 'avif', width: 400, height: 300 },
+  { src: '/a-800', format: 'avif', width: 800, height: 600 },
+  { src: '/w-400', format: 'webp', width: 400, height: 300 },
+  { src: '/w-800', format: 'webp', width: 800, height: 600 },
+  { src: '/j-400', format: 'jpeg', width: 400, height: 300 },
+  { src: '/j-800', format: 'jpeg', width: 800, height: 600 },
+];
 
-// URL construction is verified indirectly through `image.def` / `file.def` /
-// `video.m3u8` — the only observable output surfaces consumers see.
+const webpJpeg: ImageMetadata[] = [
+  { src: '/w-400', format: 'webp', width: 400, height: 300 },
+  { src: '/w-800', format: 'webp', width: 800, height: 600 },
+  { src: '/w-1200', format: 'webp', width: 1200, height: 900 },
+  { src: '/j-400', format: 'jpeg', width: 400, height: 300 },
+  { src: '/j-800', format: 'jpeg', width: 800, height: 600 },
+  { src: '/j-1200', format: 'jpeg', width: 1200, height: 900 },
+];
+
+const fallbackMeta: ImageMetadata = { src: '/fallback.jpg', format: 'jpeg', width: 100, height: 100 };
+
+// URL construction is verified through the resolved outputs — the only surfaces consumers see.
 describe('MediaResolver URL construction', () => {
-  // uses a MediaAsset with one jpeg variant in `optimized` so image.def produces
-  // a single ImageDef variant whose url exercises baseUrl + imagesPath + extension
-  const jpegAsset = (uid: string) =>
-    asset({
-      id: 'a',
-      optimized: [{ uid, mimeType: 'image/jpeg', metadata: { width: 100, height: 100 } }],
-    });
+  const oneOptimized = (uid: string, mime: string) =>
+    asset({ id: 'a', optimized: [{ uid, mimeType: mime, metadata: { width: 100, height: 100 } }] });
 
   test.each([
     ['image/jpeg', 'jpg'],
@@ -40,34 +50,29 @@ describe('MediaResolver URL construction', () => {
     ['image/avif', 'avif'],
   ])('appends .%s extension for %s variants', (mime, ext) => {
     const media = createMediaResolver({ baseUrl, ...testPaths });
-    const def = media.image.def(
-      asset({ id: 'a', optimized: [{ uid: 'abc', mimeType: mime, metadata: { width: 1, height: 1 } }] }),
-    );
 
-    expect(def.variants[0]!.url).toBe(`${baseUrl}/i/abc.${ext}`);
+    expect(media.image.url(oneOptimized('abc', mime), 'web')).toBe(`${baseUrl}/i/abc.${ext}`);
   });
 
-  test('omits extension for unknown mime types (via file.def)', () => {
+  test('file.source omits extension for unknown mime types', () => {
     const media = createMediaResolver({ baseUrl, ...testPaths, filesPath: '/f/' });
-    const def = media.file.def(
+    const file = media.file.source(
       asset({ id: 'f', original: { uid: 'abc', mimeType: 'application/x-weird', metadata: null } }),
     );
 
-    expect(def.url).toBe(`${baseUrl}/f/abc`);
+    expect(file.url).toBe(`${baseUrl}/f/abc`);
   });
 
   test('strips trailing slash from baseUrl', () => {
     const m = createMediaResolver({ baseUrl: `${baseUrl}/`, ...testPaths });
-    const def = m.image.def(jpegAsset('x'));
 
-    expect(def.variants[0]!.url).toBe(`${baseUrl}/i/x.jpg`);
+    expect(m.image.url(oneOptimized('x', 'image/jpeg'), 'web')).toBe(`${baseUrl}/i/x.jpg`);
   });
 
   test('honors custom imagesPath (for proxied setups)', () => {
     const m = createMediaResolver({ baseUrl: '', imagesPath: '/_contello/i/' });
-    const def = m.image.def(jpegAsset('abc'));
 
-    expect(def.variants[0]!.url).toBe('/_contello/i/abc.jpg');
+    expect(m.image.url(oneOptimized('abc', 'image/jpeg'), 'web')).toBe('/_contello/i/abc.jpg');
   });
 
   test('honors custom videosPath via video.m3u8', () => {
@@ -80,200 +85,105 @@ describe('MediaResolver URL construction', () => {
 
   test('normalizes imagesPath to ensure leading + trailing slash', () => {
     const m = createMediaResolver({ baseUrl: '', imagesPath: '_contello/i' });
-    const def = m.image.def(jpegAsset('x'));
 
-    expect(def.variants[0]!.url).toBe('/_contello/i/x.jpg');
+    expect(m.image.url(oneOptimized('x', 'image/jpeg'), 'web')).toBe('/_contello/i/x.jpg');
   });
 
-  test('filesPath is separate from imagesPath (file.def uses filesPath)', () => {
+  test('filesPath is separate from imagesPath', () => {
     const m = createMediaResolver({ baseUrl: '', imagesPath: '/i/', filesPath: '/f/' });
-    const imageDef = m.image.def(jpegAsset('img'));
-    const fileDef = m.file.def(
+    const file = m.file.source(
       asset({ id: 'f', original: { uid: 'file-uid', mimeType: 'application/pdf', metadata: null } }),
     );
 
-    expect(imageDef.variants[0]!.url).toBe('/i/img.jpg');
-    expect(fileDef.url).toBe('/f/file-uid.pdf');
+    expect(m.image.url(oneOptimized('img', 'image/webp'), 'web')).toBe('/i/img.webp');
+    expect(file.url).toBe('/f/file-uid.pdf');
   });
 });
 
-describe('MediaResolver.image.def', () => {
+describe('MediaResolver image variant building (via image.source)', () => {
   const media = createMediaResolver({ baseUrl, ...testPaths });
 
-  test('builds an ImageDef from a MediaAsset with optimized variants', () => {
-    const def = media.image.def(
+  test('builds avif <source> from a MediaAsset with optimized variants', () => {
+    const data = media.image.source(
       asset({
         id: 'a',
         optimized: [
-          { uid: 'w1', mimeType: 'image/webp', metadata: { width: 800, height: 600 } },
           { uid: 'a1', mimeType: 'image/avif', metadata: { width: 800, height: 600 } },
+          { uid: 'a2', mimeType: 'image/avif', metadata: { width: 1600, height: 1200 } },
         ],
       }),
     );
 
-    expect(def.id).toBe('a');
-    expect(def.variants).toHaveLength(2);
-    expect(def.variants[0]!.url).toBe(`${baseUrl}/i/w1.webp`);
+    expect(data.id).toBe('a');
+    expect(data.sources![0]!.srcset).toBe(`${baseUrl}/i/a1.avif 800w, ${baseUrl}/i/a2.avif 1600w`);
   });
 
-  test('includes preview as an additional variant alongside optimized', () => {
-    const def = media.image.def(
+  test('includes the preview as an additional variant (largest jpeg → <img> fallback)', () => {
+    const data = media.image.source(
       asset({
         id: 'a',
         preview: { uid: 'p', mimeType: 'image/jpeg', metadata: { width: 1000, height: 750 } },
-        optimized: [
-          { uid: 'w1', mimeType: 'image/webp', metadata: { width: 800, height: 600 } },
-          { uid: 'j1', mimeType: 'image/jpeg', metadata: { width: 1600, height: 1200 } },
-        ],
+        optimized: [{ uid: 'a1', mimeType: 'image/avif', metadata: { width: 800, height: 600 } }],
       }),
     );
 
-    expect(def.variants).toHaveLength(3);
-    const urls = def.variants.map((v) => v.url);
-
-    expect(urls).toContain(`${baseUrl}/i/w1.webp`);
-    expect(urls).toContain(`${baseUrl}/i/j1.jpg`);
-    expect(urls).toContain(`${baseUrl}/i/p.jpg`);
+    // avif goes to the <source>; the jpeg preview is the bare <img> fallback
+    expect(data.sources![0]!.type).toBe('image/avif');
+    expect(data.image!.url).toBe(`${baseUrl}/i/p.jpg`);
   });
 
   test('SVG original bypasses optimized variants and uses the original directly', () => {
-    const def = media.image.def(
+    const data = media.image.source(
       asset({
         id: 'a',
         original: { uid: 'svg', mimeType: 'image/svg+xml', metadata: { width: 200, height: 200 } },
-        optimized: [{ uid: 'w1', mimeType: 'image/webp', metadata: { width: 800, height: 600 } }],
+        optimized: [{ uid: 'a1', mimeType: 'image/avif', metadata: { width: 800, height: 600 } }],
       }),
     );
 
-    expect(def.variants).toHaveLength(1);
-    expect(def.variants[0]!.type).toBe('image/svg+xml');
-    expect(def.variants[0]!.url).toBe(`${baseUrl}/i/svg.svg`);
-  });
-
-  test('preview alone forms the only variant when optimized has no metadata', () => {
-    const def = media.image.def(
-      asset({
-        id: 'a',
-        preview: { uid: 'p', mimeType: 'image/jpeg', metadata: { width: 100, height: 100 } },
-        optimized: [{ uid: 'w1', mimeType: 'image/webp', metadata: null }],
-      }),
-    );
-
-    expect(def.variants).toHaveLength(1);
-    expect(def.variants[0]!.url).toBe(`${baseUrl}/i/p.jpg`);
-  });
-
-  test('returns undefined for null source when no fallback configured', () => {
-    expect(media.image.def(null)).toBeUndefined();
-    expect(media.image.def(undefined)).toBeUndefined();
-  });
-
-  test('per-call fallback wins when source is null', () => {
-    expect(media.image.def(null, fallbackImage)).toBe(fallbackImage);
-  });
-
-  test('init-time fallback wins when source is null (narrows return type)', () => {
-    const m = createMediaResolver({ baseUrl, fallback: fallbackImage, ...testPaths });
-
-    const def = m.image.def(null);
-
-    expect(def).toBe(fallbackImage);
-    expectTypeOf(def).toEqualTypeOf<ImageDef>();
-  });
-
-  test('per-call fallback takes precedence over init-time fallback', () => {
-    const initFallback: ImageDef = { id: 'init', variants: [] };
-    const perCall: ImageDef = { id: 'per', variants: [] };
-    const m = createMediaResolver({ baseUrl, fallback: initFallback, ...testPaths });
-
-    expect(m.image.def(null, perCall)).toBe(perCall);
-  });
-
-  test('type narrowing: non-null source returns ImageDef unconditionally', () => {
-    const def = media.image.def(asset({ id: 'a' }));
-
-    expectTypeOf(def).toEqualTypeOf<ImageDef>();
-  });
-
-  test('type narrowing: explicit per-call fallback returns ImageDef', () => {
-    const def = media.image.def(null as MediaAsset | null, fallbackImage);
-
-    expectTypeOf(def).toEqualTypeOf<ImageDef>();
-  });
-
-  test('type: nullable source without fallback and without init default returns ImageDef | undefined', () => {
-    const def = media.image.def(null as MediaAsset | null);
-
-    expectTypeOf(def).toEqualTypeOf<ImageDef | undefined>();
+    expect(data.image!.url).toBe(`${baseUrl}/i/svg.svg`);
+    expect(data.sources).toBeUndefined();
   });
 });
 
 describe('MediaResolver.image.url', () => {
   const media = createMediaResolver({ baseUrl, ...testPaths });
 
-  const imageDef: ImageDef = {
-    id: 'x',
-    variants: [
-      { type: 'image/webp', url: '/w-400', width: 400, height: 300 },
-      { type: 'image/webp', url: '/w-800', width: 800, height: 600 },
-      { type: 'image/webp', url: '/w-1200', width: 1200, height: 900 },
-      { type: 'image/jpeg', url: '/j-400', width: 400, height: 300 },
-      { type: 'image/jpeg', url: '/j-800', width: 800, height: 600 },
-      { type: 'image/jpeg', url: '/j-1200', width: 1200, height: 900 },
-    ],
-  };
-
   test('picks highest-priority format; smallest-width wins within tier', () => {
-    expect(media.image.url(imageDef, 'web')).toBe('/w-400');
+    expect(media.image.url(webpJpeg, 'web')).toBe('/w-400');
   });
 
   test('respects minWidth: smallest variant that meets threshold', () => {
-    expect(media.image.url(imageDef, 'web', { minWidth: 600 })).toBe('/w-800');
+    expect(media.image.url(webpJpeg, 'web', { minWidth: 600 })).toBe('/w-800');
   });
 
   test('respects maxWidth: smallest within bounds', () => {
-    expect(media.image.url(imageDef, 'web', { maxWidth: 800 })).toBe('/w-400');
+    expect(media.image.url(webpJpeg, 'web', { maxWidth: 800 })).toBe('/w-400');
   });
 
-  test('og preset applies built-in minWidth/maxWidth (600-1200)', () => {
-    expect(media.image.url(imageDef, 'og')).toBe('/j-800');
+  test('og targets the largest jpeg within 600-1200 (closest to ~1200)', () => {
+    expect(media.image.url(webpJpeg, 'og')).toBe('/j-1200');
   });
 
   test('email preset prefers jpeg over webp', () => {
-    expect(media.image.url(imageDef, 'email')).toBe('/j-400');
+    expect(media.image.url(webpJpeg, 'email')).toBe('/j-400');
   });
 
   test('falls back to largest variant below minWidth when none meet threshold', () => {
-    expect(media.image.url(imageDef, 'web', { minWidth: 2000 })).toBe('/w-1200');
-  });
-
-  test('falls back to largest webp below minWidth (1800/1200/400 with min 2000 → 1800)', () => {
-    const def: ImageDef = {
-      id: 'x',
-      variants: [
-        { type: 'image/webp', url: '/w-400', width: 400, height: 300 },
-        { type: 'image/webp', url: '/w-1200', width: 1200, height: 900 },
-        { type: 'image/webp', url: '/w-1800', width: 1800, height: 1350 },
-      ],
-    };
-
-    expect(media.image.url(def, 'web', { minWidth: 2000 })).toBe('/w-1800');
+    expect(media.image.url(webpJpeg, 'web', { minWidth: 2000 })).toBe('/w-1200');
   });
 
   test('honors format priority within the below-minWidth fallback', () => {
-    const def: ImageDef = {
-      id: 'x',
-      variants: [
-        { type: 'image/webp', url: '/w-1200', width: 1200, height: 900 },
-        { type: 'image/jpeg', url: '/j-1800', width: 1800, height: 1350 },
-      ],
-    };
+    const def: ImageMetadata[] = [
+      { src: '/w-1200', format: 'webp', width: 1200, height: 900 },
+      { src: '/j-1800', format: 'jpeg', width: 1800, height: 1350 },
+    ];
 
     expect(media.image.url(def, 'web', { minWidth: 2000 })).toBe('/w-1200');
   });
 
   test('falls back to smallest variant above maxWidth when none fit', () => {
-    expect(media.image.url(imageDef, 'web', { maxWidth: 100 })).toBe('/w-400');
+    expect(media.image.url(webpJpeg, 'web', { maxWidth: 100 })).toBe('/w-400');
   });
 
   test('returns empty string for null source with no fallback', () => {
@@ -281,155 +191,182 @@ describe('MediaResolver.image.url', () => {
   });
 
   test('per-call fallback applies when source is null', () => {
-    expect(media.image.url(null, 'web', { fallback: fallbackImage })).toBe('/fallback.jpg');
+    expect(media.image.url(null, 'web', { fallback: fallbackMeta })).toBe('/fallback.jpg');
   });
 
-  test('accepts MediaAsset as source (auto-converts to ImageDef)', () => {
-    const url = media.image.url(
-      asset({
-        id: 'a',
-        optimized: [{ uid: 'abc', mimeType: 'image/webp', metadata: { width: 800, height: 600 } }],
-      }),
-      'web',
-    );
-
-    expect(url).toBe(`${baseUrl}/i/abc.webp`);
+  test('accepts a single ImageMetadata', () => {
+    expect(media.image.url({ src: '/single.webp', format: 'webp', width: 800, height: 600 }, 'web')).toBe('/single.webp');
   });
 });
 
-describe('MediaResolver.picture.src', () => {
+describe('MediaResolver.image.source', () => {
   const media = createMediaResolver({ baseUrl, ...testPaths });
 
-  const imageDef: ImageDef = {
-    id: 'x',
-    variants: [
-      { type: 'image/avif', url: '/a-400', width: 400, height: 300 },
-      { type: 'image/avif', url: '/a-800', width: 800, height: 600 },
-      { type: 'image/webp', url: '/w-400', width: 400, height: 300 },
-      { type: 'image/webp', url: '/w-800', width: 800, height: 600 },
-      { type: 'image/jpeg', url: '/j-400', width: 400, height: 300 },
-      { type: 'image/jpeg', url: '/j-800', width: 800, height: 600 },
-    ],
-  };
+  test('emits one <source> for the default format (avif only)', () => {
+    const data = media.image.source(multiFormat);
 
-  test('emits one <source> per default format (avif, webp)', () => {
-    const data = media.picture.src(imageDef);
-
-    expect(data.sources).toHaveLength(2);
-    expect(data.sources!.map((s) => s.type)).toEqual(['image/avif', 'image/webp']);
+    expect(data.sources!.map((s) => s.type)).toEqual(['image/avif']);
   });
 
   test('each <source> srcset lists widths of that format ascending', () => {
-    const data = media.picture.src(imageDef);
+    const data = media.image.source(multiFormat);
 
     expect(data.sources![0]!.srcset).toBe('/a-400 400w, /a-800 800w');
   });
 
-  test('<img> fallback picks legacy format (jpeg) and multi-variant srcset is emitted', () => {
-    const data = media.picture.src(imageDef);
+  test('<img> fallback is a single capped src with no srcset when <source>s exist', () => {
+    const data = media.image.source(multiFormat);
 
-    // main variant is jpeg (legacy-first fallback priority); jpeg has 2 variants so srcset appears
-    expect(data.image!.srcset).toBe('/j-400 400w, /j-800 800w');
-    expect(data.image!.url).toBe('/j-800'); // pickByPriority picks largest within the chosen format
+    expect(data.image!.url).toBe('/j-800'); // largest jpeg within the 1200 cap
+    expect(data.image!.srcset).toBeUndefined();
   });
 
-  test('converts sourceWidth into a sizes string, largest breakpoint first', () => {
-    const data = media.picture.src(imageDef, { sourceWidth: { md: 400, lg: 800 } });
+  test('caps the bare <img> src at 1200 but keeps the full srcset when the <img> is the only candidate', () => {
+    const def: ImageMetadata[] = [
+      { src: '/j-600', format: 'jpeg', width: 600, height: 450 },
+      { src: '/j-1000', format: 'jpeg', width: 1000, height: 750 },
+      { src: '/j-2000', format: 'jpeg', width: 2000, height: 1500 },
+    ];
+    const data = media.image.source(def);
 
-    expect(data.image!.sizes).toBe('(min-width: 1024px) 800px, (min-width: 768px) 400px, 100vw');
+    expect(data.sources).toBeUndefined();
+    expect(data.image!.url).toBe('/j-1000'); // largest jpeg <= 1200, not the 2000
+    expect(data.image!.srcset).toBe('/j-600 600w, /j-1000 1000w, /j-2000 2000w');
   });
 
-  test('omits sizes on image when sourceWidth is not provided (default 100vw is implicit)', () => {
-    const data = media.picture.src(imageDef);
+  test('collapses duplicate width descriptors in a <source> srcset, keeping the first', () => {
+    const def: ImageMetadata[] = [
+      { src: '/a-1920', format: 'avif', width: 1920, height: 1080 },
+      { src: '/a-2560-ladder', format: 'avif', width: 2560, height: 1440 },
+      { src: '/a-2560-original', format: 'avif', width: 2560, height: 1440 },
+    ];
+    const data = media.image.source(def);
 
-    expect(data.image!.sizes).toBeUndefined();
+    expect(data.sources![0]!.srcset).toBe('/a-1920 1920w, /a-2560-ladder 2560w');
   });
 
   test('omits srcset on image when there is only a single main-format variant', () => {
-    const singleVariant: ImageDef = {
-      id: 'x',
-      variants: [{ type: 'image/jpeg', url: '/only', width: 400, height: 300 }],
-    };
-    const data = media.picture.src(singleVariant);
+    const data = media.image.source({ src: '/only', format: 'jpeg', width: 400, height: 300 });
 
     expect(data.image!.srcset).toBeUndefined();
     expect(data.image!.url).toBe('/only');
   });
 
-  test('omits width/height on image when source variant dimensions are zero', () => {
-    const noMeta: ImageDef = {
-      id: 'x',
-      variants: [{ type: 'image/jpeg', url: '/x', width: 0, height: 0 }],
-    };
-    const data = media.picture.src(noMeta);
-
-    expect(data.image!.width).toBeUndefined();
-    expect(data.image!.height).toBeUndefined();
-  });
-
-  test('omits sources when no matching format variants exist', () => {
-    const onlyJpeg: ImageDef = {
-      id: 'x',
-      variants: [{ type: 'image/jpeg', url: '/x', width: 400, height: 300 }],
-    };
-    const data = media.picture.src(onlyJpeg, { formats: ['image/avif', 'image/webp'] });
-
-    expect(data.sources).toBeUndefined();
-  });
-
   test('returns empty object for null source with no fallback', () => {
-    const data = media.picture.src(null);
-
-    expect(data).toEqual({});
-  });
-
-  test('per-call fallback applies when source is null', () => {
-    const data = media.picture.src(null, { fallback: fallbackImage });
-
-    expect(data.id).toBe('fallback');
-  });
-
-  test('accepts MediaAsset as source', () => {
-    const data = media.picture.src(
-      asset({
-        id: 'a',
-        optimized: [
-          { uid: 'abc', mimeType: 'image/webp', metadata: { width: 800, height: 600 } },
-          { uid: 'def', mimeType: 'image/webp', metadata: { width: 1200, height: 900 } },
-        ],
-      }),
-    );
-
-    expect(data.id).toBe('a');
-    expect(data.sources).toHaveLength(1);
+    expect(media.image.source(null)).toEqual({});
   });
 
   test('custom formats override default', () => {
-    const data = media.picture.src(imageDef, { formats: ['image/webp'] });
+    const data = media.image.source(multiFormat, { formats: ['image/webp'] });
 
-    expect(data.sources).toHaveLength(1);
-    expect(data.sources![0]!.type).toBe('image/webp');
+    expect(data.sources!.map((s) => s.type)).toEqual(['image/webp']);
   });
 
   test('skips formats with no matching variants', () => {
-    const data = media.picture.src(imageDef, { formats: ['image/avif', 'image/heic'] });
+    const data = media.image.source(multiFormat, { formats: ['image/avif', 'image/heic'] });
 
     expect(data.sources!.map((s) => s.type)).toEqual(['image/avif']);
+  });
+});
+
+describe('MediaResolver fallback handling', () => {
+  test('no fallback flag on a real image', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths, fallback: fallbackMeta });
+    const data = media.image.source(multiFormat);
+
+    expect(data.fallback).toBeUndefined();
+  });
+
+  test('configured fallback substitutes for a missing source and sets fallback: true', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths, fallback: fallbackMeta });
+    const data = media.image.source(null);
+
+    expect(data.fallback).toBe(true);
+    expect(data.id).toBe('fallback'); // default id for a bundled fallback
+    expect(data.image!.url).toBe('/fallback.jpg');
+  });
+
+  test('configured fallback substitutes for an empty source too', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths, fallback: fallbackMeta });
+    const data = media.image.source([]);
+
+    expect(data.fallback).toBe(true);
+  });
+
+  test('named fallback keeps its id (to tell multiple fallbacks apart)', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths, fallback: { id: 'brand', image: fallbackMeta } });
+    const data = media.image.source(null);
+
+    expect(data.fallback).toBe(true);
+    expect(data.id).toBe('brand');
+  });
+
+  test('a MediaAsset fallback keeps the asset id', () => {
+    const fallbackAsset = asset({
+      id: 'asset-fb',
+      optimized: [{ uid: 'fb', mimeType: 'image/avif', metadata: { width: 800, height: 600 } }],
+    });
+    const media = createMediaResolver({ baseUrl, ...testPaths, fallback: fallbackAsset });
+    const data = media.image.source(null);
+
+    expect(data.fallback).toBe(true);
+    expect(data.id).toBe('asset-fb');
+  });
+
+  test('per-call fallback wins for a missing source', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths });
+    const data = media.image.source(null, { fallback: fallbackMeta });
+
+    expect(data.fallback).toBe(true);
+    expect(data.image!.url).toBe('/fallback.jpg');
+  });
+
+  test('no fallback configured → empty object for a missing source', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths });
+
+    expect(media.image.source(null)).toEqual({});
+  });
+
+  test('fallback from multiple bundled variants', () => {
+    const media = createMediaResolver({
+      baseUrl,
+      ...testPaths,
+      fallback: {
+        id: 'fallback',
+        image: [
+          { src: '/fb.avif', format: 'avif', width: 800, height: 600 },
+          { src: '/fb.jpg', format: 'jpeg', width: 800, height: 600 },
+        ],
+      },
+    });
+    const data = media.image.source(null);
+
+    expect(data.sources!.map((s) => s.type)).toEqual(['image/avif']);
+    expect(data.image!.url).toBe('/fb.jpg');
+  });
+
+  test('config.fallback type narrows to a defined value when a fallback is configured', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths, fallback: fallbackMeta });
+
+    expectTypeOf(media.config.fallback).toEqualTypeOf<ImageDef>();
+  });
+
+  test('config.fallback type is optional when no fallback is configured', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths });
+
+    expectTypeOf(media.config.fallback).toEqualTypeOf<ImageDef | undefined>();
   });
 });
 
 describe('MediaResolver.video', () => {
   const media = createMediaResolver({ baseUrl, ...testPaths });
 
-  test('def() builds VideoDef with m3u8 URL + dimensions', () => {
-    const def = media.video.def(
-      asset({
-        id: 'vid',
-        original: { uid: 'v', mimeType: 'video/mp4', metadata: { width: 1920, height: 1080 } },
-      }),
+  test('source() builds VideoSource with m3u8 URL + dimensions', () => {
+    const source = media.video.source(
+      asset({ id: 'vid', original: { uid: 'v', mimeType: 'video/mp4', metadata: { width: 1920, height: 1080 } } }),
     );
 
-    expect(def).toEqual({
+    expect(source).toEqual({
       id: 'vid',
       url: `${baseUrl}/v/vid/master.m3u8`,
       width: 1920,
@@ -437,20 +374,20 @@ describe('MediaResolver.video', () => {
     });
   });
 
-  test('def() defaults dimensions to 0 when metadata is missing', () => {
-    const def = media.video.def(asset({ id: 'vid', original: { uid: 'v', mimeType: 'video/mp4', metadata: null } }));
+  test('source() defaults dimensions to 0 when metadata is missing', () => {
+    const source = media.video.source(asset({ id: 'vid', original: { uid: 'v', mimeType: 'video/mp4', metadata: null } }));
 
-    expect(def.width).toBe(0);
-    expect(def.height).toBe(0);
+    expect(source.width).toBe(0);
+    expect(source.height).toBe(0);
   });
 
-  test('m3u8() accepts VideoDef — returns its URL directly', () => {
-    const def = media.video.def(asset({ id: 'vid' }));
+  test('m3u8() accepts a VideoSource — returns its URL directly', () => {
+    const source = media.video.source(asset({ id: 'vid' }));
 
-    expect(media.video.m3u8(def)).toBe(def.url);
+    expect(media.video.m3u8(source)).toBe(source.url);
   });
 
-  test('m3u8() accepts MediaAsset — builds URL from asset id', () => {
+  test('m3u8() accepts a MediaAsset — builds URL from asset id', () => {
     expect(media.video.m3u8(asset({ id: 'vid-2' }))).toBe(`${baseUrl}/v/vid-2/master.m3u8`);
   });
 });
@@ -458,12 +395,12 @@ describe('MediaResolver.video', () => {
 describe('MediaResolver.file', () => {
   const media = createMediaResolver({ baseUrl, ...testPaths, filesPath: '/f/' });
 
-  test('def() builds FileDef from original using filesPath', () => {
-    const def = media.file.def(
+  test('source() builds FileSource with url + mimeType from the original', () => {
+    const file = media.file.source(
       asset({ id: 'f1', original: { uid: 'f-uid', mimeType: 'application/pdf', metadata: null } }),
     );
 
-    expect(def).toEqual({ id: 'f1', url: `${baseUrl}/f/f-uid.pdf` });
+    expect(file).toEqual({ id: 'f1', url: `${baseUrl}/f/f-uid.pdf`, mimeType: 'application/pdf' });
   });
 });
 
@@ -472,34 +409,25 @@ describe('MediaResolver deeply-readonly inputs', () => {
 
   const roAsset: DeepReadonly<MediaAsset> = asset({
     id: 'ro',
-    optimized: [{ uid: 'o', mimeType: 'image/webp', metadata: { width: 800, height: 600 } }],
+    optimized: [{ uid: 'o', mimeType: 'image/avif', metadata: { width: 800, height: 600 } }],
   });
-  const roDef: DeepReadonly<ImageDef> = {
-    id: 'ro-def',
-    variants: [{ type: 'image/jpeg', url: '/ro.jpg', width: 100, height: 100 }],
-  };
+  const roMetadata: DeepReadonly<ImageMetadata> = { src: '/ro.webp', format: 'webp', width: 100, height: 100 };
 
-  test('image.def / image.url / picture.src accept readonly sources and fallback', () => {
-    expect(media.image.def(roAsset).id).toBe('ro');
-    expect(media.image.def(null, roDef)).toBe(roDef);
-    expect(media.image.url(roDef, 'web')).toBe('/ro.jpg');
+  test('image.source / image.url accept readonly asset and metadata sources', () => {
+    expect(media.image.source(roAsset).id).toBe('ro');
     expect(media.image.url(roAsset, 'web')).toContain('/i/');
-    expect(media.picture.src(roAsset).id).toBe('ro');
-    expect(media.picture.src(roDef, { fallback: roDef }).id).toBe('ro-def');
+    expect(media.image.url(roMetadata, 'web')).toBe('/ro.webp');
   });
 
   test('video / file accept readonly sources', () => {
-    const roVideoDef: DeepReadonly<VideoDef> = media.video.def(roAsset);
+    const roVideoSource: DeepReadonly<VideoSource> = media.video.source(roAsset);
 
-    expect(media.video.m3u8(roVideoDef)).toBe(roVideoDef.url);
+    expect(media.video.m3u8(roVideoSource)).toBe(roVideoSource.url);
     expect(media.video.m3u8(roAsset)).toContain('/master.m3u8');
-    expect(media.file.def(roAsset).id).toBe('ro');
+    expect(media.file.source(roAsset).id).toBe('ro');
   });
 
   test('outputs stay mutable so they re-feed the resolver', () => {
-    const def = media.image.def(roAsset);
-
-    expectTypeOf(def).toEqualTypeOf<ImageDef>();
-    expectTypeOf(media.picture.src(roAsset)).toEqualTypeOf<PictureSource>();
+    expectTypeOf(media.image.source(roAsset)).toEqualTypeOf<ImageSource>();
   });
 });

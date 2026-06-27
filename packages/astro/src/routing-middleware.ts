@@ -49,6 +49,12 @@ function customHeaders(headers: readonly StoreRouteCustomHeader[]): Record<strin
   return result;
 }
 
+const VALID_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+function toRedirectStatus(status: number): ValidRedirectStatus {
+  return (VALID_REDIRECT_STATUSES.has(status) ? status : 302) as ValidRedirectStatus;
+}
+
 export function createBoundRoutingMiddleware(
   contello: Contello<any>,
   routes: AnyRoutes,
@@ -87,7 +93,7 @@ export function createBoundRoutingMiddleware(
               'route:redirect',
               () =>
                 new Response(null, {
-                  status: route.status as ValidRedirectStatus,
+                  status: toRedirectStatus(route.status),
                   headers: {
                     Location: route.location,
                     ...customHeaders(route.customHeaders),
@@ -117,7 +123,9 @@ export function createBoundRoutingMiddleware(
           return contello[runRequest]({ url, route, rewritten: false }, () =>
             wrap('route:asset', async () => {
               const result = await contello.client.download(route.fileId);
-              const headers = new Headers({ 'content-type': result.mimeType });
+              const headers = new Headers({ 'content-type': route.mimeType || result.mimeType });
+
+              headers.set('content-disposition', route.contentDisposition);
 
               if (result.size > 0) {
                 headers.set('content-length', String(result.size));

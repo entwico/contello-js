@@ -1,40 +1,38 @@
 import type {
   DeepReadonly,
-  FileDef,
+  FileSource,
   ImageDef,
   ImageDefVariant,
+  ImageInput,
+  ImageMetadata,
+  ImageSource,
   MediaAsset,
   MediaFile,
-  PictureSource,
-  VideoDef,
+  VideoSource,
 } from './types';
-
-export type BreakpointConfig = {
-  /** media query fragment for the `sizes` attribute (e.g. `(min-width: 768px)`). `undefined` = default clause */
-  mediaQuery: string | undefined;
-  /** pixel threshold used to order breakpoints largest-first */
-  minWidth: number;
-};
 
 export type ImageUrlTarget = 'web' | 'email' | 'pdf' | 'og' | 'videoPoster' | 'safe';
 
 // input aliases — the resolver only reads its sources, so it accepts deeply
 // immutable values (e.g. frozen store entities) and builds fresh mutable output.
-type ImageDefInput = DeepReadonly<ImageDef>;
+type ImageInputArg = DeepReadonly<ImageInput>;
 type MediaAssetInput = DeepReadonly<MediaAsset>;
-type VideoDefInput = DeepReadonly<VideoDef>;
+type VideoSourceInput = DeepReadonly<VideoSource>;
 
-type WithFallback = { fallback?: ImageDefInput | undefined };
-type HasFallback<O> = O extends { fallback: ImageDefInput } ? true : false;
+/** a fallback image with an explicit id (to tell multiple fallbacks apart via `ImageSource.id`) */
+type NamedFallback = { id: string; image: ImageInputArg };
+/** acceptable fallback: any image input, optionally named */
+type FallbackOption = ImageInputArg | NamedFallback;
+
+type WithFallback = { fallback?: FallbackOption | undefined };
+type HasFallback<O> = O extends { fallback: infer F } ? ([F] extends [undefined] ? false : true) : false;
 
 export type ImageUrlOverrides = {
   minWidth?: number | undefined;
   maxWidth?: number | undefined;
 } & WithFallback;
 
-export type PictureOptions = {
-  sourceWidth?: Record<string, number> | undefined;
-  breakpoints?: Record<string, BreakpointConfig> | undefined;
+export type ImageSourceOptions = {
   formats?: string[] | undefined;
 } & WithFallback;
 
@@ -43,28 +41,21 @@ export type MediaResolverOptions = {
   imagesPath?: string | undefined;
   videosPath?: string | undefined;
   filesPath?: string | undefined;
-  /** project-wide responsive breakpoints. defaults to a standard Tailwind set */
-  breakpoints?: Record<string, BreakpointConfig> | undefined;
-  /** default `<source>` formats emitted by `picture.src`. defaults to AVIF + WebP */
+  /** default `<source>` formats. AVIF only; add `'image/webp'` to re-enable WebP */
   pictureFormats?: string[] | undefined;
 } & WithFallback;
 
-type ImageDefMethod<HasDefault extends boolean> = {
-  (source: MediaAssetInput, fallback?: ImageDefInput): ImageDef;
-  (source: MediaAssetInput | null | undefined, fallback: ImageDefInput): ImageDef;
-  (source: MediaAssetInput | null | undefined): HasDefault extends true ? ImageDef : ImageDef | undefined;
+/** normalized resolver configuration — inputs with defaults applied; exposed via `MediaResolver.config` */
+export type MediaConfig<HasDefault extends boolean = false> = {
+  baseUrl: string;
+  imagesPath: string;
+  videosPath: string;
+  filesPath: string;
+  formats: string[];
+  fallback: HasDefault extends true ? ImageDef : ImageDef | undefined;
 };
 
-const DEFAULT_BREAKPOINTS: Record<string, BreakpointConfig> = {
-  _: { mediaQuery: undefined, minWidth: 0 },
-  sm: { mediaQuery: '(min-width: 640px)', minWidth: 640 },
-  md: { mediaQuery: '(min-width: 768px)', minWidth: 768 },
-  lg: { mediaQuery: '(min-width: 1024px)', minWidth: 1024 },
-  xl: { mediaQuery: '(min-width: 1280px)', minWidth: 1280 },
-  '2xl': { mediaQuery: '(min-width: 1536px)', minWidth: 1536 },
-};
-
-const DEFAULT_FORMATS = ['image/avif', 'image/webp'];
+const DEFAULT_FORMATS = ['image/avif'];
 
 const MIME_EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -80,6 +71,8 @@ type TargetSpec = {
   priority: string[];
   minWidth?: number;
   maxWidth?: number;
+  /** in-range selection order: 'smallest' = bandwidth-conservative (default), 'largest' = best quality near maxWidth */
+  prefer?: 'smallest' | 'largest';
 };
 
 // destination presets — priority lists are ordered most-preferred first
@@ -88,7 +81,8 @@ const TARGETS: Record<ImageUrlTarget, TargetSpec> = {
   videoPoster: { priority: ['image/webp', 'image/jpeg', 'image/png'] },
   email: { priority: ['image/jpeg', 'image/png'], maxWidth: 1200 },
   pdf: { priority: ['image/jpeg', 'image/png'] },
-  og: { priority: ['image/jpeg', 'image/png'], minWidth: 600, maxWidth: 1200 },
+  // social cards display at ~1200px — take the largest jpeg/png within 600-1200
+  og: { priority: ['image/jpeg', 'image/png'], minWidth: 600, maxWidth: 1200, prefer: 'largest' },
   safe: { priority: ['image/jpeg', 'image/png'] },
 };
 
@@ -96,101 +90,80 @@ const TARGETS: Record<ImageUrlTarget, TargetSpec> = {
 // so modern browsers follow the `<source>` cascade instead
 const PICTURE_IMG_FALLBACK_PRIORITY = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp', 'image/avif'];
 
-const EMPTY_PICTURE: PictureSource = {};
+// width cap for the bare `<img src>` fallback (only no-srcset browsers use it) — pick a
+// mid-size variant, not the asset's largest. the full srcset is still emitted alongside.
+const PICTURE_IMG_FALLBACK_MAX_WIDTH = 1200;
+
+const EMPTY_IMAGE: ImageSource = {};
 
 export class MediaResolver<HasDefault extends boolean = false> {
-  readonly baseUrl: string;
-  readonly imagesPath: string;
-  readonly videosPath: string;
-  readonly filesPath: string;
-  readonly fallback: HasDefault extends true ? ImageDef : ImageDef | undefined;
-  readonly breakpoints: Record<string, BreakpointConfig>;
-  readonly formats: string[];
+  /** normalized configuration (base url, paths, formats, fallback) */
+  readonly config: MediaConfig<HasDefault>;
 
   readonly image: {
-    def: ImageDefMethod<HasDefault>;
-    url(
-      source: ImageDefInput | MediaAssetInput | null | undefined,
-      target: ImageUrlTarget,
-      overrides?: ImageUrlOverrides,
-    ): string;
-  };
-
-  readonly picture: {
-    src(source: ImageDefInput | MediaAssetInput | null | undefined, options?: PictureOptions): PictureSource;
+    source(source: ImageInputArg | null | undefined, options?: ImageSourceOptions): ImageSource;
+    url(source: ImageInputArg | null | undefined, target: ImageUrlTarget, overrides?: ImageUrlOverrides): string;
   };
 
   readonly video: {
-    def(source: MediaAssetInput): VideoDef;
-    m3u8(source: VideoDefInput | MediaAssetInput): string;
+    source(source: MediaAssetInput): VideoSource;
+    m3u8(source: VideoSourceInput | MediaAssetInput): string;
   };
 
   readonly file: {
-    def(source: MediaAssetInput): FileDef;
+    source(source: MediaAssetInput): FileSource;
   };
 
   constructor(options: MediaResolverOptions) {
-    this.baseUrl = (options.baseUrl ?? '').replace(/\/$/, '');
-    this.imagesPath = options.imagesPath ? normalizePath(options.imagesPath) : '/';
-    this.videosPath = options.videosPath ? normalizePath(options.videosPath) : '/';
-    this.filesPath = options.filesPath ? normalizePath(options.filesPath) : '/';
-    this.fallback = options.fallback as typeof this.fallback;
-    this.breakpoints = options.breakpoints ?? DEFAULT_BREAKPOINTS;
-    this.formats = options.pictureFormats ?? DEFAULT_FORMATS;
+    this.config = {
+      baseUrl: (options.baseUrl ?? '').replace(/\/$/, ''),
+      imagesPath: options.imagesPath ? normalizePath(options.imagesPath) : '/',
+      videosPath: options.videosPath ? normalizePath(options.videosPath) : '/',
+      filesPath: options.filesPath ? normalizePath(options.filesPath) : '/',
+      formats: options.pictureFormats ?? DEFAULT_FORMATS,
+      // normalized just below — resolving a MediaAsset fallback needs the paths above
+      fallback: undefined as MediaConfig<HasDefault>['fallback'],
+    };
+
+    this.config.fallback = this.normalizeFallback(options.fallback) as MediaConfig<HasDefault>['fallback'];
 
     this.image = {
-      def: ((source: MediaAssetInput | null | undefined, fallback?: ImageDefInput) =>
-        this.resolveImageDef(source, fallback)) as ImageDefMethod<HasDefault>,
-
+      source: (source, options) => this.resolveImageSource(source, options),
       url: (source, target, overrides) => this.resolveImageUrl(source, target, overrides),
     };
 
-    this.picture = {
-      src: (source, options) => this.resolvePicture(source, options),
-    };
-
     this.video = {
-      def: (source) => this.resolveVideoDef(source),
+      source: (source) => this.resolveVideoSource(source),
       m3u8: (source) => this.resolveM3u8(source),
     };
 
     this.file = {
-      def: (source) => this.resolveFileDef(source),
+      source: (source) => this.resolveFileSource(source),
     };
   }
 
   private imageUrl(uid: string, mimeType: string): string {
     const extension = MIME_EXTENSIONS[mimeType];
 
-    return `${this.baseUrl}${this.imagesPath}${uid}${extension ? `.${extension}` : ''}`;
+    return `${this.config.baseUrl}${this.config.imagesPath}${uid}${extension ? `.${extension}` : ''}`;
   }
 
   private fileUrl(uid: string, mimeType: string): string {
     const extension = MIME_EXTENSIONS[mimeType];
 
-    return `${this.baseUrl}${this.filesPath}${uid}${extension ? `.${extension}` : ''}`;
+    return `${this.config.baseUrl}${this.config.filesPath}${uid}${extension ? `.${extension}` : ''}`;
   }
 
   private buildM3u8(assetId: string): string {
-    return `${this.baseUrl}${this.videosPath}${assetId}/master.m3u8`;
-  }
-
-  private resolveImageDef(source: MediaAssetInput | null | undefined, fallback?: ImageDefInput): ImageDef | undefined {
-    if (source) {
-      return this.assetToImageDef(source);
-    }
-
-    // fallback passthrough — the input is read-only by contract but the value is
-    // a frozen def we hand straight back; widen it to the mutable output type
-    return (fallback ?? this.fallback) as ImageDef | undefined;
+    return `${this.config.baseUrl}${this.config.videosPath}${assetId}/master.m3u8`;
   }
 
   private resolveImageUrl(
-    source: ImageDefInput | MediaAssetInput | null | undefined,
+    source: ImageInputArg | null | undefined,
     target: ImageUrlTarget,
     overrides?: ImageUrlOverrides,
   ): string {
-    const def = this.toImageDef(source, overrides?.fallback);
+    const { def } = this.resolveImage(source, overrides?.fallback);
 
     if (!def) {
       return '';
@@ -199,27 +172,21 @@ export class MediaResolver<HasDefault extends boolean = false> {
     const spec = TARGETS[target];
     const minWidth = overrides?.minWidth ?? spec.minWidth;
     const maxWidth = overrides?.maxWidth ?? spec.maxWidth;
-    const variant = pickVariant(def.variants, spec.priority, minWidth, maxWidth);
+    const variant = pickVariant(def.variants, spec.priority, minWidth, maxWidth, spec.prefer);
 
     return variant?.url ?? '';
   }
 
-  private resolvePicture(
-    source: ImageDefInput | MediaAssetInput | null | undefined,
-    options?: PictureOptions,
-  ): PictureSource {
-    const def = this.toImageDef(source, options?.fallback);
+  private resolveImageSource(source: ImageInputArg | null | undefined, options?: ImageSourceOptions): ImageSource {
+    const { def, isFallback } = this.resolveImage(source, options?.fallback);
 
     if (!def || def.variants.length === 0) {
-      return EMPTY_PICTURE;
+      return EMPTY_IMAGE;
     }
 
-    const breakpoints = options?.breakpoints ?? this.breakpoints;
-    const formats = options?.formats ?? this.formats;
-    const hasCustomSizes = !!options?.sourceWidth;
-    const sizes = toSizesString(options?.sourceWidth, breakpoints);
+    const formats = options?.formats ?? this.config.formats;
     const byType = groupVariantsByType(def.variants);
-    const sources: NonNullable<PictureSource['sources']> = [];
+    const sources: NonNullable<ImageSource['sources']> = [];
 
     for (const format of formats) {
       const variants = byType.get(format);
@@ -228,42 +195,53 @@ export class MediaResolver<HasDefault extends boolean = false> {
         continue;
       }
 
-      sources.push({ type: format, srcset: toSrcset(variants), sizes });
+      sources.push({ type: format, srcset: toSrcset(variants) });
     }
 
-    const mainVariant = pickByPriority(def.variants, PICTURE_IMG_FALLBACK_PRIORITY) ?? def.variants[0];
+    // the <img> is the fallback for browsers that match no <source>. its bare `src` is capped
+    // (largest within the cap) so those browsers don't pull the absolute-largest variant.
+    const mainVariant =
+      pickVariant(def.variants, PICTURE_IMG_FALLBACK_PRIORITY, undefined, PICTURE_IMG_FALLBACK_MAX_WIDTH, 'largest') ??
+      def.variants[0];
 
     if (!mainVariant) {
-      return EMPTY_PICTURE;
+      return EMPTY_IMAGE;
     }
 
     const mainTypeVariants = byType.get(mainVariant.type) ?? [mainVariant];
-    const image: NonNullable<PictureSource['image']> = {};
+    const image: NonNullable<ImageSource['image']> = {};
 
     if (mainVariant.url) {
       image.url = mainVariant.url;
     }
 
-    if (mainTypeVariants.length > 1) {
+    // the <img> only needs its own srcset when there are no <source>s (it's then the sole
+    // responsive candidate); with <source>s present the browser ignores the <img>'s srcset.
+    if (sources.length === 0 && mainTypeVariants.length > 1) {
       image.srcset = toSrcset(mainTypeVariants);
     }
 
-    if (hasCustomSizes) {
-      image.sizes = sizes;
+    // intrinsic dimensions come from the largest variant (the full image), not the capped <img>
+    // `src` — so consumers can size an element to the real aspect ratio while `sizes="auto"`
+    // still picks the right responsive width.
+    const largestVariant = def.variants.reduce((a, b) => (b.width > a.width ? b : a));
+
+    if (largestVariant.width > 0) {
+      image.width = largestVariant.width;
     }
 
-    if (mainVariant.width > 0) {
-      image.width = mainVariant.width;
+    if (largestVariant.height > 0) {
+      image.height = largestVariant.height;
     }
 
-    if (mainVariant.height > 0) {
-      image.height = mainVariant.height;
-    }
-
-    const result: PictureSource = {};
+    const result: ImageSource = {};
 
     if (def.id) {
       result.id = def.id;
+    }
+
+    if (isFallback) {
+      result.fallback = true;
     }
 
     if (Object.keys(image).length > 0) {
@@ -277,7 +255,7 @@ export class MediaResolver<HasDefault extends boolean = false> {
     return result;
   }
 
-  private resolveVideoDef(source: MediaAssetInput): VideoDef {
+  private resolveVideoSource(source: MediaAssetInput): VideoSource {
     return {
       id: source.id,
       url: this.buildM3u8(source.id),
@@ -286,36 +264,82 @@ export class MediaResolver<HasDefault extends boolean = false> {
     };
   }
 
-  private resolveM3u8(source: VideoDefInput | MediaAssetInput): string {
-    if (isVideoDef(source)) {
+  private resolveM3u8(source: VideoSourceInput | MediaAssetInput): string {
+    if (isVideoSource(source)) {
       return source.url;
     }
 
     return this.buildM3u8(source.id);
   }
 
-  private resolveFileDef(source: MediaAssetInput): FileDef {
+  private resolveFileSource(source: MediaAssetInput): FileSource {
     return {
       id: source.id,
       url: this.fileUrl(source.original.uid, source.original.mimeType),
+      mimeType: source.original.mimeType,
     };
   }
 
-  private toImageDef(
-    source: ImageDefInput | MediaAssetInput | null | undefined,
-    fallback?: ImageDefInput,
-  ): ImageDef | undefined {
-    // read-only inputs flow straight through to the (mutable) output type — the
-    // values are frozen defs we never mutate, so the cast is safe at this boundary
-    if (!source) {
-      return (fallback ?? this.fallback) as ImageDef | undefined;
+  // resolves an input to a normalized def, applying the per-call/configured fallback when the
+  // input is missing or empty. `isFallback` flags that the fallback was substituted.
+  private resolveImage(
+    source: ImageInputArg | null | undefined,
+    perCallFallback: FallbackOption | undefined,
+  ): { def: ImageDef | undefined; isFallback: boolean } {
+    const def = this.toDef(source);
+
+    if (def && def.variants.length > 0) {
+      return { def, isFallback: false };
     }
 
-    if (isImageDef(source)) {
-      return source as ImageDef;
+    const fallback = perCallFallback === undefined ? this.config.fallback : this.normalizeFallback(perCallFallback);
+
+    return { def: fallback, isFallback: fallback !== undefined };
+  }
+
+  // converts any image input (asset, bundled metadata, or metadata list) into a normalized def
+  private toDef(input: ImageInputArg | null | undefined): ImageDef | undefined {
+    if (!input) {
+      return undefined;
     }
 
-    return this.assetToImageDef(source);
+    // Array.isArray doesn't narrow a `readonly T[]` out of the union, so the non-array
+    // branches are cast to the remaining members explicitly
+    if (Array.isArray(input)) {
+      const metadata = input as readonly DeepReadonly<ImageMetadata>[];
+      const variants = metadata.map((m) => metadataToVariant(m));
+
+      return variants.length > 0 ? { id: '', variants } : undefined;
+    }
+
+    const single = input as DeepReadonly<MediaAsset> | DeepReadonly<ImageMetadata>;
+
+    if ('original' in single) {
+      return this.assetToImageDef(single);
+    }
+
+    return { id: '', variants: [metadataToVariant(single)] };
+  }
+
+  // normalizes a fallback option into a def, defaulting the id to `'fallback'` for bundled images
+  private normalizeFallback(fallback: FallbackOption | undefined): ImageDef | undefined {
+    if (!fallback) {
+      return undefined;
+    }
+
+    if (!Array.isArray(fallback) && 'image' in fallback) {
+      const def = this.toDef(fallback.image);
+
+      return def ? { id: fallback.id, variants: def.variants } : undefined;
+    }
+
+    const def = this.toDef(fallback);
+
+    if (!def) {
+      return undefined;
+    }
+
+    return def.id ? def : { id: 'fallback', variants: def.variants };
   }
 
   private assetToImageDef(asset: MediaAssetInput): ImageDef {
@@ -328,8 +352,8 @@ export class MediaResolver<HasDefault extends boolean = false> {
     }
 
     // raster: include optimized variants + the preview (contello's preview is a ~1000px-bounded JPEG).
-    // browser picks via srcset width descriptors; OG picker lands on preview
-    // naturally for its 600-1200px range.
+    // the browser picks responsive widths via srcset descriptors; the preview also participates
+    // as the largest jpeg, so size-based targets (og, <img> fallback) land on it naturally.
     const variants: ImageDefVariant[] = [];
 
     for (const file of optimized) {
@@ -373,12 +397,17 @@ function normalizePath(path: string): string {
   return withLeading.endsWith('/') ? withLeading : `${withLeading}/`;
 }
 
-function isImageDef(source: ImageDefInput | MediaAssetInput): source is ImageDefInput {
-  return 'variants' in source;
+function isVideoSource(source: VideoSourceInput | MediaAssetInput): source is VideoSourceInput {
+  return 'url' in source;
 }
 
-function isVideoDef(source: VideoDefInput | MediaAssetInput): source is VideoDefInput {
-  return 'url' in source;
+function metadataToVariant(metadata: DeepReadonly<ImageMetadata>): ImageDefVariant {
+  return {
+    type: `image/${metadata.format}`,
+    url: metadata.src,
+    width: metadata.width,
+    height: metadata.height,
+  };
 }
 
 function compactVariant(variant: ImageDefVariant | null): ImageDefVariant[] {
@@ -401,62 +430,25 @@ function groupVariantsByType(variants: ImageDefVariant[]): Map<string, ImageDefV
   return map;
 }
 
+// dedupe by width descriptor: a srcset must not list two candidates at the same width (the
+// browser discards one). keep the first after the ascending sort.
 function toSrcset(variants: ImageDefVariant[]): string {
-  return [...variants]
-    .toSorted((a, b) => a.width - b.width)
-    .map((v) => `${v.url} ${v.width}w`)
-    .join(', ');
-}
+  const byWidth = new Map<number, ImageDefVariant>();
 
-function toSizesString(
-  sourceWidth: Record<string, number> | undefined,
-  breakpoints: Record<string, BreakpointConfig>,
-): string {
-  if (!sourceWidth) {
-    return '100vw';
-  }
-
-  const entries: { mediaQuery: string | undefined; minWidth: number; widthPx: number }[] = [];
-
-  for (const [key, widthPx] of Object.entries(sourceWidth)) {
-    const bp = breakpoints[key];
-
-    if (bp && widthPx) {
-      entries.push({ mediaQuery: bp.mediaQuery, minWidth: bp.minWidth, widthPx });
+  for (const v of [...variants].toSorted((a, b) => a.width - b.width)) {
+    if (!byWidth.has(v.width)) {
+      byWidth.set(v.width, v);
     }
   }
 
-  if (entries.length === 0) {
-    return '100vw';
-  }
-
-  const sortedEntries = entries.toSorted((a, b) => b.minWidth - a.minWidth);
-
-  const parts: string[] = [];
-  let hasDefault = false;
-
-  for (const entry of sortedEntries) {
-    if (entry.mediaQuery === undefined) {
-      parts.push(`${entry.widthPx}px`);
-      hasDefault = true;
-
-      continue;
-    }
-
-    parts.push(`${entry.mediaQuery} ${entry.widthPx}px`);
-  }
-
-  if (!hasDefault) {
-    parts.push('100vw');
-  }
-
-  return parts.join(', ');
+  return [...byWidth.values()].map((v) => `${v.url} ${v.width}w`).join(', ');
 }
 
 /**
  * picks a variant from within size constraints, honoring a priority order.
  * - higher priority (earlier in `priority`) wins
- * - within same priority tier, smallest width wins (bandwidth-conservative)
+ * - within same priority tier, `prefer` chooses smallest width (bandwidth-conservative,
+ *   the default) or largest width (best quality near `maxWidth`)
  * - if nothing matches priority, returns the smallest variant in the filtered set
  *
  * graceful degradation when the size range is empty: prefer the largest variant
@@ -468,6 +460,7 @@ function pickVariant(
   priority: string[],
   minWidth: number | undefined,
   maxWidth: number | undefined,
+  prefer: 'smallest' | 'largest' = 'smallest',
 ): ImageDefVariant | undefined {
   if (variants.length === 0) {
     return undefined;
@@ -481,7 +474,7 @@ function pickVariant(
   });
 
   if (inRange.length > 0) {
-    return pickByPriorityWithOrder(inRange, priority, 'asc');
+    return pickByPriorityWithOrder(inRange, priority, prefer === 'largest' ? 'desc' : 'asc');
   }
 
   if (minWidth !== undefined) {
@@ -514,16 +507,4 @@ function pickByPriorityWithOrder(
   }
 
   return [...variants].toSorted(cmp)[0]!;
-}
-
-function pickByPriority(variants: ImageDefVariant[], priority: string[]): ImageDefVariant | undefined {
-  for (const format of priority) {
-    const match = variants.filter((v) => v.type === format);
-
-    if (match.length > 0) {
-      return [...match].toSorted((a, b) => b.width - a.width)[0];
-    }
-  }
-
-  return undefined;
 }

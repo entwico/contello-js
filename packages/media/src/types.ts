@@ -29,6 +29,22 @@ export type MediaAsset = {
   optimized: MediaOptimizedFile[];
 };
 
+/**
+ * a bundled/static image — structurally compatible with astro's `ImageMetadata`
+ * (`import img from './x.png'`), so those imports are accepted directly without an
+ * astro dependency.
+ */
+export type ImageMetadata = {
+  src: string;
+  width: number;
+  height: number;
+  format: string;
+};
+
+/** anything the image methods accept as a source: a CMS asset, or bundled image(s) */
+export type ImageInput = MediaAsset | ImageMetadata | ImageMetadata[];
+
+/** internal normalized image: id + the variant set the resolver renders from */
 export type ImageDefVariant = {
   type: string;
   url: string;
@@ -46,39 +62,39 @@ export type ImageDef = {
  * optional and only set when it carries non-default information, so hydration
  * payloads stay minimal when passed to React islands.
  */
-export type PictureSource = {
-  /** source asset id — useful for debugging/tracking */
+export type ImageSource = {
+  /** source asset id — useful for debugging/tracking, and to tell fallbacks apart */
   id?: string | undefined;
+  /** set to `true` only when the resolver substituted the configured/per-call fallback */
+  fallback?: true | undefined;
   image?:
     | {
       url?: string | undefined;
       /** multi-width srcset — set only when there's more than one variant of the main format */
       srcset?: string | undefined;
-      /** sizes attribute — set only when a non-default (non-`100vw`) value applies */
-      sizes?: string | undefined;
       /** intrinsic dimensions — set only when source metadata was present */
       width?: number | undefined;
       height?: number | undefined;
     }
     | undefined;
-  /** `<source>` entries — set only when additional-format variants are available */
+  /** `<source>` entries — set only when additional-format variants are available. `sizes` is applied at render */
   sources?:
     | Array<{
       type: string;
       srcset: string;
-      sizes: string;
     }>
     | undefined;
 };
 
-export type VideoDef = {
+export type VideoSource = {
   id: string;
   url: string;
   width: number;
   height: number;
 };
 
-export type FileDef = {
+export type FileSource = {
   id: string;
   url: string;
+  mimeType: string;
 };
