@@ -1,8 +1,8 @@
 import { forwardRef } from 'react';
 
-import { PictureBase, type PictureBaseProps, type SizesByPriority } from './PictureBase';
+import { PictureBase, type PictureBaseProps } from './PictureBase';
 
-export type ImageProps = Omit<PictureBaseProps, 'transparent' | 'picture' | 'priority' | 'sizes'> & SizesByPriority;
+export type ImageProps = Omit<PictureBaseProps, 'transparent' | 'picture'>;
 
 /**
  * an `<img>`-shaped view over the same `<picture>` machinery as `Picture`: it still
@@ -14,8 +14,9 @@ export type ImageProps = Omit<PictureBaseProps, 'transparent' | 'picture' | 'pri
  * when you need to style the wrapper or use art-directed `<source media>` entries.
  *
  * requires a pre-computed `ImageSource` (`mediaResolver.image.source()`). lazy images get
- * `sizes="auto"` and may omit `sizes` (falling back to `auto, 100vw`); priority images require
- * it. all other top-level props forward to the `<img>`.
+ * `sizes="auto"` and may omit `sizes` (falling back to `auto, 100vw`); priority images should
+ * declare `sizes` since they can't use automatic sizing. all other top-level props forward to
+ * the `<img>`.
  */
 export const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(props, ref) {
   return <PictureBase {...props} transparent ref={ref} />;

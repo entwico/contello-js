@@ -5,15 +5,6 @@ import type { DeepReadonly, ImageSource } from '../types';
 
 export type ImgSpread = Omit<ComponentPropsWithoutRef<'img'>, 'src' | 'srcSet' | 'sizes'>;
 
-/**
- * `sizes` is required for priority (eager) images — `sizes="auto"` is spec-illegal without
- * lazy loading, so they have no automatic sizing and must declare layout intent. lazy images
- * may omit it and fall back to `auto, 100vw`.
- */
-export type SizesByPriority =
-  | { priority: true; sizes: SizesInput }
-  | { priority?: false | undefined; sizes?: SizesInput | undefined };
-
 export type PictureBaseProps = {
   /** pre-resolved image data — obtain via `mediaResolver.image.source(source, options?)` */
   src: DeepReadonly<ImageSource>;
@@ -24,7 +15,11 @@ export type PictureBaseProps = {
    * explicit `loading` / `fetchPriority` props still win.
    */
   priority?: boolean | undefined;
-  /** responsive sizes — a raw `sizes` string or a breakpoint-keyed `SizesMap`. required for priority images */
+  /**
+   * responsive sizes — a raw `sizes` string or a breakpoint-keyed `SizesMap`. should be set for
+   * priority (eager) images, which can't use automatic sizing; lazy images may omit it (they fall
+   * back to `auto, 100vw`).
+   */
   sizes?: SizesInput | undefined;
   /**
    * render the `<picture>` as `display: contents` so its `<img>` participates

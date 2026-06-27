@@ -1,8 +1,8 @@
 import { forwardRef } from 'react';
 
-import { PictureBase, type PictureBaseProps, type SizesByPriority } from './PictureBase';
+import { PictureBase, type PictureBaseProps } from './PictureBase';
 
-export type PictureProps = Omit<PictureBaseProps, 'transparent' | 'priority' | 'sizes'> & SizesByPriority;
+export type PictureProps = Omit<PictureBaseProps, 'transparent'>;
 
 /**
  * renders a `<picture>` with one `<source>` per format (using `srcset`+`sizes`
@@ -13,7 +13,7 @@ export type PictureProps = Omit<PictureBaseProps, 'transparent' | 'priority' | '
  * at the mapping layer so hydration payloads carry only the resolved data.
  *
  * lazy images get `sizes="auto"` (the browser sizes from the actual rendered box) and may
- * omit `sizes` (falling back to `auto, 100vw`); priority images require it. other top-level
+ * omit `sizes` (falling back to `auto, 100vw`); priority images should declare it. other top-level
  * props forward to the `<img>` (ref, className, style, alt, width, height, loading, decoding,
  * fetchPriority, ARIA, event handlers); the `picture={{...}}` prop targets the outer `<picture>`.
  *
