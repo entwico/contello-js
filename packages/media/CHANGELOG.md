@@ -1,5 +1,20 @@
 # @contello/media
 
+## 2.0.0
+
+### Major Changes
+
+- 878333d: the default `<source>` format is now AVIF only; add `image/webp` via `pictureFormats` to restore it.
+- 878333d: replace the resolver's `image.def`/`picture.src` with a single `image.source()`, and rename `video.def`/`file.def` to `video.source`/`file.source` — the result types are now `ImageSource`, `VideoSource` and `FileSource`.
+- 878333d: responsive `sizes` is now a prop on the `<Image>`/`<Picture>` components instead of a resolver option — required for `priority` images, optional otherwise (lazy images get `sizes="auto"` and fall back to `auto, 100vw`).
+
+### Minor Changes
+
+- 878333d: the image methods now accept bundled images (astro-style `ImageMetadata`, single or an array) as a source, not just CMS assets.
+- 878333d: `file.source()` now includes the asset's `mimeType`.
+- 878333d: new `<Image>` component — renders the same responsive `<picture>` markup as `<Picture>` but with a transparent wrapper, for images sitting in flex/grid layouts.
+- 878333d: fallbacks can now be named (`{ id, image }`), and the resolved image is flagged with `fallback: true` when a fallback was substituted.
+
 ## 1.1.0
 
 ### Minor Changes

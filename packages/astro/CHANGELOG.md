@@ -1,5 +1,27 @@
 # @contello/astro
 
+## 3.0.0
+
+### Major Changes
+
+- 878333d: the media resolver exposed via `defineMediaResolver()` follows `@contello/media`'s new source-based API — use `image.source()`, `video.source()` and `file.source()` instead of the old `image.def`/`picture.src`/`video.def`/`file.def` methods.
+
+### Patch Changes
+
+- 878333d: asset routes now honor the configured mime type and content disposition, so attachment routes download instead of rendering inline.
+- 878333d: redirect routes whose configured response code is outside the valid redirect range fall back to 302 instead of throwing.
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+- Updated dependencies [878333d]
+  - @contello/media@2.0.0
+  - @contello/store@3.0.0
+
 ## 2.2.1
 
 ### Patch Changes
