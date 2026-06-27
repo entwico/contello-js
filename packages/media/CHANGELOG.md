@@ -1,5 +1,11 @@
 # @contello/media
 
+## 2.0.1
+
+### Patch Changes
+
+- a0fe2d4: accept a dynamic boolean `priority` on `<Image>` / `<Picture>` without forcing `sizes`
+
 ## 2.0.0
 
 ### Major Changes
