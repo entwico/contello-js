@@ -3,7 +3,9 @@ packages:
   - demo/*
 
 overrides:
-  vite: ^7.0.0
+  vite: ^8.0.0
+
+minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
   - '@astroscope/*'

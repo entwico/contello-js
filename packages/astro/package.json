@@ -22,7 +22,7 @@
     "@contello/client": "workspace:^",
     "@contello/media": "workspace:^",
     "@contello/store": "workspace:^",
-    "astro": "^6.0.0"
+    "astro": "^6.0.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
     "@astroscope/i18n": {
@@ -30,12 +30,12 @@
     }
   },
   "devDependencies": {
-    "@astroscope/excludes": "^0.3.2",
-    "@astroscope/i18n": "^0.4.5",
+    "@astroscope/excludes": "^0.4.0",
+    "@astroscope/i18n": "^0.6.0",
     "@contello/client": "workspace:^",
     "@contello/media": "workspace:^",
     "@contello/store": "workspace:^",
-    "astro": "^6.1.8"
+    "astro": "^7.0.3"
   },
   "files": [
     "dist"
