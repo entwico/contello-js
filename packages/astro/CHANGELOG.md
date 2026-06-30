@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 3.1.0
+
+### Minor Changes
+
+- c0e96b2: support Astro 7 (still works with Astro 6)
+
 ## 3.0.0
 
 ### Major Changes
