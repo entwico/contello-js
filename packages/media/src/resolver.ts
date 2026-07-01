@@ -11,7 +11,7 @@ import type {
   VideoSource,
 } from './types';
 
-export type ImageUrlTarget = 'web' | 'email' | 'pdf' | 'og' | 'videoPoster' | 'safe';
+export type ImageUrlTarget = 'web' | 'email' | 'pdf' | 'og' | 'jsonld' | 'videoPoster' | 'safe';
 
 // input aliases — the resolver only reads its sources, so it accepts deeply
 // immutable values (e.g. frozen store entities) and builds fresh mutable output.
@@ -83,6 +83,8 @@ const TARGETS: Record<ImageUrlTarget, TargetSpec> = {
   pdf: { priority: ['image/jpeg', 'image/png'] },
   // social cards display at ~1200px — take the largest jpeg/png within 600-1200
   og: { priority: ['image/jpeg', 'image/png'], minWidth: 600, maxWidth: 1200, prefer: 'largest' },
+  // structured data: crawler-safe raster, highest resolution available
+  jsonld: { priority: ['image/jpeg', 'image/png'], minWidth: 1000, prefer: 'largest' },
   safe: { priority: ['image/jpeg', 'image/png'] },
 };
 

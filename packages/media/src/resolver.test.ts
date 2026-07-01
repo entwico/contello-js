@@ -165,6 +165,19 @@ describe('MediaResolver.image.url', () => {
     expect(media.image.url(webpJpeg, 'og')).toBe('/j-1200');
   });
 
+  test('jsonld targets the largest jpeg at or above 1000 (no upper cap)', () => {
+    expect(media.image.url(webpJpeg, 'jsonld')).toBe('/j-1200');
+  });
+
+  test('jsonld degrades to the largest jpeg below 1000 when none meet the floor', () => {
+    const smallJpeg: ImageMetadata[] = [
+      { src: '/j-400', format: 'jpeg', width: 400, height: 300 },
+      { src: '/j-800', format: 'jpeg', width: 800, height: 600 },
+    ];
+
+    expect(media.image.url(smallJpeg, 'jsonld')).toBe('/j-800');
+  });
+
   test('email preset prefers jpeg over webp', () => {
     expect(media.image.url(webpJpeg, 'email')).toBe('/j-400');
   });
