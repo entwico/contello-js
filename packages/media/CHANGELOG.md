@@ -1,5 +1,11 @@
 # @contello/media
 
+## 2.1.0
+
+### Minor Changes
+
+- e9b4d19: add a `jsonld` image url target for structured data
+
 ## 2.0.2
 
 ### Patch Changes
