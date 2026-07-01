@@ -48,11 +48,7 @@ describe('firstAsync', () => {
 
 describe('mapAsync', () => {
   test('lazily maps each value', async () => {
-    const out: number[] = [];
-
-    for await (const v of mapAsync(fromArray([1, 2, 3]), (n) => n * 10)) {
-      out.push(v);
-    }
+    const out = await Array.fromAsync(mapAsync(fromArray([1, 2, 3]), (n) => n * 10));
 
     expect(out).toEqual([10, 20, 30]);
   });
@@ -60,11 +56,7 @@ describe('mapAsync', () => {
 
 describe('filterAsync', () => {
   test('drops values for which predicate is false', async () => {
-    const out: number[] = [];
-
-    for await (const v of filterAsync(fromArray([1, 2, 3, 4]), (n) => n % 2 === 0)) {
-      out.push(v);
-    }
+    const out = await Array.fromAsync(filterAsync(fromArray([1, 2, 3, 4]), (n) => n % 2 === 0));
 
     expect(out).toEqual([2, 4]);
   });

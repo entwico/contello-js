@@ -59,6 +59,7 @@ export function createSingleton<
   const ttl = createTtlOrchestrator({ ttl: _def.cache.ttl, run: () => runTtlRefresh() });
   let loaded = false;
 
+  // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
   const projected = new ProjectedValue<TMapped>({
     value: () =>
       wrap(`singleton:${_def.name}`, () =>
@@ -93,12 +94,11 @@ export function createSingleton<
   }
 
   function runTtlRefresh(): void {
-    refreshByTtl.enqueue(() =>
-      runWithBackoff(() => projected.refresh()).then(() => {
-        emit('ttl');
-        ttl.mark();
-      }),
-    );
+    refreshByTtl.enqueue(async () => {
+      await runWithBackoff(() => projected.refresh());
+      emit('ttl');
+      ttl.mark();
+    });
   }
 
   const scheduleRefresh = createRefresher<RefreshKind>(

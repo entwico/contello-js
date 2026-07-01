@@ -15,11 +15,13 @@ export class ContelloExtension extends ContelloClient<
   ContelloExtensionChildMethods,
   ContelloExtensionParentMethods
 > {
-  static connect({ trustedOrigins }: ContelloExtensionOptions) {
+  static async connect({ trustedOrigins }: ContelloExtensionOptions) {
     const { targetOrigin, channelId, applicationId, debug } = parseUrl(trustedOrigins);
     const extension = new ContelloExtension(targetOrigin, channelId, applicationId, debug);
 
-    return extension.connect().then(() => extension);
+    await extension.connect();
+
+    return extension;
   }
 
   constructor(targetOrigin: string, channelId: string, applicationId: string, debug: boolean) {

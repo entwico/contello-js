@@ -4,7 +4,6 @@ export function parseUrl(trustedOrigins: string[]) {
   const channelId = url.searchParams.get('channelId');
   const targetOrigin = url.searchParams.get('origin');
   const applicationId = url.searchParams.get('applicationId');
-  const debug = url.searchParams.get('debug') === 'true';
 
   if (!channelId || !targetOrigin || !applicationId) {
     throw new Error('Missing required URL parameters');
@@ -17,6 +16,8 @@ export function parseUrl(trustedOrigins: string[]) {
   if (!trustedOrigins.includes(targetOrigin)) {
     throw new Error(`Origin ${targetOrigin} is not trusted`);
   }
+
+  const debug = url.searchParams.get('debug') === 'true';
 
   return { channelId, targetOrigin, applicationId, debug };
 }

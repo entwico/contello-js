@@ -51,15 +51,15 @@ export function uploadViaWebSocket(
       ws.send(JSON.stringify(initFrame));
 
       function readSlice() {
-        file
-          .slice(offset, offset + chunkSize)
-          .arrayBuffer()
-          .then((buffer) => {
+        void (async () => {
+          try {
+            const buffer = await file.slice(offset, offset + chunkSize).arrayBuffer();
+
             handleArrayBuffer(buffer);
-          })
-          .catch((error) => {
+          } catch (error) {
             obs.error(error);
-          });
+          }
+        })();
       }
 
       function markAsDone() {
@@ -132,10 +132,12 @@ export function uploadViaWebSocket(
     });
 
     const abortHandler = () => {
-      if (!done) {
-        ws.close();
-        obs.error(new Error('Upload aborted'));
+      if (done) {
+        return;
       }
+
+      ws.close();
+      obs.error(new Error('Upload aborted'));
     };
 
     options?.abort?.addEventListener('abort', abortHandler);

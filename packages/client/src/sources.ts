@@ -15,76 +15,83 @@ export function createSources<TSources extends SourceMap>(
   for (const [name, source] of Object.entries(sources)) {
     const def = source as SourceDef;
     const doc = createSourceSubscription(def);
+    const accessor = createSourceAccessor(name, def, doc, subscribe);
 
-    switch (def.__cardinality) {
-      case 'singleton': {
-        out[name] = {
-          fetch: () =>
-            wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source))),
-        };
-        break;
-      }
-      case 'entity': {
-        out[name] = {
-          fetch: (vars?: { ids?: string[] }) =>
-            wrap(`source:${name}`, () =>
-              collectAsync(
-                mapAsync(
-                  subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
-                  (r) => r.source,
-                ),
-              ),
-            ),
-        };
-        break;
-      }
-      case 'route': {
-        out[name] = {
-          fetch: (vars?: { ids?: string[] | undefined; paths?: string[] | undefined } | undefined) =>
-            wrap(`source:${name}`, () =>
-              collectAsync(
-                mapAsync(
-                  subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids, paths: vars?.paths })),
-                  (r) => r.source,
-                ),
-              ),
-            ),
-        };
-        break;
-      }
-      case 'asset': {
-        out[name] = {
-          fetch: (vars?: { ids?: string[] | undefined } | undefined) =>
-            wrap(`source:${name}`, () =>
-              collectAsync(
-                mapAsync(
-                  subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
-                  (r) => r.source,
-                ),
-              ),
-            ),
-        };
-        break;
-      }
-      case 'i18nMessage': {
-        out[name] = {
-          fetch: (vars: { collection: string; ids?: string[] | undefined }) =>
-            wrap(`source:${name}`, () =>
-              collectAsync(
-                mapAsync(
-                  subscribe<{ source: unknown[] }>(
-                    doc,
-                    transformVariables({ collection: vars.collection, ids: vars.ids }),
-                  ),
-                  (r) => r.source,
-                ),
-              ),
-            ),
-        };
-        break;
-      }
+    if (accessor) {
+      out[name] = accessor;
     }
   }
 
   return out as SourceAccessors<TSources>;
+}
+
+function createSourceAccessor(
+  name: string,
+  def: SourceDef,
+  doc: string,
+  subscribe: Subscribe,
+): { fetch: (...args: any[]) => Promise<unknown> } | undefined {
+  switch (def.__cardinality) {
+    case 'singleton': {
+      return {
+        fetch: () =>
+          wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source))),
+      };
+    }
+    case 'entity': {
+      return {
+        fetch: (vars?: { ids?: string[] }) =>
+          wrap(`source:${name}`, () =>
+            collectAsync(
+              mapAsync(
+                subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
+                (r) => r.source,
+              ),
+            ),
+          ),
+      };
+    }
+    case 'route': {
+      return {
+        fetch: (vars?: { ids?: string[] | undefined; paths?: string[] | undefined } | undefined) =>
+          wrap(`source:${name}`, () =>
+            collectAsync(
+              mapAsync(
+                subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids, paths: vars?.paths })),
+                (r) => r.source,
+              ),
+            ),
+          ),
+      };
+    }
+    case 'asset': {
+      return {
+        fetch: (vars?: { ids?: string[] | undefined } | undefined) =>
+          wrap(`source:${name}`, () =>
+            collectAsync(
+              mapAsync(
+                subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
+                (r) => r.source,
+              ),
+            ),
+          ),
+      };
+    }
+    case 'i18nMessage': {
+      return {
+        fetch: (vars: { collection: string; ids?: string[] | undefined }) =>
+          wrap(`source:${name}`, () =>
+            collectAsync(
+              mapAsync(
+                subscribe<{ source: unknown[] }>(
+                  doc,
+                  transformVariables({ collection: vars.collection, ids: vars.ids }),
+                ),
+                (r) => r.source,
+              ),
+            ),
+          ),
+      };
+    }
+  }
 }

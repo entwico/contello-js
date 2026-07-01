@@ -65,18 +65,19 @@ export function wrap<T>(name: string, fn: () => T): T {
   }
 
   if (result instanceof Promise) {
-    return result.then(
-      (r) => {
+    return (async () => {
+      try {
+        const r = await result;
+
         onEnd.publish({ name, durationMs: performance.now() - start } satisfies OperationEndMessage);
 
         return r;
-      },
-      (error) => {
+      } catch (error) {
         onError.publish({ name, error, durationMs: performance.now() - start } satisfies OperationErrorMessage);
 
         throw error;
-      },
-    ) as T;
+      }
+    })() as T;
   }
 
   onEnd.publish({ name, durationMs: performance.now() - start } satisfies OperationEndMessage);

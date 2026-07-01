@@ -72,8 +72,9 @@ function handleFile(
     return next();
   }
 
-  return wrap('assets:file', () => client.download(fileId)).then(
-    (result) => {
+  return (async () => {
+    try {
+      const result = await wrap('assets:file', () => client.download(fileId));
       const headers = new Headers({ 'content-type': result.mimeType });
 
       if (cacheControl) {
@@ -85,9 +86,10 @@ function handleFile(
       }
 
       return new Response(result.stream(), { headers });
-    },
-    () => new Response(null, { status: 404 }),
-  );
+    } catch {
+      return new Response(null, { status: 404 });
+    }
+  })();
 }
 
 function handleVideo(
@@ -100,8 +102,13 @@ function handleVideo(
     return next();
   }
 
-  return wrap('assets:hls', () => client.proxyHls(path, signal)).then(
-    (result) => new Response(result.stream(), { status: result.status, headers: result.headers }),
-    () => new Response('Upstream is down', { status: 502, headers: { 'content-type': 'text/plain' } }),
-  );
+  return (async () => {
+    try {
+      const result = await wrap('assets:hls', () => client.proxyHls(path, signal));
+
+      return new Response(result.stream(), { status: result.status, headers: result.headers });
+    } catch {
+      return new Response('Upstream is down', { status: 502, headers: { 'content-type': 'text/plain' } });
+    }
+  })();
 }

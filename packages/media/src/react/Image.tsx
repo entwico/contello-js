@@ -1,8 +1,6 @@
-import { forwardRef } from 'react';
-
 import { PictureBase, type PictureBaseProps } from './PictureBase';
 
-export type ImageProps = Omit<PictureBaseProps, 'transparent' | 'picture'>;
+export type ImageProps = Omit<PictureBaseProps, 'unwrap' | 'picture'>;
 
 /**
  * an `<img>`-shaped view over the same `<picture>` machinery as `Picture`: it still
@@ -18,6 +16,6 @@ export type ImageProps = Omit<PictureBaseProps, 'transparent' | 'picture'>;
  * declare `sizes` since they can't use automatic sizing. all other top-level props forward to
  * the `<img>`.
  */
-export const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(props, ref) {
-  return <PictureBase {...props} transparent ref={ref} />;
-});
+export function Image(props: ImageProps) {
+  return <PictureBase {...props} unwrap />;
+}

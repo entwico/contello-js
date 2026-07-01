@@ -121,7 +121,7 @@ function buildProxyResult(response: Dispatcher.ResponseData, signal: AbortSignal
     if (Array.isArray(value)) {
       for (const v of value) headers.append(key, v);
     } else if (value !== null && value !== undefined) {
-      headers.set(key, String(value));
+      headers.set(key, value);
     }
   }
 
@@ -154,11 +154,13 @@ function toWebStream(
   let closed = false;
 
   const cleanup = () => {
-    if (!closed) {
-      closed = true;
-      signal?.removeEventListener('abort', cleanup);
-      safeDestroyBody(body);
+    if (closed) {
+      return;
     }
+
+    closed = true;
+    signal?.removeEventListener('abort', cleanup);
+    safeDestroyBody(body);
   };
 
   return new ReadableStream<Uint8Array>({
@@ -166,25 +168,29 @@ function toWebStream(
       signal?.addEventListener('abort', cleanup);
 
       body.on('data', (chunk: Uint8Array) => {
-        if (!closed && !signal?.aborted) {
-          try {
-            controller.enqueue(chunk);
-          } catch {
-            cleanup();
-          }
+        if (closed || signal?.aborted) {
+          return;
+        }
+
+        try {
+          controller.enqueue(chunk);
+        } catch {
+          cleanup();
         }
       });
 
       body.on('end', () => {
-        if (!closed && !signal?.aborted) {
-          closed = true;
-          signal?.removeEventListener('abort', cleanup);
+        if (closed || signal?.aborted) {
+          return;
+        }
 
-          try {
-            controller.close();
-          } catch {
-            // already closed
-          }
+        closed = true;
+        signal?.removeEventListener('abort', cleanup);
+
+        try {
+          controller.close();
+        } catch {
+          // already closed
         }
       });
 

@@ -107,7 +107,7 @@ export function indexBuiltInSources(
   const fields = subscription.getFields();
 
   for (const builtIn of BUILT_IN_SOURCES) {
-    if (!schema.getType(builtIn.typeName) || !fields[builtIn.fieldName]) {
+    if (!schema.getType(builtIn.typeName) || !Object.hasOwn(fields, builtIn.fieldName)) {
       continue;
     }
 
@@ -169,7 +169,7 @@ function organize(entries: SourceEntry[]): SourceEntry[] {
     byKey.set(entry.binding.sourceKey, entry);
   }
 
-  return [...byKey.values()].toSorted((a, b) => a.binding.sourceKey.localeCompare(b.binding.sourceKey));
+  return byKey.values().toArray().toSorted((a, b) => a.binding.sourceKey.localeCompare(b.binding.sourceKey));
 }
 
 /** Emits `export type Sources = { ... }`. */

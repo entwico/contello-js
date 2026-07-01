@@ -119,7 +119,7 @@ async function applyTranslations(messages: I18nMessages): Promise<void> {
     });
   }
 
-  for (const [locale, translations] of byLocale.entries()) {
+  for (const [locale, translations] of byLocale) {
     i18n.setTranslations(locale, translations);
   }
 }
@@ -144,6 +144,18 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   private _autoLazyRoutes?: LazyRoutes;
 
   readonly media: ContelloMediaConfig;
+
+  // --- middleware factories (arrow fields so destructuring works) ---
+
+  createRoutingMiddleware = (options?: ContelloRoutingMiddlewareOptions | undefined) => {
+    const routes = options?.routes ?? (this._autoLazyRoutes ??= this.defineLazyRoutes());
+
+    return createBoundRoutingMiddleware(this, routes, options?.exclude, options?.resolveRoutePath);
+  };
+
+  createAssetsMiddleware = (options?: ContelloAssetsMiddlewareOptions | undefined) => {
+    return createBoundAssetsMiddleware(this, options);
+  };
 
   constructor(options: ContelloOptions<TSchema>) {
     this._options = options;
@@ -204,7 +216,11 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
 
       this._initialized = true;
     } catch (error) {
-      await this.destroy().catch(() => {});
+      try {
+        await this.destroy();
+      } catch {
+        // ignore teardown errors; the original init error is rethrown below
+      }
 
       throw error;
     }
@@ -331,18 +347,6 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   defineLazyAssets(options?: LazyAssetsOptions | undefined): LazyAssets {
     return this._store.defineLazyAssets(options);
   }
-
-  // --- middleware factories (arrow fields so destructuring works) ---
-
-  createRoutingMiddleware = (options?: ContelloRoutingMiddlewareOptions | undefined) => {
-    const routes = options?.routes ?? (this._autoLazyRoutes ??= this.defineLazyRoutes());
-
-    return createBoundRoutingMiddleware(this, routes, options?.exclude, options?.resolveRoutePath);
-  };
-
-  createAssetsMiddleware = (options?: ContelloAssetsMiddlewareOptions | undefined) => {
-    return createBoundAssetsMiddleware(this, options);
-  };
 
   // --- ALS run ---
 

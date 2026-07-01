@@ -76,6 +76,55 @@ export class DependencyCollector<TKey, TModels extends string = string> {
     private readonly resolver: ModelResolver,
   ) {}
 
+  private mergeRouteTargetKeys(
+    existing: Set<TKey> | undefined,
+    entityType: string,
+    entityId: string,
+  ): Set<TKey> | undefined {
+    const items = this.reverseIndex.get(createRouteTargetKey(entityType, entityId));
+
+    if (!items) {
+      return existing;
+    }
+
+    return existing ? existing.union(items) : items;
+  }
+
+  private warnIfUnknownModel(model: string): void {
+    if (!this.resolver.hasModel(model)) {
+      console.warn(
+        `[contello/store] tracking model "${model}" which is not in models — updates for this model will be ignored`,
+      );
+    }
+  }
+
+  /**
+   * removes all index entries for one item key.
+   * cleans up the forward entry and removes the item from every reverse set it appeared in.
+   * if a reverse set becomes empty after removal, it is deleted to avoid memory leaks.
+   */
+  private clearItem(key: TKey): void {
+    const existingDeps = this.forwardIndex.get(key);
+
+    if (!existingDeps) {
+      return;
+    }
+
+    for (const dk of existingDeps) {
+      const set = this.reverseIndex.get(dk);
+
+      if (set) {
+        set.delete(key);
+
+        if (set.size === 0) {
+          this.reverseIndex.delete(dk);
+        }
+      }
+    }
+
+    this.forwardIndex.delete(key);
+  }
+
   /**
    * creates a scoped MapperContext for one item and runs `fn` with it.
    * `fn` receives the context (for declaring deps during mapping) and a `register(key)` function
@@ -117,8 +166,12 @@ export class DependencyCollector<TKey, TModels extends string = string> {
         this.warnIfUnknownModel(model);
         deps.push(createEntityDependencyKey(model, id));
       },
-      trackAsset: (id) => deps.push(createDependencyKey('asset', id)),
-      trackRoute: (id) => deps.push(createDependencyKey('route', id)),
+      trackAsset: (id) => {
+        deps.push(createDependencyKey('asset', id));
+      },
+      trackRoute: (id) => {
+        deps.push(createDependencyKey('route', id));
+      },
     };
 
     const register = (key: TKey) => {
@@ -173,20 +226,6 @@ export class DependencyCollector<TKey, TModels extends string = string> {
     return affected ?? EMPTY_KEYS;
   }
 
-  private mergeRouteTargetKeys(
-    existing: Set<TKey> | undefined,
-    entityType: string,
-    entityId: string,
-  ): Set<TKey> | undefined {
-    const items = this.reverseIndex.get(createRouteTargetKey(entityType, entityId));
-
-    if (!items) {
-      return existing;
-    }
-
-    return existing ? new Set([...existing, ...items]) : items;
-  }
-
   /** removes all recorded deps for a single item (called on eviction) */
   removeItem(key: TKey): void {
     this.clearItem(key);
@@ -208,40 +247,5 @@ export class DependencyCollector<TKey, TModels extends string = string> {
         this.clearItem(key);
       }
     }
-  }
-
-  private warnIfUnknownModel(model: string): void {
-    if (!this.resolver.hasModel(model)) {
-      console.warn(
-        `[contello/store] tracking model "${model}" which is not in models — updates for this model will be ignored`,
-      );
-    }
-  }
-
-  /**
-   * removes all index entries for one item key.
-   * cleans up the forward entry and removes the item from every reverse set it appeared in.
-   * if a reverse set becomes empty after removal, it is deleted to avoid memory leaks.
-   */
-  private clearItem(key: TKey): void {
-    const existingDeps = this.forwardIndex.get(key);
-
-    if (!existingDeps) {
-      return;
-    }
-
-    for (const dk of existingDeps) {
-      const set = this.reverseIndex.get(dk);
-
-      if (set) {
-        set.delete(key);
-
-        if (set.size === 0) {
-          this.reverseIndex.delete(dk);
-        }
-      }
-    }
-
-    this.forwardIndex.delete(key);
   }
 }

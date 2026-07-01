@@ -26,9 +26,9 @@ import {
 } from './sources';
 import { transformFragment, transformOperation } from './transform-components';
 import { transformScalarFragment, transformScalarOperation } from './transform-scalars';
-import { uncapitalize } from './utils';
+import { compareCodeUnits, uncapitalize } from './utils';
 
-const ctrlSeq = '\u001B[';
+const ctrlSeq = '\u{1B}[';
 const styled = (s: string, pre: string, post: string) => `${ctrlSeq}${pre}${s}${ctrlSeq}${post}`;
 
 const dim = (s: string) => styled(s, '2m', '22m');
@@ -47,6 +47,102 @@ function collectFragmentSpreads(fragment: FragmentDefinitionNode): Set<string> {
   });
 
   return refs;
+}
+
+function collectEntitySourceEntries(
+  fragments: Map<string, FragmentDefinitionNode>,
+  entityBindings: ReturnType<typeof indexEntitySources>,
+  transformedFragments: Map<string, FragmentDefinitionNode>,
+): SourceEntry[] {
+  const entries: SourceEntry[] = [];
+
+  for (const [name, fragment] of fragments) {
+    const entityBinding = entityBindings.get(fragment.typeCondition.name.value);
+
+    if (!entityBinding) {
+      continue;
+    }
+
+    const transformed = transformedFragments.get(name);
+
+    if (!transformed) {
+      continue;
+    }
+
+    entries.push({
+      fragmentName: name,
+      binding: {
+        cardinality: entityBinding.cardinality,
+        fieldName: entityBinding.fieldName,
+        sourceKey: entityBinding.model,
+      },
+      fragmentExpression: fragmentBundleExpression(transformed, transformedFragments),
+    });
+  }
+
+  return entries;
+}
+
+function collectBuiltInSourceEntries(
+  fragments: Map<string, FragmentDefinitionNode>,
+  builtInBindings: ReturnType<typeof indexBuiltInSources>,
+  transformedFragments: Map<string, FragmentDefinitionNode>,
+): SourceEntry[] {
+  const entries: SourceEntry[] = [];
+
+  for (const [typeName, builtInBinding] of builtInBindings) {
+    const candidates: { name: string; fragment: FragmentDefinitionNode }[] = [];
+
+    for (const [name, fragment] of fragments) {
+      if (fragment.typeCondition.name.value === typeName) {
+        candidates.push({ name, fragment });
+      }
+    }
+
+    if (candidates.length === 0) {
+      continue;
+    }
+
+    const candidateNames = new Set(candidates.map((c) => c.name));
+    const spreadByOther = new Set<string>();
+
+    for (const { name, fragment } of candidates) {
+      for (const ref of collectFragmentSpreads(fragment)) {
+        if (ref !== name && candidateNames.has(ref)) {
+          spreadByOther.add(ref);
+        }
+      }
+    }
+
+    const roots = candidates.filter((c) => !spreadByOther.has(c.name));
+    const picked = roots.length === 1 ? roots[0] : undefined;
+
+    if (!picked) {
+      throw new Error(
+        `multiple fragments target the built-in type "${typeName}" without a clear root: ${candidates
+          .map((c) => `"${c.name}"`)
+          .join(', ')}. Either have one fragment spread the others, or remove the extras.`,
+      );
+    }
+
+    const transformed = transformedFragments.get(picked.name);
+
+    if (!transformed) {
+      continue;
+    }
+
+    entries.push({
+      fragmentName: picked.name,
+      binding: {
+        cardinality: builtInBinding.cardinality,
+        fieldName: builtInBinding.fieldName,
+        sourceKey: uncapitalize(picked.name),
+      },
+      fragmentExpression: fragmentBundleExpression(transformed, transformedFragments),
+    });
+  }
+
+  return entries;
 }
 
 async function main(): Promise<void> {
@@ -71,7 +167,7 @@ async function main(): Promise<void> {
     // load .gql documents
     const patterns = Array.isArray(project.documents) ? project.documents : [project.documents];
     const resolvedPaths = await Promise.all(patterns.map((p) => Array.fromAsync(glob(p, { cwd }))));
-    const documentPaths = resolvedPaths.flat().toSorted();
+    const documentPaths = resolvedPaths.flat().toSorted(compareCodeUnits);
 
     if (documentPaths.length === 0) {
       console.warn(`  ${yellow('⚠')} no documents found matching "${project.documents}"`);
@@ -106,86 +202,14 @@ async function main(): Promise<void> {
     // source consts for entity-bound + built-in fragments (always emitted)
     const entityBindings = indexEntitySources(schema);
     const builtInBindings = indexBuiltInSources(schema);
-    const sourceEntries: SourceEntry[] = [];
 
-    // entity sources: one fragment per entity type — collected directly
-    for (const [name, fragment] of fragments) {
-      const entityBinding = entityBindings.get(fragment.typeCondition.name.value);
-
-      if (!entityBinding) {
-        continue;
-      }
-
-      const transformed = transformedFragments.get(name);
-
-      if (!transformed) {
-        continue;
-      }
-
-      sourceEntries.push({
-        fragmentName: name,
-        binding: {
-          cardinality: entityBinding.cardinality,
-          fieldName: entityBinding.fieldName,
-          sourceKey: entityBinding.model,
-        },
-        fragmentExpression: fragmentBundleExpression(transformed, transformedFragments),
-      });
-    }
-
+    // entity sources: one fragment per entity type — collected directly.
     // built-in sources: a type can have multiple fragments (e.g. MediaAsset base + StoreAsset),
     // pick the "root" — the one not spread by any other candidate fragment for the same type.
-    for (const [typeName, builtInBinding] of builtInBindings) {
-      const candidates: { name: string; fragment: FragmentDefinitionNode }[] = [];
-
-      for (const [name, fragment] of fragments) {
-        if (fragment.typeCondition.name.value === typeName) {
-          candidates.push({ name, fragment });
-        }
-      }
-
-      if (candidates.length === 0) {
-        continue;
-      }
-
-      const candidateNames = new Set(candidates.map((c) => c.name));
-      const spreadByOther = new Set<string>();
-
-      for (const { name, fragment } of candidates) {
-        for (const ref of collectFragmentSpreads(fragment)) {
-          if (ref !== name && candidateNames.has(ref)) {
-            spreadByOther.add(ref);
-          }
-        }
-      }
-
-      const roots = candidates.filter((c) => !spreadByOther.has(c.name));
-      const picked = roots.length === 1 ? roots[0] : undefined;
-
-      if (!picked) {
-        throw new Error(
-          `multiple fragments target the built-in type "${typeName}" without a clear root: ${candidates
-            .map((c) => `"${c.name}"`)
-            .join(', ')}. Either have one fragment spread the others, or remove the extras.`,
-        );
-      }
-
-      const transformed = transformedFragments.get(picked.name);
-
-      if (!transformed) {
-        continue;
-      }
-
-      sourceEntries.push({
-        fragmentName: picked.name,
-        binding: {
-          cardinality: builtInBinding.cardinality,
-          fieldName: builtInBinding.fieldName,
-          sourceKey: uncapitalize(picked.name),
-        },
-        fragmentExpression: fragmentBundleExpression(transformed, transformedFragments),
-      });
-    }
+    const sourceEntries: SourceEntry[] = [
+      ...collectEntitySourceEntries(fragments, entityBindings, transformedFragments),
+      ...collectBuiltInSourceEntries(fragments, builtInBindings, transformedFragments),
+    ];
 
     const entityModels = extractEntityModels(schema);
 
@@ -196,13 +220,13 @@ async function main(): Promise<void> {
     const clientImports = ['SourceDef'];
 
     for (const scalar of MANAGED_SCALARS) {
-      if (typeMap[scalar]) {
+      if (Object.hasOwn(typeMap, scalar)) {
         clientImports.push(scalar);
       }
     }
 
     parts.push(
-      `import type { ${clientImports.toSorted().join(', ')} } from '@contello/client';`,
+      `import type { ${clientImports.toSorted(compareCodeUnits).join(', ')} } from '@contello/client';`,
       '',
       generateSchemaTypes(schema),
       generateFragmentTypes(schema, fragments),
@@ -246,7 +270,7 @@ async function main(): Promise<void> {
 
     // models const — entity-model reference name to typename mapping
     if (entityModels.size > 0) {
-      const sorted = [...entityModels.entries()].toSorted(([a], [b]) => a.localeCompare(b));
+      const sorted = entityModels.entries().toArray().toSorted(([a], [b]) => a.localeCompare(b));
 
       parts.push('const models = {');
 
@@ -290,7 +314,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error(error);
-  process.exit(1); // eslint-disable-line unicorn/no-process-exit
-});
+  process.exit(1);
+}

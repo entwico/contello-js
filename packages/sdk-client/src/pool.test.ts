@@ -20,13 +20,17 @@ const createMockClient = () => {
       };
     }),
     dispose: vi.fn(() => {
-      for (const listener of listeners.get('closed') ?? []) {
+      const closedListeners = listeners.get('closed') ?? [];
+
+      for (const listener of closedListeners) {
         queueMicrotask(() => listener(null));
       }
     }),
     terminate: vi.fn(() => {}),
     _emit: (event: string, ...args: any[]) => {
-      for (const listener of listeners.get(event) ?? []) {
+      const eventListeners = listeners.get(event) ?? [];
+
+      for (const listener of eventListeners) {
         listener(...args);
       }
     },
@@ -73,9 +77,10 @@ describe('ConnectionPool', () => {
 
     let connected = false;
 
-    const connectPromise = pool.connect().then(() => {
+    const connectPromise = (async () => {
+      await pool.connect();
       connected = true;
-    });
+    })();
 
     // not yet connected
     await Promise.resolve();

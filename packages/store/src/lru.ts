@@ -30,6 +30,6 @@ export function createLruCache<TKey, TValue>(options: {
     clear: () => {
       lru.clear();
     },
-    keys: () => [...lru.keys()],
+    keys: () => lru.keys().toArray(),
   };
 }

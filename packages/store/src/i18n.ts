@@ -102,8 +102,8 @@ export function createI18nMessagesCollection(
   const projected = new ProjectedMap<string, I18nMessage>({
     key: (msg) => msg.id,
     values: (ids) =>
-      wrap(`i18n:${def.collection}`, () =>
-        collectAsync(
+      wrap(`i18n:${def.collection}`, async () => {
+        const msgs = await collectAsync(
           mapAsync(
             client.subscribe<{ source: StoreI18nMessageFragment[] }>(i18nSourceDoc, {
               collection: def.collection,
@@ -111,22 +111,21 @@ export function createI18nMessagesCollection(
             }),
             (data) => data.source,
           ),
-        ).then((msgs) => {
-          const items: I18nMessage[] = msgs.map((msg) => ({
-            id: msg.id,
-            token: msg.token,
-            translations: new Map(msg.translations.map((t) => [t.language, t.value])),
-          }));
+        );
+        const items: I18nMessage[] = msgs.map((msg) => ({
+          id: msg.id,
+          token: msg.token,
+          translations: new Map(msg.translations.map((t) => [t.language, t.value])),
+        }));
 
-          // start tracking refresh by ttl on first successful full fetch
-          if (ids === undefined && !loaded) {
-            loaded = true;
-            ttl.mark();
-          }
+        // start tracking refresh by ttl on first successful full fetch
+        if (ids === undefined && !loaded) {
+          loaded = true;
+          ttl.mark();
+        }
 
-          return items;
-        }),
-      ),
+        return items;
+      }),
   });
 
   function emit(ids: string[], kind: RefreshKind): void {
@@ -143,12 +142,11 @@ export function createI18nMessagesCollection(
   }
 
   function runTtlRefresh(): void {
-    refreshByTtl.enqueue(() =>
-      runWithBackoff(() => projected.refresh()).then(() => {
-        emitWithCurrentIds('ttl');
-        ttl.mark();
-      }),
-    );
+    refreshByTtl.enqueue(async () => {
+      await runWithBackoff(() => projected.refresh());
+      emitWithCurrentIds('ttl');
+      ttl.mark();
+    });
   }
 
   const scheduleRefresh = createRefresher<RefreshKind>(
@@ -173,11 +171,10 @@ export function createI18nMessagesCollection(
       return;
     }
 
-    void runWithBackoff(() =>
-      projected.refresh(upsertedIds).then(() => {
-        emit(changedIds, 'upstream-update');
-      }),
-    );
+    void runWithBackoff(async () => {
+      await projected.refresh(upsertedIds);
+      emit(changedIds, 'upstream-update');
+    });
   }
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -219,14 +216,12 @@ export function createI18nMessagesCollection(
     },
 
     register(messages: I18nMessageRegistrationDefinition[]) {
-      return wrap(`i18n-register:${def.collection}`, () =>
-        client
-          .execute<StoreRegisterI18nMessagesMutation>(storeRegisterI18nMessagesDocument, {
-            collection: def.collection,
-            messages: messages.map((message) => toGqlMessageInput(message)),
-          })
-          .then(() => {}),
-      );
+      return wrap(`i18n-register:${def.collection}`, async () => {
+        await client.execute<StoreRegisterI18nMessagesMutation>(storeRegisterI18nMessagesDocument, {
+          collection: def.collection,
+          messages: messages.map((message) => toGqlMessageInput(message)),
+        });
+      });
     },
 
     refresh() {

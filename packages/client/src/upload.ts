@@ -47,10 +47,12 @@ export function upload(
     };
 
     const abortHandler = () => {
-      if (!done) {
-        ws.close();
-        reject(new Error('upload aborted'));
+      if (done) {
+        return;
       }
+
+      ws.close();
+      reject(new Error('upload aborted'));
     };
 
     options?.abort?.addEventListener('abort', abortHandler);
@@ -115,7 +117,7 @@ export function upload(
     ws.addEventListener('open', () => {
       const initFrame: InitFrame = {
         type: 'init',
-        metadata: { ...meta, ...(size === undefined ? {} : { size }), projectRef: project },
+        metadata: { ...meta, ...(size !== undefined && { size }), projectRef: project },
         token,
       };
 

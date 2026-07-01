@@ -1,9 +1,9 @@
-import { type ComponentPropsWithRef, type ComponentPropsWithoutRef, forwardRef } from 'react';
+import type { ComponentPropsWithRef } from 'react';
 
 import { type SizesInput, resolveSizes } from '../sizes';
 import type { DeepReadonly, ImageSource } from '../types';
 
-export type ImgSpread = Omit<ComponentPropsWithoutRef<'img'>, 'src' | 'srcSet' | 'sizes'>;
+export type ImgSpread = Omit<ComponentPropsWithRef<'img'>, 'src' | 'srcSet' | 'sizes'>;
 
 export type PictureBaseProps = {
   /** pre-resolved image data — obtain via `mediaResolver.image.source(source, options?)` */
@@ -25,7 +25,7 @@ export type PictureBaseProps = {
    * render the `<picture>` as `display: contents` so its `<img>` participates
    * directly in the parent flex/grid layout (the wrapper leaves the box tree).
    */
-  transparent?: boolean | undefined;
+  unwrap?: boolean | undefined;
 } & ImgSpread;
 
 /**
@@ -43,20 +43,21 @@ function withAutoSizes(sizes: string | undefined, lazy: boolean): string | undef
 
 /**
  * shared `<picture>` renderer behind `Picture` and `Image`. renders one `<source>` per
- * format plus a fallback `<img>`; the `transparent` flag controls whether the wrapper
+ * format plus a fallback `<img>`; the `unwrap` flag controls whether the wrapper
  * collapses to `display: contents`.
  */
-export const PictureBase = forwardRef<HTMLImageElement, PictureBaseProps>(function PictureBase(props, ref) {
+export function PictureBase(props: PictureBaseProps) {
   const {
     src,
     picture: pictureProps,
     priority,
     sizes,
-    transparent,
+    unwrap,
     loading,
     fetchPriority,
     decoding,
     alt,
+    ref,
     ...imgProps
   } = props;
 
@@ -69,10 +70,10 @@ export const PictureBase = forwardRef<HTMLImageElement, PictureBaseProps>(functi
     <picture
       data-asset-id={src.id}
       {...pictureProps}
-      {...(transparent ? { style: { display: 'contents', ...pictureProps?.style } } : {})}
+      {...(unwrap ? { style: { display: 'contents', ...pictureProps?.style } } : {})}
     >
-      {src.sources?.map((source, i) => (
-        <source key={i} type={source.type} srcSet={source.srcset} sizes={sizesAttr} />
+      {src.sources?.map((source) => (
+        <source key={source.type} type={source.type} srcSet={source.srcset} sizes={sizesAttr} />
       ))}
       <img
         loading={resolvedLoading}
@@ -89,4 +90,4 @@ export const PictureBase = forwardRef<HTMLImageElement, PictureBaseProps>(functi
       />
     </picture>
   );
-});
+}

@@ -70,6 +70,8 @@ export class Store<TSchema extends Schema | undefined = undefined> {
    */
   public readonly updates$: AsyncIterable<UpdateBatch>;
 
+  public ping: () => Promise<void>;
+
   constructor(options: CreateStoreOptions<TSchema>) {
     const { url, project, token, schema } = options;
 
@@ -92,30 +94,6 @@ export class Store<TSchema extends Schema | undefined = undefined> {
     this.ping = () => this._client.ping();
   }
 
-  public get client(): ContelloClient<TSchema> {
-    return this._client;
-  }
-
-  public async init() {
-    await wrap('store:init', () => this._client.init());
-
-    this._watcher.start();
-  }
-
-  public async destroy() {
-    for (const fn of this._cleanups.splice(0)) {
-      try {
-        fn();
-      } catch {
-        // swallow — destruction is best-effort
-      }
-    }
-
-    this._watcher.stop();
-
-    await wrap('store:destroy', () => this._client.destroy());
-  }
-
   /** Resolve a string key (looked up via `schema.sources`) or a SourceDef directly to a SourceDef. */
   private _resolveSource<T extends SourceDef>(sourceOrKey: string | T): T {
     if (typeof sourceOrKey !== 'string') {
@@ -130,6 +108,31 @@ export class Store<TSchema extends Schema | undefined = undefined> {
     }
 
     return source as T;
+  }
+
+  public get client(): ContelloClient<TSchema> {
+    return this._client;
+  }
+
+  public async init() {
+    await wrap('store:init', () => this._client.init());
+
+    this._watcher.start();
+  }
+
+  public async destroy() {
+    // eslint-disable-next-line unicorn/no-unnecessary-splice -- splice(0) is used for its return value (a snapshot of the cleanups) *and* to atomically empty the array; `.length = 0` would drop the returned snapshot we iterate
+    for (const fn of this._cleanups.splice(0)) {
+      try {
+        fn();
+      } catch {
+        // swallow — destruction is best-effort
+      }
+    }
+
+    this._watcher.stop();
+
+    await wrap('store:destroy', () => this._client.destroy());
   }
 
   // --- singleton ---
@@ -329,8 +332,6 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
     return result;
   }
-
-  public ping: () => Promise<void>;
 }
 
 export function createStore<TSchema extends Schema | undefined = undefined>(

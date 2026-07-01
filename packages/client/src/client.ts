@@ -107,7 +107,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
 
           return value;
         },
-        ...(options.onError ? { onNonLazyError: (e) => options.onError!(e) } : {}),
+        ...(options.onError && { onNonLazyError: (e) => options.onError!(e) }),
         on: {
           connected: () => {
             onConnectionUp();
@@ -120,14 +120,12 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
             onConnectionDown();
             connectionEvents?.onClosed?.(context);
           },
-          ...(options.onError || connectionEvents?.onError
-            ? {
-                error: (e) => {
-                  options.onError?.(e);
-                  connectionEvents?.onError?.(context, e);
-                },
-              }
-            : {}),
+          ...((options.onError || connectionEvents?.onError) && {
+            error: (e) => {
+              options.onError?.(e);
+              connectionEvents?.onError?.(context, e);
+            },
+          }),
         },
       });
     }, connections);

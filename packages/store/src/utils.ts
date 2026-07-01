@@ -133,10 +133,12 @@ export function createTtlOrchestrator(options: { ttl: number | undefined; run: (
       timer = setTimeout(options.run, options.ttl);
     },
     clear() {
-      if (timer !== undefined) {
-        clearTimeout(timer);
-        timer = undefined;
+      if (timer === undefined) {
+        return;
       }
+
+      clearTimeout(timer);
+      timer = undefined;
     },
   };
 }
@@ -162,15 +164,16 @@ export function createRefreshByTtlQueue(): RefreshByTtlQueue {
 
     running = true;
 
-    Promise.resolve()
-      .then(task)
-      .catch(() => {
+    void (async () => {
+      try {
+        await task();
+      } catch {
         // misbehaving task — keep the queue draining
-      })
-      .finally(() => {
+      } finally {
         running = false;
         next();
-      });
+      }
+    })();
   }
 
   return {

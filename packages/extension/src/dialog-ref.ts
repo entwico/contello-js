@@ -27,7 +27,11 @@ export class ContelloDialogRef<D, T> {
   readonly close: () => void;
 
   constructor({ channel, options, controller }: ContelloDialogParams<D, T>) {
-    this.open = channel.call('openDialog', options).then(({ id }) => (this._id = id));
+    this.open = (async () => {
+      const { id } = await channel.call('openDialog', options);
+
+      this._id = id;
+    })();
     this.connected = controller.connected.promise;
     this.ready = controller.ready.promise;
     this.complete = controller.complete.promise;

@@ -7,15 +7,58 @@ let channelIdIterator = 0;
 let requestIdIterator = 0;
 
 export class ExtensionChannel<OWN extends ContelloMethods, REMOTE extends ContelloMethods> {
-  handlers = new Map();
-  listeners = new Map<string, Handler<any, any>>();
-
   private targetWindow!: Window;
   private channelId!: string;
   private targetOrigin!: string;
   private isParent!: boolean;
+  private handler = (event: MessageEvent) => {
+    if (event.data.channelId !== this.channelId) {
+      return;
+    }
+
+    if (this.targetOrigin === '*' || event.origin === this.targetOrigin) {
+      const { channelId: requestChannelId, requestId, method } = event.data;
+
+      if (requestChannelId === this.channelId) {
+        if (this.params.debug) {
+          console.log(this.isParent ? 'Parent received' : 'Child received', event.data);
+        }
+
+        if (this.handlers.has(requestId)) {
+          this.handlers.get(requestId)(event.data);
+        } else if (this.listeners.has(method)) {
+          void (async () => {
+            try {
+              const responsePayload = await this.listeners.get(method)?.(event.data.payload);
+
+              this.respond(event.data, responsePayload);
+            } catch (error) {
+              this.respondError(event.data, error);
+            }
+          })();
+        }
+      }
+    }
+  };
+
+  handlers = new Map();
+  listeners = new Map<string, Handler<any, any>>();
 
   constructor(private params: { debug: boolean }) {}
+
+  private connect() {
+    window.addEventListener('message', this.handler);
+  }
+
+  private createChannelId() {
+    return `contello-channel-${++channelIdIterator}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  private createRequestId() {
+    return `${this.isParent ? 'parent' : 'child'}-request-${++requestIdIterator}-${Math.random()
+      .toString(36)
+      .slice(2)}`;
+  }
 
   populateChannelId() {
     if (!this.channelId) {
@@ -57,37 +100,9 @@ export class ExtensionChannel<OWN extends ContelloMethods, REMOTE extends Contel
     return this.targetWindow;
   }
 
-  private connect() {
-    window.addEventListener('message', this.handler);
-  }
-
   disconnect() {
     window.removeEventListener('message', this.handler);
   }
-
-  private handler = (event: MessageEvent) => {
-    if (event.data.channelId !== this.channelId) {
-      return;
-    }
-
-    if (this.targetOrigin === '*' || event.origin === this.targetOrigin) {
-      const { channelId: requestChannelId, requestId, method } = event.data;
-
-      if (requestChannelId === this.channelId) {
-        if (this.params.debug) {
-          console.log(this.isParent ? 'Parent received' : 'Child received', event.data);
-        }
-
-        if (this.handlers.has(requestId)) {
-          this.handlers.get(requestId)(event.data);
-        } else if (this.listeners.has(method)) {
-          Promise.resolve(this.listeners.get(method)?.(event.data.payload))
-            .then((responsePayload: any) => this.respond(event.data, responsePayload))
-            .catch((error) => this.respondError(event.data, error));
-        }
-      }
-    }
-  };
 
   respond(request: ExtensionEvent, payload: ExtensionEventPayload) {
     this.send({ channelId: request.channelId, requestId: request.requestId, method: request.method, payload });
@@ -121,15 +136,5 @@ export class ExtensionChannel<OWN extends ContelloMethods, REMOTE extends Contel
 
   send(data: ExtensionEvent) {
     this.targetWindow?.postMessage(data, this.targetOrigin);
-  }
-
-  private createChannelId() {
-    return `contello-channel-${++channelIdIterator}-${Math.random().toString(36).slice(2)}`;
-  }
-
-  private createRequestId() {
-    return `${this.isParent ? 'parent' : 'child'}-request-${++requestIdIterator}-${Math.random()
-      .toString(36)
-      .slice(2)}`;
   }
 }

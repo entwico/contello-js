@@ -54,51 +54,72 @@ function addRouteByModel(
   list.push(event);
 }
 
-function createUpdateBatch(events: UpdateEvent[]): UpdateBatch {
-  const route: UpdateEventFor<'route'>[] = [];
-  const asset: UpdateEventFor<'asset'>[] = [];
-  const i18nMessage: UpdateEventFor<'i18nMessage'>[] = [];
-  const entity = new Map<string, UpdateEventFor<'entity'>[]>();
-  const routeByEntityModel = new Map<string, UpdateEventFor<'route'>[]>();
+type MutableBatch = {
+  route: UpdateEventFor<'route'>[];
+  asset: UpdateEventFor<'asset'>[];
+  i18nMessage: UpdateEventFor<'i18nMessage'>[];
+  entity: Map<string, UpdateEventFor<'entity'>[]>;
+  routeByEntityModel: Map<string, UpdateEventFor<'route'>[]>;
+};
 
-  for (const event of events) {
-    switch (event.target) {
-      case 'route': {
-        route.push(event);
+function addEventToBatch(batch: MutableBatch, event: UpdateEvent): void {
+  switch (event.target) {
+    case 'route': {
+      batch.route.push(event);
 
-        if ('after' in event && event.after.type === 'entity') {
-          addRouteByModel(routeByEntityModel, event.after.model, event);
-        }
-
-        if ('before' in event && event.before.type === 'entity') {
-          addRouteByModel(routeByEntityModel, event.before.model, event);
-        }
-
-        break;
+      if ('after' in event && event.after.type === 'entity') {
+        addRouteByModel(batch.routeByEntityModel, event.after.model, event);
       }
-      case 'asset': {
-        asset.push(event);
-        break;
-      }
-      case 'i18nMessage': {
-        i18nMessage.push(event);
-        break;
-      }
-      case 'entity': {
-        let list = entity.get(event.model);
 
-        if (!list) {
-          list = [];
-          entity.set(event.model, list);
-        }
-
-        list.push(event);
-        break;
+      if ('before' in event && event.before.type === 'entity') {
+        addRouteByModel(batch.routeByEntityModel, event.before.model, event);
       }
+
+      break;
+    }
+    case 'asset': {
+      batch.asset.push(event);
+      break;
+    }
+    case 'i18nMessage': {
+      batch.i18nMessage.push(event);
+      break;
+    }
+    case 'entity': {
+      let list = batch.entity.get(event.model);
+
+      if (!list) {
+        list = [];
+        batch.entity.set(event.model, list);
+      }
+
+      list.push(event);
+      break;
     }
   }
+}
 
-  return { events, route, asset, i18nMessage, entity, routeByEntityModel };
+function createUpdateBatch(events: UpdateEvent[]): UpdateBatch {
+  const batch: MutableBatch = {
+    route: [],
+    asset: [],
+    i18nMessage: [],
+    entity: new Map<string, UpdateEventFor<'entity'>[]>(),
+    routeByEntityModel: new Map<string, UpdateEventFor<'route'>[]>(),
+  };
+
+  for (const event of events) {
+    addEventToBatch(batch, event);
+  }
+
+  return {
+    events,
+    route: batch.route,
+    asset: batch.asset,
+    i18nMessage: batch.i18nMessage,
+    entity: batch.entity,
+    routeByEntityModel: batch.routeByEntityModel,
+  };
 }
 
 type RawBatch = NonNullable<StoreWatchUpdatesSubscription['contelloUpdatesBatch']>;

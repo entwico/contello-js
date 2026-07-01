@@ -92,21 +92,20 @@ export function createAssetsCollection(
   const projected = new ProjectedMap<string, StoreAsset>({
     key: (asset) => asset.id,
     values: (ids) =>
-      wrap('assets', () =>
-        collectAsync(
+      wrap('assets', async () => {
+        const rawItems = await collectAsync(
           mapAsync(client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }), (data) => data.source),
-        ).then((rawItems) => {
-          const items = rawItems.map((item) => mapAsset(item));
+        );
+        const items = rawItems.map((item) => mapAsset(item));
 
-          if (ids === undefined && !loaded) {
-            loaded = true;
-            ttl.mark();
-            opts.onLoad?.(items.map((a) => a.id));
-          }
+        if (ids === undefined && !loaded) {
+          loaded = true;
+          ttl.mark();
+          opts.onLoad?.(items.map((a) => a.id));
+        }
 
-          return items;
-        }),
-      ),
+        return items;
+      }),
   });
 
   function emit(ids: string[], kind: RefreshKind): void {
@@ -115,12 +114,12 @@ export function createAssetsCollection(
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(() =>
-      runWithBackoff(() =>
-        projected.refresh().then((map) => {
-          emit([...map.keys()], kind);
-          ttl.mark();
-        }),
-      ),
+      runWithBackoff(async () => {
+        const map = await projected.refresh();
+
+        emit(map.keys().toArray(), kind);
+        ttl.mark();
+      }),
     );
   }
 
@@ -133,11 +132,10 @@ export function createAssetsCollection(
       return;
     }
 
-    void runWithBackoff(() =>
-      projected.refresh(refreshIds).then(() => {
-        emit(changedIds, 'upstream-update');
-      }),
-    );
+    void runWithBackoff(async () => {
+      await projected.refresh(refreshIds);
+      emit(changedIds, 'upstream-update');
+    });
   }
 
   const unsubUpdates = updates$.subscribe((batch) => {

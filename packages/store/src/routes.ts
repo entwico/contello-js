@@ -75,64 +75,65 @@ export function createRoutesCollection(
   const projected = new ProjectedMap<string, StoreRoute>({
     key: (route) => route.id,
     values: (ids) =>
-      wrap('routes', () =>
-        collectAsync(
+      wrap('routes', async () => {
+        const rawItems = await collectAsync(
           mapAsync(client.subscribe<{ source: StoreRouteFragment[] }>(routesSourceDoc, { ids }), (data) => data.source),
-        ).then((rawItems) => {
-          const items = rawItems.reduce<StoreRoute[]>((acc, raw) => {
-            const mapped = mapRoute(raw, resolver);
+        );
+        const items = rawItems.reduce<StoreRoute[]>((acc, raw) => {
+          const mapped = mapRoute(raw, resolver);
 
-            if (mapped) {
-              acc.push(mapped);
+          if (mapped) {
+            acc.push(mapped);
+          }
+
+          return acc;
+        }, []);
+
+        if (ids === undefined) {
+          pathById.clear();
+          idByPath.clear();
+
+          for (const r of items) {
+            pathById.set(r.id, r.path);
+            idByPath.set(r.path, r.id);
+          }
+
+          if (!loaded) {
+            loaded = true;
+            ttl.mark();
+            opts.onLoad?.(items.map((r) => r.id));
+          }
+        } else {
+          const returnedIds = new Set(items.map((r) => r.id));
+
+          // requested ids missing from the response = deleted; drop their path entries
+          for (const id of ids) {
+            if (returnedIds.has(id)) {
+              continue;
             }
 
-            return acc;
-          }, []);
+            const oldPath = pathById.get(id);
 
-          if (ids === undefined) {
-            pathById.clear();
-            idByPath.clear();
-
-            for (const r of items) {
-              pathById.set(r.id, r.path);
-              idByPath.set(r.path, r.id);
-            }
-
-            if (!loaded) {
-              loaded = true;
-              ttl.mark();
-              opts.onLoad?.(items.map((r) => r.id));
-            }
-          } else {
-            const returnedIds = new Set(items.map((r) => r.id));
-
-            // requested ids missing from the response = deleted; drop their path entries
-            for (const id of ids) {
-              if (!returnedIds.has(id)) {
-                const oldPath = pathById.get(id);
-
-                if (oldPath !== undefined) {
-                  idByPath.delete(oldPath);
-                  pathById.delete(id);
-                }
-              }
-            }
-
-            for (const r of items) {
-              const oldPath = pathById.get(r.id);
-
-              if (oldPath !== undefined && oldPath !== r.path) {
-                idByPath.delete(oldPath);
-              }
-
-              pathById.set(r.id, r.path);
-              idByPath.set(r.path, r.id);
+            if (oldPath !== undefined) {
+              idByPath.delete(oldPath);
+              pathById.delete(id);
             }
           }
 
-          return items;
-        }),
-      ),
+          for (const r of items) {
+            const oldPath = pathById.get(r.id);
+
+            if (oldPath !== undefined && oldPath !== r.path) {
+              idByPath.delete(oldPath);
+            }
+
+            pathById.set(r.id, r.path);
+            idByPath.set(r.path, r.id);
+          }
+        }
+
+        return items;
+      }),
   });
 
   function emit(ids: string[], kind: RefreshKind): void {
@@ -141,12 +142,12 @@ export function createRoutesCollection(
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(() =>
-      runWithBackoff(() =>
-        projected.refresh().then((map) => {
-          emit([...map.keys()], kind);
-          ttl.mark();
-        }),
-      ),
+      runWithBackoff(async () => {
+        const map = await projected.refresh();
+
+        emit(map.keys().toArray(), kind);
+        ttl.mark();
+      }),
     );
   }
 
@@ -159,11 +160,10 @@ export function createRoutesCollection(
       return;
     }
 
-    void runWithBackoff(() =>
-      projected.refresh(refreshIds).then(() => {
-        emit(changedIds, 'upstream-update');
-      }),
-    );
+    void runWithBackoff(async () => {
+      await projected.refresh(refreshIds);
+      emit(changedIds, 'upstream-update');
+    });
   }
 
   const unsubUpdates = updates$.subscribe((batch) => {

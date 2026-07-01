@@ -184,7 +184,7 @@ export class MediaResolver<HasDefault extends boolean = false> {
       return EMPTY_IMAGE;
     }
 
-    const formats = options?.formats ?? this.config.formats;
+    const formats = [...new Set(options?.formats ?? this.config.formats)];
     const byType = groupVariantsByType(def.variants);
     const sources: NonNullable<ImageSource['sources']> = [];
 
@@ -434,14 +434,15 @@ function groupVariantsByType(variants: ImageDefVariant[]): Map<string, ImageDefV
 // browser discards one). keep the first after the ascending sort.
 function toSrcset(variants: ImageDefVariant[]): string {
   const byWidth = new Map<number, ImageDefVariant>();
+  const sorted = [...variants].toSorted((a, b) => a.width - b.width);
 
-  for (const v of [...variants].toSorted((a, b) => a.width - b.width)) {
+  for (const v of sorted) {
     if (!byWidth.has(v.width)) {
       byWidth.set(v.width, v);
     }
   }
 
-  return [...byWidth.values()].map((v) => `${v.url} ${v.width}w`).join(', ');
+  return byWidth.values().map((v) => `${v.url} ${v.width}w`).toArray().join(', ');
 }
 
 /**
@@ -468,9 +469,8 @@ function pickVariant(
 
   const inRange = variants.filter((v) => {
     if (minWidth !== undefined && v.width < minWidth) return false;
-    if (maxWidth !== undefined && v.width > maxWidth) return false;
 
-    return true;
+    return !(maxWidth !== undefined && v.width > maxWidth);
   });
 
   if (inRange.length > 0) {

@@ -5,6 +5,10 @@ packages:
 overrides:
   vite: ^8.0.0
 
+peerDependencyRules:
+  allowedVersions:
+    'eslint-plugin-jsx-a11y>eslint': '10' # works fine on v10
+
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:

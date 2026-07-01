@@ -22,7 +22,7 @@ export class ConnectionPool {
 
     for (let i = 0; i < this._poolSize; i++) {
       const index = i;
-      const client = this._createClient(`${i + 1}`);
+      const client = this._createClient(String(i + 1));
 
       this._clients.push(client);
       this._connected.push(false);
@@ -69,7 +69,7 @@ export class ConnectionPool {
     for (let i = 0; i < this._clients.length; i++) {
       const index = (this._currentIndex + i) % this._clients.length;
 
-      if (this._connected[index]) {
+      if (this._connected[index] === true) {
         this._currentIndex = (index + 1) % this._clients.length;
 
         return this._clients[index]!;

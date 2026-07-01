@@ -15,14 +15,16 @@ export class ContelloCustomProperty extends ContelloClient<
   ContelloCustomPropertyChildMethods,
   ContelloCustomPropertyParentMethods
 > {
-  static connect(options: ContelloCustomPropertyOptions) {
+  static async connect(options: ContelloCustomPropertyOptions) {
     const { targetOrigin, channelId, applicationId, debug } = parseUrl(options.trustedOrigins);
     const customProperty = new ContelloCustomProperty(targetOrigin, channelId, applicationId, debug);
 
     customProperty.validate = options.validator || (() => true);
     customProperty.newValue = options.newValue || (() => null);
 
-    return customProperty.connect().then(() => customProperty);
+    await customProperty.connect();
+
+    return customProperty;
   }
 
   validate = () => true;

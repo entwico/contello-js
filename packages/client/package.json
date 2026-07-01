@@ -11,7 +11,7 @@
     "directory": "packages/client"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit"

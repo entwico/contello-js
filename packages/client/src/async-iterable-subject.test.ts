@@ -7,7 +7,11 @@ describe('createAsyncIterableSubject', () => {
     const s = createAsyncIterableSubject<number>();
     const got: number[] = [];
 
-    const unsub = s.subscribe({ next: (v) => got.push(v) });
+    const unsub = s.subscribe({
+      next: (v) => {
+        got.push(v);
+      },
+    });
 
     s.next(1);
     s.next(2);
@@ -22,8 +26,16 @@ describe('createAsyncIterableSubject', () => {
     const a: number[] = [];
     const b: number[] = [];
 
-    s.subscribe({ next: (v) => a.push(v) });
-    s.subscribe({ next: (v) => b.push(v) });
+    s.subscribe({
+      next: (v) => {
+        a.push(v);
+      },
+    });
+    s.subscribe({
+      next: (v) => {
+        b.push(v);
+      },
+    });
 
     s.next(1);
     s.next(2);

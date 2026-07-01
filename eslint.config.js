@@ -4,8 +4,16 @@ export default defineConfig({
   root: import.meta.dirname,
   react: true,
   astro: true,
-  ignores: ['**/generated/**', '**/tsup.config.ts', '**/contello.config.ts'],
+  ignores: ['**/generated/**', '**/tsdown.config.ts', '**/contello.config.ts'],
   extra: [
+    {
+      // @contello/media is framework-agnostic
+      // import.meta.env.SSR is not always available
+      files: ['packages/media/**'],
+      rules: {
+        '@astroscope/prefer-ssr-guard': 'off',
+      },
+    },
     {
       files: ['**/*.test.{ts,tsx}'],
       rules: {

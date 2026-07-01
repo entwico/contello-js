@@ -60,7 +60,9 @@ export class ContelloSdkClient<T> {
             if (!key) {
               let message = value;
 
-              for (const middleware of params.middlewares ?? []) {
+              const middlewares = params.middlewares ?? [];
+
+              for (const middleware of middlewares) {
                 if (middleware.onOutgoingMessage) {
                   message = middleware.onOutgoingMessage(message);
                 }
@@ -71,16 +73,16 @@ export class ContelloSdkClient<T> {
 
             return value;
           },
-          ...(client?.onError ? { onNonLazyError: (e) => client!.onError!(context, e) } : {}),
+          ...(client?.onError && { onNonLazyError: (e) => client!.onError!(context, e) }),
           on: {
-            ...(client?.onError ? { error: (e) => client!.onError!(context, e) } : {}),
-            ...(client?.onConnected ? { connected: () => client!.onConnected!(context) } : {}),
-            ...(client?.onClosed ? { closed: () => client!.onClosed!(context) } : {}),
-            ...(client?.onConnecting ? { connecting: () => client!.onConnecting!(context) } : {}),
-            ...(client?.onOpened ? { opened: () => client!.onOpened!(context) } : {}),
-            ...(client?.onMessage ? { message: (m) => client!.onMessage!(context, m) } : {}),
-            ...(client?.onPing ? { ping: () => client!.onPing!(context) } : {}),
-            ...(client?.onPong ? { pong: () => client!.onPong!(context) } : {}),
+            ...(client?.onError && { error: (e) => client!.onError!(context, e) }),
+            ...(client?.onConnected && { connected: () => client!.onConnected!(context) }),
+            ...(client?.onClosed && { closed: () => client!.onClosed!(context) }),
+            ...(client?.onConnecting && { connecting: () => client!.onConnecting!(context) }),
+            ...(client?.onOpened && { opened: () => client!.onOpened!(context) }),
+            ...(client?.onMessage && { message: (m) => client!.onMessage!(context, m) }),
+            ...(client?.onPing && { ping: () => client!.onPing!(context) }),
+            ...(client?.onPong && { pong: () => client!.onPong!(context) }),
           },
         });
       },

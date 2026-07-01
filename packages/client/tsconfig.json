@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "ESNext.Array"],
+    "lib": ["ES2024", "ESNext.Array", "ESNext.Iterator"],
     "types": ["node"]
   },
   "include": ["src"]

@@ -44,10 +44,13 @@ function isComponentSubtype(schema: GraphQLSchema, typeName: string): boolean {
  * unwraps NonNull and List wrappers to get the named type.
  */
 function getNamedTypeName(type: any): string | undefined {
-  if (isNonNullType(type)) return getNamedTypeName(type.ofType);
-  if (isListType(type)) return getNamedTypeName(type.ofType);
+  let current = type;
 
-  return type?.name;
+  while (isNonNullType(current) || isListType(current)) {
+    current = current.ofType;
+  }
+
+  return current?.name;
 }
 
 /**
@@ -149,7 +152,7 @@ function transformSelectionSet(
       if (namedTypeName && isComponentUnion(schema, namedTypeName) && selection.selectionSet) {
         const flatFieldName = `${FLAT_PREFIX}${fieldName}`;
 
-        if (!parentFields[flatFieldName]) {
+        if (!Object.hasOwn(parentFields, flatFieldName)) {
           newSelections.push(selection);
 
           continue;

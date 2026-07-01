@@ -11,7 +11,7 @@
     "directory": "packages/store"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "generate": "node --env-file=../../.env ../client/dist/cli.js generate",
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix",

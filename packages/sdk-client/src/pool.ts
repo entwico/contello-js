@@ -13,7 +13,7 @@ export class ConnectionPool {
     const connected: Promise<void>[] = [];
 
     for (let i = 0; i < this.poolSize; i++) {
-      const client = this.createClient(`${i + 1}`);
+      const client = this.createClient(String(i + 1));
       this.clients.push(client);
 
       connected.push(

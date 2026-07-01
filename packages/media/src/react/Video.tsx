@@ -1,8 +1,8 @@
-import { type ComponentPropsWithoutRef, forwardRef, useCallback, useRef } from 'react';
+import { type ComponentPropsWithRef, useCallback, useRef } from 'react';
 
 import { useHlsPlayback } from './useHlsPlayback';
 
-type VideoSpread = Omit<ComponentPropsWithoutRef<'video'>, 'src' | 'poster'>;
+type VideoSpread = Omit<ComponentPropsWithRef<'video'>, 'src' | 'poster'>;
 
 export type VideoProps = {
   /** pre-resolved HLS manifest URL — obtain via `mediaResolver.video.m3u8(source)` */
@@ -22,8 +22,8 @@ export type VideoProps = {
  * `mediaResolver.image.url(source, 'videoPoster')` to produce them at the
  * mapping layer.
  */
-export const Video = forwardRef<HTMLVideoElement, VideoProps>(function Video(props, forwardedRef) {
-  const { src, poster, children, ...rest } = props;
+export function Video(props: VideoProps) {
+  const { src, poster, children, ref: forwardedRef, ...rest } = props;
 
   const internalRef = useRef<HTMLVideoElement | null>(null);
 
@@ -48,4 +48,4 @@ export const Video = forwardRef<HTMLVideoElement, VideoProps>(function Video(pro
       {children}
     </video>
   );
-});
+}

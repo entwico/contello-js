@@ -386,7 +386,7 @@ describe('transformOperation with fragment spreads', () => {
     const attrsPrinted = print(transformedFragments.get('Attrs')!);
     const entityPrinted = print(transformedFragments.get('Entity')!);
     const innerPrinted = print(transformedFragments.get('Inner')!);
-    const fullDoc = [print(transformedOp), ...[...transformedFragments.values()].map((f) => print(f))].join('\n\n');
+    const fullDoc = [print(transformedOp), ...transformedFragments.values().map((f) => print(f))].join('\n\n');
 
     // the companion is owned by the fragment whose type declares the component field
     expect(attrsPrinted).toContain('_flat_content');
@@ -449,7 +449,7 @@ describe('transformOperation with fragment spreads', () => {
     const transformedOp = transformOperation(schema, op, transformedFragments);
 
     const transformedDoc = parse(
-      [print(transformedOp), ...[...transformedFragments.values()].map((f) => print(f))].join('\n\n'),
+      [print(transformedOp), ...transformedFragments.values().map((f) => print(f))].join('\n\n'),
     );
     const errors = validate(schema, transformedDoc);
 

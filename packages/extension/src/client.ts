@@ -6,14 +6,8 @@ import { Deferred } from './utils';
 type ContelloEntityDetailParams = { mode: 'create' } | { mode: 'edit'; id: string } | { mode: 'clone'; id: string };
 
 export class ContelloClient<D, O extends ContelloClientChildMethods, R extends ContelloClientParentMethods> {
-  protected channel: ExtensionChannel<O, R>;
-  protected projectId: string;
   private resizeObserver?: ResizeObserver;
-
   private targetOrigin: string;
-
-  data?: D;
-
   private dialogs = new Map<
     ContelloDialogRef<any, any>,
     {
@@ -23,6 +17,11 @@ export class ContelloClient<D, O extends ContelloClientChildMethods, R extends C
     }
   >();
 
+  protected channel: ExtensionChannel<O, R>;
+  protected projectId: string;
+
+  data?: D;
+
   constructor(targetOrigin: string, channelId: string, projectId: string, debug: boolean) {
     this.channel = new ExtensionChannel({ debug });
     this.channel.connectParent(targetOrigin, channelId);
@@ -30,14 +29,41 @@ export class ContelloClient<D, O extends ContelloClientChildMethods, R extends C
     this.targetOrigin = targetOrigin;
   }
 
-  connect() {
-    return this.channel.call('connect').then(({ data }) => {
-      this.channel.on('dialogConnect', ({ id }) => this.getDialogController(id)?.connected.resolve());
-      this.channel.on('dialogReady', ({ id }) => this.getDialogController(id)?.ready.resolve());
-      this.channel.on('dialogComplete', ({ id, value }) => this.getDialogController(id)?.complete.resolve(value));
+  private createEntityEntryUrl(referenceName: string): string {
+    return `${this.createProjectUrl()}/entities/${referenceName}`;
+  }
 
-      this.data = data;
+  private listenForResize() {
+    this.resizeObserver = new ResizeObserver(() => {
+      this.channel.call('resize', { height: this.getWindowHeight() });
     });
+
+    this.resizeObserver.observe(document.documentElement);
+  }
+
+  private getWindowHeight() {
+    // adapted from https://javascript.info/size-and-scroll-window
+    return Math.max(document.body.scrollHeight, document.body.offsetHeight, document.body.clientHeight);
+  }
+
+  private getDialogController(id: string) {
+    const key = this.dialogs.keys().find((dialog) => dialog.id === id);
+
+    if (!key) {
+      return;
+    }
+
+    return this.dialogs.get(key);
+  }
+
+  async connect() {
+    const { data } = await this.channel.call('connect');
+
+    this.channel.on('dialogConnect', ({ id }) => this.getDialogController(id)?.connected.resolve());
+    this.channel.on('dialogReady', ({ id }) => this.getDialogController(id)?.ready.resolve());
+    this.channel.on('dialogComplete', ({ id, value }) => this.getDialogController(id)?.complete.resolve(value));
+
+    this.data = data;
   }
 
   ready() {
@@ -46,16 +72,14 @@ export class ContelloClient<D, O extends ContelloClientChildMethods, R extends C
     return this.channel.call('ready', { height: this.getWindowHeight() });
   }
 
-  getAuthToken(): Promise<string> {
-    return this.channel.call('getAuthToken').then(({ token }) => token);
+  async getAuthToken(): Promise<string> {
+    const { token } = await this.channel.call('getAuthToken');
+
+    return token;
   }
 
   createProjectUrl() {
     return `${this.targetOrigin}/ui/projects/${this.projectId}`;
-  }
-
-  private createEntityEntryUrl(referenceName: string): string {
-    return `${this.createProjectUrl()}/entities/${referenceName}`;
   }
 
   createSingletonEntityUrl(referenceName: string): string {
@@ -119,31 +143,12 @@ export class ContelloClient<D, O extends ContelloClientChildMethods, R extends C
 
     this.dialogs.set(dialog, controller);
 
-    dialog.complete.then(() => this.dialogs.delete(dialog));
+    void (async () => {
+      await dialog.complete;
+
+      this.dialogs.delete(dialog);
+    })();
 
     return dialog;
-  }
-
-  private listenForResize() {
-    this.resizeObserver = new ResizeObserver(() => {
-      this.channel.call('resize', { height: this.getWindowHeight() });
-    });
-
-    this.resizeObserver.observe(document.documentElement);
-  }
-
-  private getWindowHeight() {
-    // adapted from https://javascript.info/size-and-scroll-window
-    return Math.max(document.body.scrollHeight, document.body.offsetHeight, document.body.clientHeight);
-  }
-
-  private getDialogController(id: string) {
-    const key = [...this.dialogs.keys()].find((dialog) => dialog.id === id);
-
-    if (!key) {
-      return;
-    }
-
-    return this.dialogs.get(key);
   }
 }

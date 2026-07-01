@@ -1,4 +1,4 @@
-import { defineConfig } from 'tsup';
+import { defineConfig } from 'tsdown';
 
 // `src/fragments.ts` uses `import.meta.url` to resolve bundled .gql file paths
 // at runtime — ESM-only syntax. it builds as its own entry (CJS would compile to
@@ -11,12 +11,14 @@ export default defineConfig([
     format: ['esm'],
     dts: true,
     clean: true,
+    fixedExtension: false,
   },
   {
     entry: { index: 'src/index.ts', react: 'src/react/index.ts' },
     format: ['esm', 'cjs'],
     dts: true,
     clean: false,
+    fixedExtension: false,
     external: ['react', 'react/jsx-runtime'],
   },
 ]);

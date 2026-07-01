@@ -1,5 +1,5 @@
 // module marker for top-level await
-export {}; // eslint-disable-line unicorn/require-module-specifiers
+export {};
 
 const command = process.argv[2];
 
@@ -15,6 +15,6 @@ switch (command) {
     console.error('');
     console.error('commands:');
     console.error('  generate    generate TypeScript types from GraphQL schema');
-    process.exit(1); // eslint-disable-line unicorn/no-process-exit
+    process.exit(1);
   }
 }

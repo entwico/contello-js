@@ -30,8 +30,8 @@ export function transformVariables<T>(value: T): T {
   const obj = value as Record<string, unknown>;
   const out: Record<string, unknown> = {};
 
-  for (const key of Object.keys(obj)) {
-    out[key] = transformVariables(obj[key]);
+  for (const [key, val] of Object.entries(obj)) {
+    out[key] = transformVariables(val);
   }
 
   return out as unknown as T;

@@ -157,7 +157,7 @@ describe('isRichTextDocumentEmpty', () => {
   test('only whitespace', () => {
     const doc: RichTextDocument = {
       type: 'doc',
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: '   ' }] }],
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: ' '.repeat(3) }] }],
     };
 
     expect(isRichTextDocumentEmpty(doc)).toBe(true);

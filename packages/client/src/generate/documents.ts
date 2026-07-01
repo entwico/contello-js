@@ -33,21 +33,23 @@ export function collectOperations(documents: DocumentNode[]): OperationDefinitio
   const operations: OperationDefinitionNode[] = [];
   const seen = new Set<string>();
 
-  for (const doc of documents) {
-    for (const def of doc.definitions) {
-      if (def.kind === Kind.OPERATION_DEFINITION) {
-        if (!def.name) {
-          throw new Error(`unnamed operations are not supported:\n\n${print(def)}`);
-        }
+  const definitions = documents.flatMap((doc) => doc.definitions);
 
-        if (seen.has(def.name.value)) {
-          throw new Error(`duplicate operation name: "${def.name.value}"`);
-        }
-
-        seen.add(def.name.value);
-        operations.push(def);
-      }
+  for (const def of definitions) {
+    if (def.kind !== Kind.OPERATION_DEFINITION) {
+      continue;
     }
+
+    if (!def.name) {
+      throw new Error(`unnamed operations are not supported:\n\n${print(def)}`);
+    }
+
+    if (seen.has(def.name.value)) {
+      throw new Error(`duplicate operation name: "${def.name.value}"`);
+    }
+
+    seen.add(def.name.value);
+    operations.push(def);
   }
 
   return operations;
@@ -216,12 +218,9 @@ export function fragmentBundleExpression(
 
 /** Emits `const <Name>FragmentSchema = \`...\`;` for each (transformed) fragment. */
 export function generateFragmentSchemas(fragments: Map<string, FragmentDefinitionNode>): string {
-  const sorted = [...fragments.values()].toSorted((a, b) => a.name.value.localeCompare(b.name.value));
-  const lines: string[] = [];
+  const sorted = fragments.values().toArray().toSorted((a, b) => a.name.value.localeCompare(b.name.value));
 
-  for (const fragment of sorted) {
-    lines.push(`const ${fragment.name.value}FragmentSchema = \`${print(fragment)}\`;`);
-  }
-
-  return lines.join('\n');
+  return sorted
+    .map((fragment) => `const ${fragment.name.value}FragmentSchema = \`${print(fragment)}\`;`)
+    .join('\n');
 }

@@ -1,4 +1,4 @@
-import { defineConfig } from 'tsup';
+import { defineConfig } from 'tsdown';
 
 export default defineConfig([
   {
@@ -6,10 +6,13 @@ export default defineConfig([
     format: ['esm', 'cjs'],
     dts: true,
     clean: true,
+    fixedExtension: false,
   },
   {
     entry: { cli: 'src/cli.ts' },
     format: ['esm'],
+    clean: false,
+    fixedExtension: false,
     banner: { js: '#!/usr/bin/env node' },
   },
 ]);

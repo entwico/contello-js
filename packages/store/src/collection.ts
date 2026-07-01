@@ -68,8 +68,9 @@ export function createCollection<
     key: (item) => item.id,
     values: (ids) =>
       wrap(`collection:${_def.name}`, () =>
-        maybeThen(fetchCollection(source, client, ids), (rawItems) =>
-          Promise.all(
+        maybeThen(fetchCollection(source, client, ids), async (rawItems) => {
+          // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
+          const items = await Promise.all(
             rawItems.map((item) =>
               Promise.resolve(
                 dependencyCollector.createContext((ref, register) =>
@@ -81,29 +82,29 @@ export function createCollection<
                 ),
               ),
             ),
-          ).then((items) => {
-            if (ids === undefined) {
-              dependencyCollector.retainOnly(new Set(items.map((item) => item.id)));
+          );
 
-              // start tracking refresh by ttl on first successful full fetch
-              if (!loaded) {
-                loaded = true;
-                ttl.mark();
-                opts.onLoad?.(items.map((item) => item.id));
-              }
-            } else {
-              const returnedIds = new Set(items.map((item) => item.id));
+          if (ids === undefined) {
+            dependencyCollector.retainOnly(new Set(items.map((item) => item.id)));
 
-              for (const id of ids) {
-                if (!returnedIds.has(id)) {
-                  dependencyCollector.removeItem(id);
-                }
+            // start tracking refresh by ttl on first successful full fetch
+            if (!loaded) {
+              loaded = true;
+              ttl.mark();
+              opts.onLoad?.(items.map((item) => item.id));
+            }
+          } else {
+            const returnedIds = new Set(items.map((item) => item.id));
+
+            for (const id of ids) {
+              if (!returnedIds.has(id)) {
+                dependencyCollector.removeItem(id);
               }
             }
+          }
 
-            return items;
-          }),
-        ),
+          return items;
+        }),
       ),
     sort: opts.sort,
   });
@@ -114,12 +115,12 @@ export function createCollection<
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(() =>
-      runWithBackoff(() =>
-        projected.refresh().then((map) => {
-          emit([...map.keys()], kind);
-          ttl.mark();
-        }),
-      ),
+      runWithBackoff(async () => {
+        const map = await projected.refresh();
+
+        emit(map.keys().toArray(), kind);
+        ttl.mark();
+      }),
     );
   }
 
@@ -132,11 +133,10 @@ export function createCollection<
       return;
     }
 
-    void runWithBackoff(() =>
-      projected.refresh(refreshIds).then(() => {
-        emit(changedIds, 'upstream-update');
-      }),
-    );
+    void runWithBackoff(async () => {
+      await projected.refresh(refreshIds);
+      emit(changedIds, 'upstream-update');
+    });
   }
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -183,7 +183,7 @@ export function createCollection<
       projected.delete(deleted);
     }
 
-    const refreshIds = new Set([...upserted, ...depAffected]);
+    const refreshIds = upserted.union(depAffected);
 
     for (const id of deleted) {
       refreshIds.delete(id);

@@ -1,8 +1,6 @@
-import { forwardRef } from 'react';
-
 import { PictureBase, type PictureBaseProps } from './PictureBase';
 
-export type PictureProps = Omit<PictureBaseProps, 'transparent'>;
+export type PictureProps = Omit<PictureBaseProps, 'unwrap'>;
 
 /**
  * renders a `<picture>` with one `<source>` per format (using `srcset`+`sizes`
@@ -18,8 +16,8 @@ export type PictureProps = Omit<PictureBaseProps, 'transparent'>;
  * fetchPriority, ARIA, event handlers); the `picture={{...}}` prop targets the outer `<picture>`.
  *
  * for flex/grid slots where the `<picture>` wrapper interferes with layout, use
- * `Image` instead — it renders the same markup with a transparent wrapper.
+ * `Image` instead — it renders the same markup with an unwrapped wrapper.
  */
-export const Picture = forwardRef<HTMLImageElement, PictureProps>(function Picture(props, ref) {
-  return <PictureBase {...props} ref={ref} />;
-});
+export function Picture(props: PictureProps) {
+  return <PictureBase {...props} />;
+}

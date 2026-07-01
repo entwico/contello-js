@@ -52,6 +52,7 @@ export function createLazyCollection<
     onEvict: (_value, key) => dependencyCollector.removeItem(key),
   });
 
+  // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
   const projected = new ProjectedLazyMap<string, TMapped>({
     key: (item) => item.id,
     values: (keys) =>

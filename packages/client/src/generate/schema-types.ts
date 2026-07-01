@@ -16,23 +16,27 @@ import {
   isUnionType,
 } from 'graphql';
 import { DEFAULT_CUSTOM_SCALAR, SCALAR_MAP, resolveScalarType } from './scalar-types';
-import { deriveModelName } from './utils';
+import { compareCodeUnits, deriveModelName } from './utils';
 
 function typeToTs(type: GraphQLType, nonNull = false): string {
-  if (isNonNullType(type)) {
-    return typeToTs(type.ofType, true);
+  let current = type;
+  let isNonNullWrapped = nonNull;
+
+  while (isNonNullType(current)) {
+    current = current.ofType;
+    isNonNullWrapped = true;
   }
 
-  if (isListType(type)) {
-    const inner = typeToTs(type.ofType);
+  if (isListType(current)) {
+    const inner = typeToTs(current.ofType);
     const wrapped = inner.includes(' | ') ? `(${inner})` : inner;
 
-    return nonNull ? `${wrapped}[]` : `${wrapped}[] | undefined`;
+    return isNonNullWrapped ? `${wrapped}[]` : `${wrapped}[] | undefined`;
   }
 
-  const name = isScalarType(type) ? resolveScalarType(type.name) : type.name;
+  const name = isScalarType(current) ? resolveScalarType(current.name) : current.name;
 
-  return nonNull ? name : `${name} | undefined`;
+  return isNonNullWrapped ? name : `${name} | undefined`;
 }
 
 function inputTypeToTs(type: GraphQLType, nonNull = false): string {
@@ -43,7 +47,7 @@ function generateEnum(type: GraphQLEnumType): string {
   const values = type
     .getValues()
     .map((v) => `'${v.value}'`)
-    .toSorted()
+    .toSorted(compareCodeUnits)
     .join(' | ');
 
   return `export type ${type.name} = ${values};`;
@@ -90,7 +94,7 @@ function generateUnion(type: GraphQLUnionType): string {
   const members = type
     .getTypes()
     .map((t) => t.name)
-    .toSorted();
+    .toSorted(compareCodeUnits);
 
   return `export type ${type.name} = ${members.join(' | ')};`;
 }
@@ -107,7 +111,7 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
 
   // scalars (as a reference type)
   const customScalars = Object.values(typeMap)
-    .filter((t) => isScalarType(t) && !isInternalType(t.name) && !SCALAR_MAP[t.name])
+    .filter((t) => isScalarType(t) && !isInternalType(t.name) && !Object.hasOwn(SCALAR_MAP, t.name))
     .toSorted(byName);
 
   if (customScalars.length > 0) {

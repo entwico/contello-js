@@ -88,11 +88,13 @@ export function createLazyAssetsCollection(
   const projected = new ProjectedLazyMap<string, StoreAsset>({
     key: (asset) => asset.id,
     values: (ids) =>
-      wrap('assets', () =>
-        collectAsync(
+      wrap('assets', async () => {
+        const rawItems = await collectAsync(
           mapAsync(client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }), (data) => data.source),
-        ).then((rawItems) => rawItems.map((item) => mapAsset(item))),
-      ),
+        );
+
+        return rawItems.map((item) => mapAsset(item));
+      }),
     cache,
   });
 

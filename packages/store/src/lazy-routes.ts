@@ -160,7 +160,7 @@ export function createLazyRoutesCollection(
   const projected = new ProjectedLazyMap<string, StoreRoute>({
     key: (route) => (route as Record<symbol, string>)[CACHE_KEY] ?? ID_PREFIX + route.id,
     values: (prefixedKeys) =>
-      wrap('routes', () => {
+      wrap('routes', async () => {
         const ids: string[] = [];
         const paths: string[] = [];
 
@@ -174,14 +174,15 @@ export function createLazyRoutesCollection(
           }
         }
 
-        return Promise.all([
-          ids.length > 0
-            ? fetchRoutes({ ids }).then((raw) => collectRoutes(raw, (r) => ID_PREFIX + r.id, resolver))
-            : Promise.resolve([]),
-          paths.length > 0
-            ? fetchRoutes({ paths }).then((raw) => collectRoutes(raw, (r) => PATH_PREFIX + r.path, resolver))
-            : Promise.resolve([]),
-        ]).then(([byIds, byPaths]) => [...byIds, ...byPaths]);
+        const [rawByIds, rawByPaths] = await Promise.all([
+          ids.length > 0 ? fetchRoutes({ ids }) : Promise.resolve<StoreRouteFragment[]>([]),
+          paths.length > 0 ? fetchRoutes({ paths }) : Promise.resolve<StoreRouteFragment[]>([]),
+        ]);
+
+        const byIds = collectRoutes(rawByIds, (r) => ID_PREFIX + r.id, resolver);
+        const byPaths = collectRoutes(rawByPaths, (r) => PATH_PREFIX + r.path, resolver);
+
+        return [...byIds, ...byPaths];
       }),
     cache,
   });
