@@ -1,5 +1,11 @@
 # @contello/media
 
+## 2.0.2
+
+### Patch Changes
+
+- 843b64c: deduplicate picture formats so a repeated `pictureFormats` entry no longer emits duplicate `<source>` tags
+
 ## 2.0.1
 
 ### Patch Changes

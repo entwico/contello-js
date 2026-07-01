@@ -1,5 +1,11 @@
 # @contello/opentelemetry
 
+## 1.0.3
+
+### Patch Changes
+
+- 843b64c: rebuilt under the TypeScript 6 / ESLint 10 toolchain (tsdown bundler) — internal changes only, no public API or behavior changes
+
 ## 1.0.2
 
 ### Patch Changes

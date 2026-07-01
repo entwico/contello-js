@@ -1,5 +1,11 @@
 # @contello/rich-text
 
+## 8.22.1
+
+### Patch Changes
+
+- 843b64c: rebuilt under the TypeScript 6 / ESLint 10 toolchain (tsdown bundler) — internal changes only, no public API or behavior changes
+
 ## 8.22.0
 
 ### Minor Changes

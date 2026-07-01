@@ -1,5 +1,11 @@
 # @contello/uploader
 
+## 8.21.5
+
+### Patch Changes
+
+- 843b64c: rebuilt under the TypeScript 6 / ESLint 10 toolchain (tsdown bundler) — internal changes only, no public API or behavior changes
+
 ## 8.21.4
 
 ### Patch Changes
