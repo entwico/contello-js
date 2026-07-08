@@ -1,7 +1,7 @@
 {
   "name": "@contello/astro",
   "version": "3.1.0",
-  "description": "Astro integration for Contello CMS — route middleware and i18n bridge",
+  "description": "Astro integration for Contello CMS \u2014 route middleware and i18n bridge",
   "type": "module",
   "license": "MIT",
   "author": "admin@entwico.com",
@@ -15,6 +15,9 @@
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@contello/opentelemetry": "workspace:^"
   },
   "peerDependencies": {
     "@astroscope/excludes": ">=0.1.0",

@@ -1,6 +1,7 @@
+import { graphqlOperationAttributes } from '@contello/opentelemetry';
 import { collectAsync, firstAsync, mapAsync } from './async-iterable-utils';
-import { wrap } from './diagnostics';
 import { createSourceSubscription } from './source-subscription';
+import { wrap } from './telemetry';
 import { transformVariables } from './transform-variables';
 import type { SourceAccessors, SourceDef, SourceMap } from './types';
 
@@ -35,62 +36,63 @@ function createSourceAccessor(
     case 'singleton': {
       return {
         fetch: () =>
-          wrap(`source:${name}`, () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source))),
+          wrap(
+            `source:${name}`,
+            () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source)),
+            graphqlOperationAttributes(doc),
+          ),
       };
     }
     case 'entity': {
       return {
-        fetch: (vars?: { ids?: string[] }) =>
-          wrap(`source:${name}`, () =>
-            collectAsync(
-              mapAsync(
-                subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
-                (r) => r.source,
-              ),
-            ),
-          ),
+        fetch: (vars?: { ids?: string[] }) => {
+          const variables = transformVariables({ ids: vars?.ids });
+
+          return wrap(
+            `source:${name}`,
+            () => collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            graphqlOperationAttributes(doc, variables),
+          );
+        },
       };
     }
     case 'route': {
       return {
-        fetch: (vars?: { ids?: string[] | undefined; paths?: string[] | undefined } | undefined) =>
-          wrap(`source:${name}`, () =>
-            collectAsync(
-              mapAsync(
-                subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids, paths: vars?.paths })),
-                (r) => r.source,
-              ),
-            ),
-          ),
+        fetch: (vars?: { ids?: string[] | undefined; paths?: string[] | undefined } | undefined) => {
+          const variables = transformVariables({ ids: vars?.ids, paths: vars?.paths });
+
+          return wrap(
+            `source:${name}`,
+            () => collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            graphqlOperationAttributes(doc, variables),
+          );
+        },
       };
     }
     case 'asset': {
       return {
-        fetch: (vars?: { ids?: string[] | undefined } | undefined) =>
-          wrap(`source:${name}`, () =>
-            collectAsync(
-              mapAsync(
-                subscribe<{ source: unknown[] }>(doc, transformVariables({ ids: vars?.ids })),
-                (r) => r.source,
-              ),
-            ),
-          ),
+        fetch: (vars?: { ids?: string[] | undefined } | undefined) => {
+          const variables = transformVariables({ ids: vars?.ids });
+
+          return wrap(
+            `source:${name}`,
+            () => collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            graphqlOperationAttributes(doc, variables),
+          );
+        },
       };
     }
     case 'i18nMessage': {
       return {
-        fetch: (vars: { collection: string; ids?: string[] | undefined }) =>
-          wrap(`source:${name}`, () =>
-            collectAsync(
-              mapAsync(
-                subscribe<{ source: unknown[] }>(
-                  doc,
-                  transformVariables({ collection: vars.collection, ids: vars.ids }),
-                ),
-                (r) => r.source,
-              ),
-            ),
-          ),
+        fetch: (vars: { collection: string; ids?: string[] | undefined }) => {
+          const variables = transformVariables({ collection: vars.collection, ids: vars.ids });
+
+          return wrap(
+            `source:${name}`,
+            () => collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            graphqlOperationAttributes(doc, variables),
+          );
+        },
       };
     }
   }

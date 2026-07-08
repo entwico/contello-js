@@ -11,9 +11,9 @@ import {
   mapAsync,
 } from '@contello/client';
 import { ProjectedLazyMap, type ReadonlyDeep } from 'projected';
-import { wrap } from './diagnostics';
 import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
 import { createLruCache } from './lru';
+import { wrap } from './telemetry';
 import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
 import { DEFAULT_LRU_MAX, createRefreshChannel, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';

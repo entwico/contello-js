@@ -9,8 +9,8 @@ import {
 } from '@contello/client';
 import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
 import { DependencyCollector } from './dependency-collector';
-import { wrap } from './diagnostics';
 import type { ModelResolver } from './model-resolver';
+import { wrap } from './telemetry';
 import type {
   Collection,
   CollectionOptions,

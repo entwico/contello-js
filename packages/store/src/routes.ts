@@ -8,10 +8,10 @@ import {
 } from '@contello/client';
 import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
 
-import { wrap } from './diagnostics';
 import { type StoreRouteFragment, schema as storeSchema } from './generated/graphql';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
+import { wrap } from './telemetry';
 import type { CacheOptions, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
 import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';

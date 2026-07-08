@@ -1,7 +1,7 @@
 {
   "name": "@contello/opentelemetry",
   "version": "1.0.3",
-  "description": "OpenTelemetry instrumentation for Contello packages",
+  "description": "Shared OpenTelemetry telemetry core for @contello packages",
   "type": "module",
   "license": "MIT",
   "author": "admin@entwico.com",
@@ -17,12 +17,15 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@opentelemetry/api": ">=1.0.0",
-    "@opentelemetry/instrumentation": ">=0.200.0"
+    "@opentelemetry/api": ">=1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/instrumentation": "^0.215.0"
+    "@opentelemetry/api": "^1.9.1"
   },
   "files": [
     "dist"

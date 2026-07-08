@@ -17,13 +17,14 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@contello/opentelemetry": "workspace:^",
+    "lru-cache": "^11.3.5",
+    "projected": "^3.0.2"
+  },
   "peerDependencies": {
     "@contello/client": "workspace:^",
     "@contello/media": "workspace:^"
-  },
-  "dependencies": {
-    "lru-cache": "^11.3.5",
-    "projected": "^3.0.2"
   },
   "devDependencies": {
     "@contello/client": "workspace:^",

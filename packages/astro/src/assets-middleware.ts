@@ -1,7 +1,7 @@
 import type { ContelloClient } from '@contello/client';
 import { defineMiddleware } from 'astro/middleware';
 import type { Contello } from './contello';
-import { wrap } from './diagnostics';
+import { wrap } from './telemetry';
 
 export type ContelloAssetsImagesOptions = {
   cacheControl?: string | undefined;

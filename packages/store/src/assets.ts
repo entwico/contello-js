@@ -13,9 +13,9 @@ import {
 } from '@contello/client';
 import { type MaybePromise, ProjectedMap, type ReadonlyDeep } from 'projected';
 
-import { wrap } from './diagnostics';
 import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
 import type { StoreAsset, StoreFile } from './lazy-assets';
+import { wrap } from './telemetry';
 import type { CacheOptions, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
 import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';

@@ -9,9 +9,9 @@ import {
 } from '@contello/client';
 import { ProjectedLazyMap, maybeThen } from 'projected';
 import { DependencyCollector } from './dependency-collector';
-import { wrap } from './diagnostics';
 import { createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
+import { wrap } from './telemetry';
 import type {
   Created,
   ExtractSourceResult,

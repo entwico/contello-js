@@ -1,6 +1,5 @@
 import type { BootContext } from '@astroscope/boot';
 import { log } from '@astroscope/pino';
-import { ContelloInstrumentation } from '@contello/opentelemetry';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { checks } from 'health-probes';
 import { stdTimeFunctions } from 'pino';
@@ -9,16 +8,14 @@ import { categories } from '@/server/categories';
 import { config } from '@/server/config';
 import { contello } from '@/server/contello';
 
-const sdk = new NodeSDK({
-  instrumentations: [new ContelloInstrumentation()],
-});
+const sdk = new NodeSDK({});
 
 export async function onStartup({ dev, host, port }: BootContext) {
   log.configure({
     level: Config.logger.level,
     formatters: { level: (label: string) => ({ level: label }) },
     timestamp: Config.logger.withTimestamp ? stdTimeFunctions.isoTime : false,
-    ...(!Config.logger.withDefaultBindings ? { base: null } : {}),
+    ...(!Config.logger.withDefaultBindings && { base: null }),
   });
 
   sdk.start();

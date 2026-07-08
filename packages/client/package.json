@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@contello/opentelemetry": "workspace:^",
     "graphql": "^16.13.2",
     "graphql-ws": "^6.0.8",
     "undici": "^8.1.0"

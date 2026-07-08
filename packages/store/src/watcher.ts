@@ -6,7 +6,6 @@ import {
   mapAsync,
 } from '@contello/client';
 
-import { wrap } from './diagnostics';
 import {
   type ContelloMutationType,
   type StoreRouteFragment,
@@ -15,6 +14,7 @@ import {
 } from './generated/graphql';
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
+import { wrap } from './telemetry';
 
 export type UpdateEvent<TEntityType extends string = string> =
   | { id: string; mutation: 'create'; target: 'route'; after: StoreRoute }

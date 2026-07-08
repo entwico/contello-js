@@ -11,7 +11,7 @@ import {
 import type { APIContext, ValidRedirectStatus } from 'astro';
 import { defineMiddleware } from 'astro/middleware';
 import { type Contello, runRequest } from './contello';
-import { wrap } from './diagnostics';
+import { wrap } from './telemetry';
 
 export type AnyRoutes = Routes | RoutesSync | LazyRoutes;
 

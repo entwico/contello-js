@@ -1,8 +1,8 @@
+import { graphqlOperationAttributes, injectTraceContext } from '@contello/opentelemetry';
 import { createClient } from 'graphql-ws';
 import type { Agent } from 'undici';
 
 import { firstAsync } from './async-iterable-utils';
-import { decorateMessage, wrap } from './diagnostics';
 import {
   type DownloadResult,
   type HttpAgentOptions,
@@ -15,6 +15,7 @@ import { ping } from './ping';
 import { ConnectionPool } from './pool';
 import { buildRpc } from './rpc';
 import { createSources } from './sources';
+import { wrap } from './telemetry';
 import { transformResponse } from './transform-response';
 import type { Rpc, Schema, SourceAccessors } from './types';
 import { type UploadData, type UploadMetadata, type UploadOptions, upload as uploadAsset } from './upload';
@@ -102,7 +103,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
         shouldRetry: () => true,
         jsonMessageReplacer: (key, value) => {
           if (!key) {
-            return decorateMessage(value);
+            return injectTraceContext(value);
           }
 
           return value;
@@ -165,7 +166,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
   }
 
   async ping(): Promise<void> {
-    // excluded from diagnostics to avoid noise
+    // excluded from telemetry to avoid noise
     return ping((query) => firstAsync(this.subscribe(query)));
   }
 
@@ -276,7 +277,11 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
   }
 
   execute<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData> {
-    return wrap('@contello/client:execute', () => firstAsync(this.subscribe<TData>(query, variables)));
+    return wrap(
+      '@contello/client:execute',
+      () => firstAsync(this.subscribe<TData>(query, variables)),
+      graphqlOperationAttributes(query, variables),
+    );
   }
 }
 

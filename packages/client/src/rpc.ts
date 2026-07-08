@@ -1,5 +1,6 @@
+import { graphqlOperationAttributes } from '@contello/opentelemetry';
 import { firstAsync } from './async-iterable-utils';
-import { wrap } from './diagnostics';
+import { wrap } from './telemetry';
 import { transformVariables } from './transform-variables';
 import type { OperationMap, Rpc } from './types';
 
@@ -10,8 +11,15 @@ export function buildRpc<T extends OperationMap>(operations: T, subscribe: Subsc
 
   for (const [name, def] of Object.entries(operations)) {
     rpc[name] = def.kind === 'subscription' ? (variables?: Record<string, unknown>) =>
-      subscribe<unknown>(def.document, transformVariables(variables)) : (variables?: Record<string, unknown>) =>
-      wrap(`rpc:${name}`, () => firstAsync(subscribe<unknown>(def.document, transformVariables(variables))));
+      subscribe<unknown>(def.document, transformVariables(variables)) : (variables?: Record<string, unknown>) => {
+      const vars = transformVariables(variables);
+
+      return wrap(
+        `rpc:${name}`,
+        () => firstAsync(subscribe<unknown>(def.document, vars)),
+        graphqlOperationAttributes(def.document, vars),
+      );
+    };
   }
 
   return rpc as Rpc<T>;

@@ -9,7 +9,6 @@ import {
   createAssetsSyncCollection,
 } from './assets';
 import { createCollection, createCollectionSync } from './collection';
-import { wrap } from './diagnostics';
 import { type I18nMessageDef, type I18nMessages, createI18nMessagesCollection } from './i18n';
 import { type LazyAssets, type LazyAssetsOptions, createLazyAssetsCollection } from './lazy-assets';
 import { createLazyCollection } from './lazy-collection';
@@ -24,6 +23,7 @@ import {
   createRoutesSyncCollection,
 } from './routes';
 import { createSingleton, createSingletonSync } from './singleton';
+import { wrap } from './telemetry';
 import type {
   Collection,
   CollectionOptions,

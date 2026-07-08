@@ -7,7 +7,6 @@ import {
   runWithBackoff,
 } from '@contello/client';
 import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
-import { wrap } from './diagnostics';
 import {
   type ContelloI18nMessageInput,
   type StoreI18nMessageFragment,
@@ -15,6 +14,7 @@ import {
   storeRegisterI18nMessagesDocument,
   schema as storeSchema,
 } from './generated/graphql';
+import { wrap } from './telemetry';
 import type { RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
 
 import {

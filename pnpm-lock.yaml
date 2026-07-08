@@ -68,9 +68,6 @@ importers:
       '@contello/client':
         specifier: workspace:^
         version: link:../../packages/client
-      '@contello/opentelemetry':
-        specifier: workspace:^
-        version: link:../../packages/opentelemetry
       '@contello/store':
         specifier: workspace:^
         version: link:../../packages/store
@@ -110,6 +107,10 @@ importers:
         version: 6.0.3
 
   packages/astro:
+    dependencies:
+      '@contello/opentelemetry':
+        specifier: workspace:^
+        version: link:../opentelemetry
     devDependencies:
       '@astroscope/excludes':
         specifier: ^0.4.0
@@ -132,6 +133,9 @@ importers:
 
   packages/client:
     dependencies:
+      '@contello/opentelemetry':
+        specifier: workspace:^
+        version: link:../opentelemetry
       graphql:
         specifier: ^16.13.2
         version: 16.13.2
@@ -161,9 +165,6 @@ importers:
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
-      '@opentelemetry/instrumentation':
-        specifier: ^0.215.0
-        version: 0.215.0(@opentelemetry/api@1.9.1)
 
   packages/rich-text: {}
 
@@ -181,6 +182,9 @@ importers:
 
   packages/store:
     dependencies:
+      '@contello/opentelemetry':
+        specifier: workspace:^
+        version: link:../opentelemetry
       lru-cache:
         specifier: ^11.3.5
         version: 11.3.5
