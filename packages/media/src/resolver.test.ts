@@ -215,10 +215,31 @@ describe('MediaResolver.image.url', () => {
 describe('MediaResolver.image.source', () => {
   const media = createMediaResolver({ baseUrl, ...testPaths });
 
-  test('emits one <source> for the default format (avif only)', () => {
+  test('emits a single <source> for the best available format (avif wins over webp)', () => {
     const data = media.image.source(multiFormat);
 
     expect(data.sources!.map((s) => s.type)).toEqual(['image/avif']);
+  });
+
+  test('cascades to webp when no avif variants exist', () => {
+    const data = media.image.source(webpJpeg);
+
+    expect(data.sources!.map((s) => s.type)).toEqual(['image/webp']);
+  });
+
+  test('cascades to the <img> jpeg srcset when neither avif nor webp variants exist', () => {
+    const data = media.image.source(
+      asset({
+        id: 'a',
+        optimized: [
+          { uid: 'j4', mimeType: 'image/jpeg', metadata: { width: 400, height: 300 } },
+          { uid: 'j7', mimeType: 'image/jpeg', metadata: { width: 700, height: 525 } },
+        ],
+      }),
+    );
+
+    expect(data.sources).toBeUndefined();
+    expect(data.image!.srcset).toBe(`${baseUrl}/i/j4.jpg 400w, ${baseUrl}/i/j7.jpg 700w`);
   });
 
   test('each <source> srcset lists widths of that format ascending', () => {
@@ -269,6 +290,40 @@ describe('MediaResolver.image.source', () => {
     expect(media.image.source(null)).toEqual({});
   });
 
+  test('excludes asset variants without positive dimensions from <source> and <img>', () => {
+    const data = media.image.source(
+      asset({
+        id: 'a',
+        optimized: [
+          { uid: 'a0', mimeType: 'image/avif', metadata: { width: 0, height: 0 } },
+          { uid: 'a1', mimeType: 'image/avif', metadata: { width: 800, height: 600 } },
+          { uid: 'j0', mimeType: 'image/jpeg', metadata: { width: 500, height: 0 } },
+          { uid: 'j1', mimeType: 'image/jpeg', metadata: { width: 700, height: 525 } },
+        ],
+      }),
+    );
+
+    expect(data.sources![0]!.srcset).toBe(`${baseUrl}/i/a1.avif 800w`);
+    expect(data.image!.url).toBe(`${baseUrl}/i/j1.jpg`);
+    expect(data.image!.width).toBe(800);
+  });
+
+  test('excludes zero-dimension variants from the <img> srcset when it is the only candidate', () => {
+    const data = media.image.source(
+      asset({
+        id: 'a',
+        optimized: [
+          { uid: 'j0', mimeType: 'image/jpeg', metadata: { width: 0, height: 0 } },
+          { uid: 'j4', mimeType: 'image/jpeg', metadata: { width: 400, height: 300 } },
+          { uid: 'j7', mimeType: 'image/jpeg', metadata: { width: 700, height: 525 } },
+        ],
+      }),
+    );
+
+    expect(data.sources).toBeUndefined();
+    expect(data.image!.srcset).toBe(`${baseUrl}/i/j4.jpg 400w, ${baseUrl}/i/j7.jpg 700w`);
+  });
+
   test('custom formats override default', () => {
     const data = media.image.source(multiFormat, { formats: ['image/webp'] });
 
@@ -297,6 +352,16 @@ describe('MediaResolver fallback handling', () => {
     expect(data.fallback).toBe(true);
     expect(data.id).toBe('fallback'); // default id for a bundled fallback
     expect(data.image!.url).toBe('/fallback.jpg');
+  });
+
+  test('an asset whose variants all lack dimensions counts as empty (fallback applies)', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths, fallback: fallbackMeta });
+    const data = media.image.source(
+      asset({ id: 'a', optimized: [{ uid: 'x', mimeType: 'image/jpeg', metadata: { width: 0, height: 0 } }] }),
+    );
+
+    expect(data.fallback).toBe(true);
+    expect(data.id).toBe('fallback');
   });
 
   test('configured fallback substitutes for an empty source too', () => {
