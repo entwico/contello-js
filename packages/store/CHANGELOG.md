@@ -1,5 +1,16 @@
 # @contello/store
 
+## 3.1.0
+
+### Minor Changes
+
+- 11dbc83: emit OpenTelemetry spans and metrics natively when `@opentelemetry/api` is installed (configured via `OTEL_CONTELLO_*` env vars); `@contello/opentelemetry` becomes the shared telemetry core and `ContelloInstrumentation` is removed
+
+### Patch Changes
+
+- Updated dependencies [11dbc83]
+  - @contello/opentelemetry@2.0.0
+
 ## 3.0.1
 
 ### Patch Changes

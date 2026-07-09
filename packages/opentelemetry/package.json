@@ -1,6 +1,6 @@
 {
   "name": "@contello/opentelemetry",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "description": "Shared OpenTelemetry telemetry core for @contello packages",
   "type": "module",
   "license": "MIT",
