@@ -1,5 +1,15 @@
 # @contello/media
 
+## 2.2.0
+
+### Minor Changes
+
+- 22ac6a0: picture source formats now cascade (avif, then webp) — only the best available format emits a `<source>`, jpeg stays the `<img>` fallback
+
+### Patch Changes
+
+- 22ac6a0: exclude image variants with missing dimensions from resolution
+
 ## 2.1.0
 
 ### Minor Changes
