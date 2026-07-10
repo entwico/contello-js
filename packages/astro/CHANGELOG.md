@@ -1,5 +1,15 @@
 # @contello/astro
 
+## 4.0.0
+
+### Major Changes
+
+- f693ef3: `@astroscope/node` replaces `@astroscope/excludes` as a peer dependency
+
+### Minor Changes
+
+- f693ef3: skip i18n token registration automatically in dev mode
+
 ## 3.2.0
 
 ### Minor Changes
