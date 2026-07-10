@@ -1,4 +1,4 @@
-import { log } from '@astroscope/pino';
+import { log } from '@astroscope/node/log';
 import { contello } from '@/server/contello';
 
 export type Category = {

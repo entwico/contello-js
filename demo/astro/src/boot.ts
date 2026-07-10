@@ -1,37 +1,17 @@
-import type { BootContext } from '@astroscope/boot';
-import { log } from '@astroscope/pino';
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { checks } from 'health-probes';
-import { stdTimeFunctions } from 'pino';
-import { Config } from '@/config';
+import { registerHealthCheck } from '@astroscope/node/health';
+import { log } from '@astroscope/node/log';
 import { categories } from '@/server/categories';
 import { config } from '@/server/config';
 import { contello } from '@/server/contello';
 
-const sdk = new NodeSDK({});
+export async function onStartup() {
+  registerHealthCheck({ name: 'contello', check: () => contello.ping() });
 
-export async function onStartup({ dev, host, port }: BootContext) {
-  log.configure({
-    level: Config.logger.level,
-    formatters: { level: (label: string) => ({ level: label }) },
-    timestamp: Config.logger.withTimestamp ? stdTimeFunctions.isoTime : false,
-    ...(!Config.logger.withDefaultBindings && { base: null }),
-  });
+  await contello.init({ load: [categories, config] });
 
-  sdk.start();
-
-  checks.register('contello', () => contello.ping());
-
-  await contello.init({ load: [categories, config], i18n: { register: !dev } });
-
-  log.info({ host, port }, 'server ready');
+  log.info('contello initialized');
 }
 
 export async function onShutdown() {
-  log.info('shutting down');
-
   await contello.destroy();
-  await sdk.shutdown();
-
-  log.info('shutdown complete');
 }

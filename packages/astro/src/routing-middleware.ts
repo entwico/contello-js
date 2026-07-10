@@ -1,4 +1,4 @@
-import { type ExcludePattern, RECOMMENDED_EXCLUDES, shouldExclude } from '@astroscope/excludes';
+import { type ExcludePattern, RECOMMENDED_EXCLUDES, shouldExclude } from '@astroscope/node/excludes';
 import {
   type LazyRoutes,
   type MaybePromise,

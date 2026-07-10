@@ -1,4 +1,4 @@
-import { log } from '@astroscope/pino';
+import { log } from '@astroscope/node/log';
 import { type Component, mapComponents } from '@/server/components';
 import { contello } from '@/server/contello';
 

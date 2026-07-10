@@ -9,11 +9,6 @@ const schema = zc.define({
       i18nMessageCollection: zc.env('CONTELLO_I18N_MESSAGE_COLLECTION').string().default('demo'),
     }),
   }),
-  logger: zc.object({
-    level: zc.env('LOG_LEVEL').string().default('debug'),
-    withTimestamp: zc.env('LOG_TIMESTAMP').boolean().default(false),
-    withDefaultBindings: zc.env('LOG_DEFAULT_BINDINGS').boolean().default(false),
-  }),
 });
 
 export const Config = schema.load({ env: process.env });

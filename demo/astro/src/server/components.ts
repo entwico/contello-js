@@ -1,4 +1,4 @@
-import { log } from '@astroscope/pino';
+import { log } from '@astroscope/node/log';
 import type { ComponentFragment } from '@/server/_/gql/graphql';
 
 export type Component =

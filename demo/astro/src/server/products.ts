@@ -1,4 +1,4 @@
-import { log } from '@astroscope/pino';
+import { log } from '@astroscope/node/log';
 import { schema } from '@/server/_/gql/graphql';
 import { contello } from '@/server/contello';
 

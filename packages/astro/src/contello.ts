@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { type RawTranslations, i18n } from '@astroscope/i18n';
+import { getBootContext } from '@astroscope/node/boot';
 import type { ContelloClient, Schema, SourceDef } from '@contello/client';
 import { type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
 import {
@@ -61,6 +62,7 @@ export type ContelloInitOptions = {
   load?: Loadable[] | undefined;
   i18n?:
     | {
+      /** defaults to `true`, except in dev mode (detected via the @astroscope/node boot context) */
       register?: boolean | undefined;
       load?: boolean | undefined;
     }
@@ -177,7 +179,8 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
 
       if (this._options.i18n) {
         const { collection, languages, cache } = this._options.i18n;
-        const { register = true, load = true } = options?.i18n ?? {};
+        const dev = getBootContext()?.dev ?? false;
+        const { register = !dev, load = true } = options?.i18n ?? {};
 
         this._i18nMessages = this._store.defineI18nMessages({ collection, cache });
 
