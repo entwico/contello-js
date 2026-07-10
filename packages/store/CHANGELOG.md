@@ -1,5 +1,13 @@
 # @contello/store
 
+## 4.0.0
+
+### Patch Changes
+
+- f113e0a: replace the deprecated `projected` dependency with `@entwico/projected` and `@entwico/dash`
+- Updated dependencies [f113e0a]
+  - @contello/client@3.0.0
+
 ## 3.1.0
 
 ### Minor Changes

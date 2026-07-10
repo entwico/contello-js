@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.0.0
+
+### Major Changes
+
+- f113e0a: remove the generic async-iterable utilities from the public API — import them from `@entwico/dash/async` instead (`collectAsync` → `concatAsync`, `runWithBackoff` → `retryWithBackoff`, `asyncKeepalive` → `keepalive`)
+
 ## 2.3.0
 
 ### Minor Changes

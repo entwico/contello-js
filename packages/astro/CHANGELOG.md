@@ -1,5 +1,14 @@
 # @contello/astro
 
+## 4.0.1
+
+### Patch Changes
+
+- Updated dependencies [f113e0a]
+- Updated dependencies [f113e0a]
+  - @contello/client@3.0.0
+  - @contello/store@4.0.0
+
 ## 4.0.0
 
 ### Major Changes
