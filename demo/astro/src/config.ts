@@ -1,4 +1,4 @@
-import { zc } from 'zod-conf';
+import { zc } from '@entwico/zod-conf';
 
 const schema = zc.define({
   services: zc.object({

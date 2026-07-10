@@ -1,13 +1,7 @@
-import {
-  type AsyncIterableSubject,
-  type ContelloClient,
-  type SourceDef,
-  collectAsync,
-  createSourceSubscription,
-  mapAsync,
-  runWithBackoff,
-} from '@contello/client';
-import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
+import { type ContelloClient, type SourceDef, createSourceSubscription } from '@contello/client';
+import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
+import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { ProjectedMap } from '@entwico/projected';
 import { DependencyCollector } from './dependency-collector';
 import type { ModelResolver } from './model-resolver';
 import { wrap } from './telemetry';
@@ -29,7 +23,7 @@ function fetchCollection<S extends SourceDef<string, 'entity'>>(
   client: ContelloClient<any>,
   ids: string[] | undefined,
 ): Promise<ExtractSourceResult<S>[]> {
-  return collectAsync(
+  return concatAsync(
     mapAsync(
       client.subscribe<{ source: ExtractSourceResult<S>[] }>(createSourceSubscription(source), { ids }),
       (r) => r.source,
@@ -115,7 +109,7 @@ export function createCollection<
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(() =>
-      runWithBackoff(async () => {
+      retryWithBackoff(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -133,7 +127,7 @@ export function createCollection<
       return;
     }
 
-    void runWithBackoff(async () => {
+    void retryWithBackoff(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
     });

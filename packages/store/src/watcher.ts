@@ -1,10 +1,5 @@
-import {
-  type AsyncIterableSubject,
-  type ContelloClient,
-  asyncKeepalive,
-  createAsyncIterableSubject,
-  mapAsync,
-} from '@contello/client';
+import type { ContelloClient } from '@contello/client';
+import { type AsyncIterableSubject, createAsyncIterableSubject, keepalive, mapAsync } from '@entwico/dash/async';
 
 import {
   type ContelloMutationType,
@@ -222,9 +217,9 @@ export function createInternalWatcher(client: ContelloClient<any>, resolver: Mod
 
       wrap('watcher:start', () => {
         void (async () => {
-          const source = asyncKeepalive(
+          const source = keepalive(
             () => client.subscribe<StoreWatchUpdatesSubscription>(storeWatchUpdatesDocument),
-            signal,
+            { signal },
           );
 
           const events = mapAsync(source, (data) =>
@@ -251,7 +246,7 @@ export function createInternalWatcher(client: ContelloClient<any>, resolver: Mod
             }
           }
         })().catch(() => {
-          // asyncKeepalive only exits on abort; swallow so a terminal failure
+          // keepalive only exits on abort; swallow so a terminal failure
           // never surfaces as an unhandled rejection
         });
       });

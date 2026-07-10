@@ -19,8 +19,9 @@
   },
   "dependencies": {
     "@contello/opentelemetry": "workspace:^",
-    "lru-cache": "^11.3.5",
-    "projected": "^3.0.2"
+    "@entwico/dash": "^1.0.0",
+    "@entwico/projected": "^4.0.0",
+    "lru-cache": "^11.3.5"
   },
   "peerDependencies": {
     "@contello/client": "workspace:^",

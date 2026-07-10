@@ -1,5 +1,5 @@
 import { graphqlOperationAttributes } from '@contello/opentelemetry';
-import { collectAsync, firstAsync, mapAsync } from './async-iterable-utils';
+import { concatAsync, firstAsync, mapAsync } from '@entwico/dash/async';
 import { createSourceSubscription } from './source-subscription';
 import { wrap } from './telemetry';
 import { transformVariables } from './transform-variables';
@@ -50,7 +50,7 @@ function createSourceAccessor(
 
           return wrap(
             `source:${name}`,
-            () => collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            () => concatAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
             graphqlOperationAttributes(doc, variables),
           );
         },
@@ -63,7 +63,7 @@ function createSourceAccessor(
 
           return wrap(
             `source:${name}`,
-            () => collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            () => concatAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
             graphqlOperationAttributes(doc, variables),
           );
         },
@@ -76,7 +76,7 @@ function createSourceAccessor(
 
           return wrap(
             `source:${name}`,
-            () => collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            () => concatAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
             graphqlOperationAttributes(doc, variables),
           );
         },
@@ -89,7 +89,7 @@ function createSourceAccessor(
 
           return wrap(
             `source:${name}`,
-            () => collectAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            () => concatAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
             graphqlOperationAttributes(doc, variables),
           );
         },

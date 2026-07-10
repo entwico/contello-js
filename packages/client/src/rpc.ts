@@ -1,5 +1,5 @@
 import { graphqlOperationAttributes } from '@contello/opentelemetry';
-import { firstAsync } from './async-iterable-utils';
+import { firstAsync } from '@entwico/dash/async';
 import { wrap } from './telemetry';
 import { transformVariables } from './transform-variables';
 import type { OperationMap, Rpc } from './types';

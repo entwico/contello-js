@@ -1,12 +1,7 @@
-import {
-  type AsyncIterableSubject,
-  type ContelloClient,
-  collectAsync,
-  createSourceSubscription,
-  mapAsync,
-  runWithBackoff,
-} from '@contello/client';
-import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
+import { type ContelloClient, createSourceSubscription } from '@contello/client';
+import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
+import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { ProjectedMap } from '@entwico/projected';
 import {
   type ContelloI18nMessageInput,
   type StoreI18nMessageFragment,
@@ -103,7 +98,7 @@ export function createI18nMessagesCollection(
     key: (msg) => msg.id,
     values: (ids) =>
       wrap(`i18n:${def.collection}`, async () => {
-        const msgs = await collectAsync(
+        const msgs = await concatAsync(
           mapAsync(
             client.subscribe<{ source: StoreI18nMessageFragment[] }>(i18nSourceDoc, {
               collection: def.collection,
@@ -143,7 +138,7 @@ export function createI18nMessagesCollection(
 
   function runTtlRefresh(): void {
     refreshByTtl.enqueue(async () => {
-      await runWithBackoff(() => projected.refresh());
+      await retryWithBackoff(() => projected.refresh());
       emitWithCurrentIds('ttl');
       ttl.mark();
     });
@@ -171,7 +166,7 @@ export function createI18nMessagesCollection(
       return;
     }
 
-    void runWithBackoff(async () => {
+    void retryWithBackoff(async () => {
       await projected.refresh(upsertedIds);
       emit(changedIds, 'upstream-update');
     });

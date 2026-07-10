@@ -1,5 +1,5 @@
 import type { ConnectionEvents, Schema, SourceCardinality, SourceDef } from '@contello/client';
-import type { MaybePromise, ReadonlyDeep } from 'projected';
+import type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
 import type { MapperContext } from './dependency-collector';
 
 /** Extracts the typed fragment result from a SourceDef. */

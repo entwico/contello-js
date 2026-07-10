@@ -1,12 +1,7 @@
-import {
-  type AsyncIterableSubject,
-  type ContelloClient,
-  collectAsync,
-  createSourceSubscription,
-  mapAsync,
-  runWithBackoff,
-} from '@contello/client';
-import { type MaybePromise, ProjectedMap, type ReadonlyDeep, maybeThen } from 'projected';
+import { type ContelloClient, createSourceSubscription } from '@contello/client';
+import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
+import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { ProjectedMap } from '@entwico/projected';
 
 import { type StoreRouteFragment, schema as storeSchema } from './generated/graphql';
 import type { ModelResolver } from './model-resolver';
@@ -76,7 +71,7 @@ export function createRoutesCollection(
     key: (route) => route.id,
     values: (ids) =>
       wrap('routes', async () => {
-        const rawItems = await collectAsync(
+        const rawItems = await concatAsync(
           mapAsync(client.subscribe<{ source: StoreRouteFragment[] }>(routesSourceDoc, { ids }), (data) => data.source),
         );
         const items = rawItems.reduce<StoreRoute[]>((acc, raw) => {
@@ -142,7 +137,7 @@ export function createRoutesCollection(
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(() =>
-      runWithBackoff(async () => {
+      retryWithBackoff(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -160,7 +155,7 @@ export function createRoutesCollection(
       return;
     }
 
-    void runWithBackoff(async () => {
+    void retryWithBackoff(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
     });

@@ -1,13 +1,12 @@
+import { type ContelloClient, type SourceDef, createSourceSubscription } from '@contello/client';
+import { maybeThen } from '@entwico/dash';
 import {
   type AsyncIterableSubject,
-  type ContelloClient,
-  type SourceDef,
-  collectAsync,
+  concatAsync,
   createAsyncIterableSubject,
-  createSourceSubscription,
   mapAsync,
-} from '@contello/client';
-import { ProjectedLazyMap, maybeThen } from 'projected';
+} from '@entwico/dash/async';
+import { ProjectedLazyMap } from '@entwico/projected';
 import { DependencyCollector } from './dependency-collector';
 import { createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
@@ -58,7 +57,7 @@ export function createLazyCollection<
     values: (keys) =>
       wrap(`lazy-collection:${_def.name}`, () =>
         maybeThen(
-          collectAsync(
+          concatAsync(
             mapAsync(
               client.subscribe<{ source: ExtractSourceResult<TSource>[] }>(createSourceSubscription(source), {
                 ids: keys,

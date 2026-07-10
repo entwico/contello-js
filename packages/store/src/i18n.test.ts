@@ -1,4 +1,5 @@
-import { type ContelloClient, createAsyncIterableSubject } from '@contello/client';
+import type { ContelloClient } from '@contello/client';
+import { createAsyncIterableSubject } from '@entwico/dash/async';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { createI18nMessagesCollection } from './i18n';

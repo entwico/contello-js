@@ -1,8 +1,8 @@
 import { graphqlOperationAttributes, injectTraceContext } from '@contello/opentelemetry';
+import { exponentialBackoff, firstAsync } from '@entwico/dash/async';
 import { createClient } from 'graphql-ws';
 import type { Agent } from 'undici';
 
-import { firstAsync } from './async-iterable-utils';
 import {
   type DownloadResult,
   type HttpAgentOptions,
@@ -19,7 +19,6 @@ import { wrap } from './telemetry';
 import { transformResponse } from './transform-response';
 import type { Rpc, Schema, SourceAccessors } from './types';
 import { type UploadData, type UploadMetadata, type UploadOptions, upload as uploadAsset } from './upload';
-import { wsRetryWait } from './utils';
 
 export type ConnectionContext = {
   connectionId: string;
@@ -99,7 +98,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
         lazy: false,
         keepAlive: 30_000,
         retryAttempts: Infinity,
-        retryWait: wsRetryWait,
+        retryWait: exponentialBackoff,
         shouldRetry: () => true,
         jsonMessageReplacer: (key, value) => {
           if (!key) {

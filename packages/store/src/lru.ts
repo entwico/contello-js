@@ -1,5 +1,5 @@
+import type { ProjectedMapCache } from '@entwico/projected';
 import { LRUCache } from 'lru-cache';
-import type { ProjectedMapCache } from 'projected';
 
 export type LruCache<TKey, TValue> = ProjectedMapCache<TKey, TValue> & {
   keys: () => TKey[];

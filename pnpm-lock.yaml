@@ -59,15 +59,15 @@ importers:
       '@contello/store':
         specifier: workspace:^
         version: link:../../packages/store
+      '@entwico/zod-conf':
+        specifier: ^1.1.2
+        version: 1.1.3(zod@4.3.6)
       astro:
         specifier: ^7.0.3
         version: 7.0.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@25.6.0)(jiti@2.6.1)(rollup@4.59.0)(yaml@2.9.0)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
-      zod-conf:
-        specifier: ^1.1.2
-        version: 1.1.2(zod@4.3.6)
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.9
@@ -106,6 +106,9 @@ importers:
       '@contello/opentelemetry':
         specifier: workspace:^
         version: link:../opentelemetry
+      '@entwico/dash':
+        specifier: ^1.0.0
+        version: 1.0.0(clsx@2.1.1)(react@19.2.5)
       graphql:
         specifier: ^16.13.2
         version: 16.13.2
@@ -155,12 +158,15 @@ importers:
       '@contello/opentelemetry':
         specifier: workspace:^
         version: link:../opentelemetry
+      '@entwico/dash':
+        specifier: ^1.0.0
+        version: 1.0.0(clsx@2.1.1)(react@19.2.5)
+      '@entwico/projected':
+        specifier: ^4.0.0
+        version: 4.0.2(clsx@2.1.1)(react@19.2.5)
       lru-cache:
         specifier: ^11.3.5
         version: 11.3.5
-      projected:
-        specifier: ^3.0.2
-        version: 3.0.2
     devDependencies:
       '@contello/client':
         specifier: workspace:^
@@ -629,6 +635,14 @@ packages:
 
   '@entwico/health-probes@1.1.2':
     resolution: {integrity: sha512-Dpr+QAOqOqG2sK/f955aUoRG8DGlqIEym9BNShd3wxMA1lD4r5eER5wFAjOYoa9qSUKo3+lL9kP2BD6v8KzUKQ==}
+
+  '@entwico/projected@4.0.2':
+    resolution: {integrity: sha512-+47HtuYZcG+Yl4LJx2XfQp812GpeYLxapHYQW/HZdWnBqHaHCanVBCeCXeRJqXvSu/mdfoDs+clulDLS9QjnqA==}
+
+  '@entwico/zod-conf@1.1.3':
+    resolution: {integrity: sha512-CkBXvvWfHhJXhmkd6LhlOXBFmRZ7T5u5rxagidm/9gHSlJSfxGZ6BlfWA2lcJyyfrqyMymGu68Ph+sELFBQfsA==}
+    peerDependencies:
+      zod: ^4.0.0
 
   '@esbuild/aix-ppc64@0.28.1':
     resolution: {integrity: sha512-Svl7tq8k/08+p6CXPpRjQ1fKX+1odH/BQbb48fV6fj3CWHhsoIOoY87w1oHXm0qEpkIK3ZfVgp0hed3XBXzXMQ==}
@@ -3726,10 +3740,6 @@ packages:
   process-warning@5.0.0:
     resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
 
-  projected@3.0.2:
-    resolution: {integrity: sha512-chJGZFkOWJK1wB4GmxwQ6Tk+8cpSXcd10fQ0j6pKXm3pB3nz1ZheSpNKiW0l6DQlR0hNHvKU9IJiZ0nN3BJwHQ==}
-    deprecated: renamed to @entwico/projected
-
   property-information@7.1.0:
     resolution: {integrity: sha512-TwEZ+X+yCJmYfL7TPUOcvBZ4QfoT5YenQiJuX//0th53DE6w0xxLEtfK3iyryQFddXuvkIk51EEgrJQ0WJkOmQ==}
 
@@ -4671,11 +4681,6 @@ packages:
     resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
     engines: {node: '>=12.20'}
 
-  zod-conf@1.1.2:
-    resolution: {integrity: sha512-zxwNoI7Hq9ZCLc0JomOBFMi9lLWZ0QVmf5RTCKlO+F+ZGIFiHI5dkd4bZD6DnY7RgYL2Eyo9wtWQu8/y691HPw==}
-    peerDependencies:
-      zod: ^4.0.0
-
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
@@ -5313,6 +5318,18 @@ snapshots:
       - tailwindcss
 
   '@entwico/health-probes@1.1.2': {}
+
+  '@entwico/projected@4.0.2(clsx@2.1.1)(react@19.2.5)':
+    dependencies:
+      '@entwico/dash': 1.0.0(clsx@2.1.1)(react@19.2.5)
+    transitivePeerDependencies:
+      - clsx
+      - react
+      - tailwind-merge
+
+  '@entwico/zod-conf@1.1.3(zod@4.3.6)':
+    dependencies:
+      zod: 4.3.6
 
   '@esbuild/aix-ppc64@0.28.1':
     optional: true
@@ -8438,8 +8455,6 @@ snapshots:
 
   process-warning@5.0.0: {}
 
-  projected@3.0.2: {}
-
   property-information@7.1.0: {}
 
   protobufjs@7.5.4:
@@ -9472,10 +9487,6 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   yocto-queue@1.2.2: {}
-
-  zod-conf@1.1.2(zod@4.3.6):
-    dependencies:
-      zod: 4.3.6
 
   zod@4.3.6: {}
 

@@ -1,17 +1,15 @@
 import {
-  type AsyncIterableSubject,
   type ContelloClient,
   type DownloadResult,
   type ProxyResult,
   type UploadData,
   type UploadMetadata,
   type UploadOptions,
-  collectAsync,
   createSourceSubscription,
-  mapAsync,
-  runWithBackoff,
 } from '@contello/client';
-import { type MaybePromise, ProjectedMap, type ReadonlyDeep } from 'projected';
+import type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
+import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { ProjectedMap } from '@entwico/projected';
 
 import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
 import type { StoreAsset, StoreFile } from './lazy-assets';
@@ -93,7 +91,7 @@ export function createAssetsCollection(
     key: (asset) => asset.id,
     values: (ids) =>
       wrap('assets', async () => {
-        const rawItems = await collectAsync(
+        const rawItems = await concatAsync(
           mapAsync(client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }), (data) => data.source),
         );
         const items = rawItems.map((item) => mapAsset(item));
@@ -114,7 +112,7 @@ export function createAssetsCollection(
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(() =>
-      runWithBackoff(async () => {
+      retryWithBackoff(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -132,7 +130,7 @@ export function createAssetsCollection(
       return;
     }
 
-    void runWithBackoff(async () => {
+    void retryWithBackoff(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
     });

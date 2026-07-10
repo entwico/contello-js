@@ -1,4 +1,4 @@
-import { type AsyncIterableSubject, createAsyncIterableSubject, runWithBackoff } from '@contello/client';
+import { type AsyncIterableSubject, createAsyncIterableSubject, retryWithBackoff } from '@entwico/dash/async';
 
 /**
  * default `cache.ttl` applied across all store kinds. eager stores (collections, singletons)
@@ -56,7 +56,7 @@ export function createRefresher<K>(
     inFlightKind = kind;
     onStart?.();
 
-    void runWithBackoff(fn).then(() => {
+    void retryWithBackoff(fn).then(() => {
       const finished = inFlightKind as K;
 
       refreshing = false;

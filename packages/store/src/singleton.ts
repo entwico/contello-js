@@ -1,13 +1,7 @@
-import {
-  type AsyncIterableSubject,
-  type ContelloClient,
-  type SourceDef,
-  createSourceSubscription,
-  firstAsync,
-  mapAsync,
-  runWithBackoff,
-} from '@contello/client';
-import { type MaybePromise, ProjectedValue, type ReadonlyDeep, maybeThen } from 'projected';
+import { type ContelloClient, type SourceDef, createSourceSubscription } from '@contello/client';
+import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
+import { type AsyncIterableSubject, firstAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { ProjectedValue } from '@entwico/projected';
 import { DependencyCollector } from './dependency-collector';
 import type { ModelResolver } from './model-resolver';
 import { wrap } from './telemetry';
@@ -95,7 +89,7 @@ export function createSingleton<
 
   function runTtlRefresh(): void {
     refreshByTtl.enqueue(async () => {
-      await runWithBackoff(() => projected.refresh());
+      await retryWithBackoff(() => projected.refresh());
       emit('ttl');
       ttl.mark();
     });

@@ -15,14 +15,3 @@ export type {
 export { createSourceSubscription } from './source-subscription';
 export type { DownloadResult, HttpAgentOptions, ProxyResult } from './http';
 export type { UploadData, UploadMetadata, UploadOptions } from './upload';
-export {
-  asyncKeepalive,
-  collectAsync,
-  exponentialBackoff,
-  filterAsync,
-  firstAsync,
-  mapAsync,
-  runWithBackoff,
-} from './async-iterable-utils';
-export { createAsyncIterableSubject } from './async-iterable-subject';
-export type { AsyncIterableSubject } from './async-iterable-subject';
