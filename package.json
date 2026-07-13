@@ -12,6 +12,7 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
+    "generate": "turbo run generate",
     "test": "vitest run",
     "validate": "turbo run test lint typecheck",
     "ci:version": "changeset version && pnpm install --no-frozen-lockfile",

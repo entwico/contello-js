@@ -11,6 +11,10 @@
     },
     "lint": {},
     "lint:fix": {},
-    "test": {}
+    "test": {},
+    "generate": {
+      "dependsOn": ["^build"],
+      "cache": false
+    }
   }
 }

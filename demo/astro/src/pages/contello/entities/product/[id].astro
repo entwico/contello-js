@@ -1,0 +1,16 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { products } from '@/server/products';
+
+const product = await products.get(Astro.params.id!);
+
+if (!product) {
+  return Astro.rewrite('/404');
+}
+---
+
+<BaseLayout title={product.name}>
+  <h1>{product.name}</h1>
+
+  {product.description && <p>{product.description}</p>}
+</BaseLayout>

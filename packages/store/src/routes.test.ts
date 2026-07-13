@@ -2,6 +2,7 @@ import type { ContelloClient } from '@contello/client';
 import { createAsyncIterableSubject } from '@entwico/dash/async';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { createLazyRoutesCollection } from './lazy-routes';
 import { ModelResolver } from './model-resolver';
 import { createRoutesCollection, createRoutesSyncCollection } from './routes';
 import type { StoreRoute } from './routes-mapping';
@@ -50,11 +51,16 @@ function makeClient(snapshotByCall: RawRoute[][]): {
       calls.push({ vars: vars as SubscribeCall['vars'] });
 
       const ids = vars?.['ids'] as string[] | undefined;
+      const paths = vars?.['paths'] as string[] | undefined;
       const allRoutes = snapshotByCall[Math.min(callIndex, snapshotByCall.length - 1)]!;
 
       callIndex += 1;
 
-      const filtered = ids ? allRoutes.filter((r) => ids.includes(r.id)) : allRoutes;
+      const filtered = ids
+        ? allRoutes.filter((r) => ids.includes(r.id))
+        : (paths
+            ? allRoutes.filter((r) => paths.includes(r.path))
+            : allRoutes);
 
       return {
         [Symbol.asyncIterator](): AsyncIterator<T> {
@@ -249,6 +255,80 @@ describe('routes sync', () => {
 
     expect((instance.getByPath('/home') as StoreRoute).id).toBe('1');
     expect(instance.getByPath('/missing')).toBeUndefined();
+
+    destroy();
+  });
+});
+
+describe('lazy routes', () => {
+  test('a missed path lookup is cached and answered sync without refetching', async () => {
+    const { client, callCount } = makeClient([[makeRoute('1', '/home')]]);
+    const updates$ = createAsyncIterableSubject<UpdateBatch>();
+
+    const { instance, destroy } = createLazyRoutesCollection(undefined, client, updates$, new ModelResolver(undefined));
+
+    const missing = await Promise.resolve(instance.getByPath('/nope'));
+
+    expect(missing).toBeUndefined();
+    expect(callCount()).toBe(1);
+
+    const again = instance.getByPath('/nope');
+
+    expect(again).toBeUndefined();
+    expect(callCount()).toBe(1);
+
+    destroy();
+  });
+
+  test('a route update event drops the negative entry for its path', async () => {
+    const { client, callCount } = makeClient([[], [makeRoute('1', '/late')]]);
+    const updates$ = createAsyncIterableSubject<UpdateBatch>();
+
+    const { instance, destroy } = createLazyRoutesCollection(undefined, client, updates$, new ModelResolver(undefined));
+
+    expect(await Promise.resolve(instance.getByPath('/late'))).toBeUndefined();
+    expect(callCount()).toBe(1);
+    expect(instance.getByPath('/late')).toBeUndefined();
+
+    updates$.next({
+      entity: new Map(),
+      events: [],
+      route: [
+        {
+          id: '1',
+          mutation: 'update',
+          target: 'route',
+          after: { id: '1', path: '/late', type: 'textResponse' },
+          before: undefined,
+        } as any,
+      ],
+      asset: [],
+      i18nMessage: [],
+      routeByEntityModel: new Map(),
+    } as unknown as UpdateBatch);
+
+    const found = await Promise.resolve(instance.getByPath('/late'));
+
+    expect((found as StoreRoute).id).toBe('1');
+    expect(callCount()).toBe(2);
+
+    destroy();
+  });
+
+  test('refresh() clears negative entries', async () => {
+    const { client, callCount } = makeClient([[], [makeRoute('1', '/later')]]);
+    const updates$ = createAsyncIterableSubject<UpdateBatch>();
+
+    const { instance, destroy } = createLazyRoutesCollection(undefined, client, updates$, new ModelResolver(undefined));
+
+    expect(await Promise.resolve(instance.getByPath('/later'))).toBeUndefined();
+    expect(callCount()).toBe(1);
+
+    instance.refresh();
+
+    const found = await Promise.resolve(instance.getByPath('/later'));
+
+    expect((found as StoreRoute).id).toBe('1');
 
     destroy();
   });

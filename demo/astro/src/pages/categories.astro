@@ -1,0 +1,16 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { categories } from '@/server/categories';
+import { config } from '@/server/config';
+
+const { brandName } = config.get();
+const items = categories.getAll();
+---
+
+<BaseLayout title={`Categories — ${brandName}`}>
+  <h1>Categories</h1>
+
+  <ul>
+    {items.map((category) => <li>{category.name}</li>)}
+  </ul>
+</BaseLayout>

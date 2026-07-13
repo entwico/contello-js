@@ -76,21 +76,15 @@ export function createOperationTelemetry(scope: string): OperationTelemetry {
       }
 
       if (result instanceof Promise) {
-        const promise = result;
+        // passive observer: the caller keeps the original promise (no extra hop);
+        // registered before returning, so finish/fail run ahead of the caller's continuation
+        // eslint-disable-next-line unicorn/prefer-await
+        result.then(
+          () => finish(false),
+          (error: unknown) => fail(error),
+        );
 
-        return (async () => {
-          try {
-            const value = await promise;
-
-            finish(false);
-
-            return value;
-          } catch (error) {
-            fail(error);
-
-            throw error;
-          }
-        })() as T;
+        return result;
       }
 
       finish(true);
@@ -100,6 +94,35 @@ export function createOperationTelemetry(scope: string): OperationTelemetry {
   };
 
   return { wrap };
+}
+
+/**
+ * Renames the active span and/or merges attributes into it. No-op when telemetry is
+ * disabled, `@opentelemetry/api` is absent, or no recording span is active. Used to
+ * enrich an outer span (e.g. the platform HTTP server span) with context only the
+ * contello layer knows.
+ */
+export function updateActiveSpan(update: {
+  name?: string | undefined;
+  attributes?: OperationAttributes | undefined;
+}): void {
+  if (!otel) {
+    return;
+  }
+
+  const span = otel.trace.getActiveSpan();
+
+  if (!span?.isRecording()) {
+    return;
+  }
+
+  if (update.attributes) {
+    span.setAttributes(update.attributes);
+  }
+
+  if (update.name) {
+    span.updateName(update.name);
+  }
 }
 
 /**

@@ -1,5 +1,18 @@
 # @contello/store
 
+## 4.1.0
+
+### Minor Changes
+
+- lazy route lookups cache misses (404)
+- cold lazy fetches (routes, collections, assets) now happen within the same tick
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @contello/opentelemetry@2.1.0
+
 ## 4.0.0
 
 ### Patch Changes

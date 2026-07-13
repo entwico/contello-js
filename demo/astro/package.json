@@ -7,11 +7,14 @@
     "dev": "astro dev",
     "build": "astro build",
     "generate": "node --env-file=../../.env ../../packages/client/dist/cli.js generate",
-    "typecheck": "astro check && tsc --noEmit"
+    "lint": "eslint . --cache",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "astro check && tsc --noEmit",
+    "test:e2e": "astro build && vitest run --config e2e/vitest.config.ts"
   },
   "dependencies": {
     "@astroscope/i18n": "^1.0.0",
-    "@astroscope/node": "^1.0.0",
+    "@astroscope/node": "^1.2.1",
     "@contello/astro": "workspace:^",
     "@contello/client": "workspace:^",
     "@contello/store": "workspace:^",
@@ -21,6 +24,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

@@ -801,9 +801,7 @@ const operations: Operations = {
 
 const sources: Sources = {
   storeAsset: {
-    document: `${MediaFileFragmentSchema}
-${MediaAssetFragmentSchema}
-${StoreAssetFragmentSchema}`,
+    document: `${MediaFileFragmentSchema}\n${MediaAssetFragmentSchema}\n${StoreAssetFragmentSchema}`,
     fragment: 'StoreAsset',
     subscription: 'contelloAssetsBatch',
     __model: 'storeAsset',

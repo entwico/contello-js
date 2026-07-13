@@ -1,5 +1,12 @@
 # @contello/media
 
+## 2.2.1
+
+### Patch Changes
+
+- aa48541: respect explicit `sizes` verbatim on lazy images
+- 44f7bd3: warn in development when the automatic `sizes` fallback collapses an image to zero width
+
 ## 2.2.0
 
 ### Minor Changes

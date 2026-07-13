@@ -145,6 +145,8 @@ export function createLazyRoutesCollection(
 
   const cache = createRoutesCache(_def.cache.max, _def.cache.ttl);
 
+  const negatives = createLruCache<string, true>({ max: _def.cache.max, ttl: _def.cache.ttl, onEvict: undefined });
+
   const routesSourceDoc = createSourceSubscription(storeSchema.sources.storeRoute);
 
   function fetchRoutes(vars: { ids?: string[]; paths?: string[] }): Promise<StoreRouteFragment[]> {
@@ -177,8 +179,16 @@ export function createLazyRoutesCollection(
 
         const byIds = collectRoutes(rawByIds, (r) => ID_PREFIX + r.id, resolver);
         const byPaths = collectRoutes(rawByPaths, (r) => PATH_PREFIX + r.path, resolver);
+        const found = [...byIds, ...byPaths];
+        const foundKeys = new Set(found.map((route) => (route as Record<symbol, string>)[CACHE_KEY]));
 
-        return [...byIds, ...byPaths];
+        for (const key of prefixedKeys) {
+          if (!foundKeys.has(key)) {
+            negatives.set(key, true);
+          }
+        }
+
+        return found;
       }),
     cache,
   });
@@ -222,6 +232,9 @@ export function createLazyRoutesCollection(
         cache.delete(idKey);
         evicted.push(event.id);
       } else {
+        negatives.delete(idKey);
+        negatives.delete(PATH_PREFIX + event.after.path);
+
         if (cache.has(idKey)) {
           cache.set(idKey, event.after);
         }
@@ -235,31 +248,51 @@ export function createLazyRoutesCollection(
     }
   });
 
+  function lookupOne(key: string): unknown {
+    if (negatives.has(key)) {
+      return undefined;
+    }
+
+    return projected.get(key);
+  }
+
+  function lookupMany(keys: string[]): unknown {
+    const known = keys.filter((key) => !negatives.has(key));
+
+    if (known.length === 0) {
+      return [];
+    }
+
+    return projected.get(known);
+  }
+
   return {
     instance: {
       refresh$: channel.stream$,
 
       get(idOrIds: string | readonly string[]): any {
         if (Array.isArray(idOrIds)) {
-          return projected.get(idOrIds.map((id) => ID_PREFIX + id));
+          return lookupMany(idOrIds.map((id) => ID_PREFIX + id));
         }
 
-        return projected.get(ID_PREFIX + idOrIds);
+        return lookupOne(ID_PREFIX + idOrIds);
       },
 
       getByPath(pathOrPaths: string | readonly string[]): any {
         if (Array.isArray(pathOrPaths)) {
-          return projected.get(pathOrPaths.map((p) => PATH_PREFIX + p));
+          return lookupMany(pathOrPaths.map((p) => PATH_PREFIX + p));
         }
 
-        return projected.get(PATH_PREFIX + pathOrPaths);
+        return lookupOne(PATH_PREFIX + pathOrPaths);
       },
 
       refresh() {
+        negatives.clear();
         scheduleRefresh('on-demand');
       },
 
       clear() {
+        negatives.clear();
         projected.clear();
       },
     },

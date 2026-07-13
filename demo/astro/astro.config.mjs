@@ -4,9 +4,7 @@ import { defineConfig } from 'astro/config';
 
 export default defineConfig({
   output: 'server',
-  adapter: node(),
+  adapter: node({ telemetry: { dev: true, prometheus: false } }),
   integrations: [i18n()],
-  devToolbar: {
-    enabled: false,
-  },
+  devToolbar: { enabled: false },
 });

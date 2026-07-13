@@ -1,5 +1,15 @@
 # @contello/opentelemetry
 
+## 2.1.0
+
+### Minor Changes
+
+- new `updateActiveSpan` helper to rename and enrich the currently active span
+
+### Patch Changes
+
+- wrapped async operations resolve without an extra promise hop
+
 ## 2.0.0
 
 ### Major Changes

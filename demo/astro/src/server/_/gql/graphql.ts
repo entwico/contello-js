@@ -991,7 +991,6 @@ const ComponentFragmentSchema = `fragment Component on ContelloComponent {
   ... on SectionComponent {
     headline
     content {
-      __typename
       ... on ContelloFlatComponent {
         _flatId
       }
@@ -1066,7 +1065,6 @@ const StaticPageFragmentSchema = `fragment StaticPage on StaticPageEntity {
   attributes {
     name
     content {
-      __typename
       ... on ContelloFlatComponent {
         _flatId
       }
@@ -1166,27 +1164,21 @@ const sources: Sources = {
     __cardinality: 'singleton',
   },
   product: {
-    document: `${MediaFileFragmentSchema}
-${MediaAssetFragmentSchema}
-${StoreAssetFragmentSchema}
-${ProductFragmentSchema}`,
+    document: `${MediaFileFragmentSchema}\n${MediaAssetFragmentSchema}\n${StoreAssetFragmentSchema}\n${ProductFragmentSchema}`,
     fragment: 'Product',
     subscription: 'productsBatch',
     __model: 'product',
     __cardinality: 'entity',
   },
   staticPage: {
-    document: `${ComponentFragmentSchema}
-${StaticPageFragmentSchema}`,
+    document: `${ComponentFragmentSchema}\n${StaticPageFragmentSchema}`,
     fragment: 'StaticPage',
     subscription: 'staticPagesBatch',
     __model: 'staticPage',
     __cardinality: 'entity',
   },
   storeAsset: {
-    document: `${MediaFileFragmentSchema}
-${MediaAssetFragmentSchema}
-${StoreAssetFragmentSchema}`,
+    document: `${MediaFileFragmentSchema}\n${MediaAssetFragmentSchema}\n${StoreAssetFragmentSchema}`,
     fragment: 'StoreAsset',
     subscription: 'contelloAssetsBatch',
     __model: 'storeAsset',

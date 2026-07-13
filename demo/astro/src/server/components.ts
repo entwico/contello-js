@@ -8,19 +8,23 @@ export type Component =
 
 function mapComponent(c: ComponentFragment): Component | undefined {
   switch (c.__model) {
-    case 'text':
+    case 'text': {
       return c.text?.markdownData ? { type: 'text', markdownData: c.text.markdownData } : undefined;
+    }
 
-    case 'section':
+    case 'section': {
       return { type: 'section', headline: c.headline ?? '', content: mapComponents(c.content) };
+    }
 
-    case 'productList':
+    case 'productList': {
       return { type: 'productList', headline: c.headline ?? '', productIds: (c.products ?? []).map((p) => p.id) };
+    }
 
-    default:
+    default: {
       log.warn({ model: (c as { __model: string }).__model }, 'unhandled component');
 
       return undefined;
+    }
   }
 }
 

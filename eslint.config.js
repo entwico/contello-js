@@ -4,7 +4,7 @@ export default defineConfig({
   root: import.meta.dirname,
   react: true,
   astro: true,
-  ignores: ['**/generated/**', '**/tsdown.config.ts', '**/contello.config.ts'],
+  ignores: ['**/generated/**', '**/_/gql/**', '**/tsdown.config.ts', '**/contello.config.ts'],
   extra: [
     {
       // @contello/media is framework-agnostic

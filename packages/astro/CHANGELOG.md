@@ -1,5 +1,17 @@
 # @contello/astro
 
+## 4.1.0
+
+### Minor Changes
+
+- server spans of contello-served requests are named after the resolved route (`/contello/entities/<model>/[id]`, `contello:route:<type>`) instead of the astro 404 fallback, with `contello.route.*` attributes
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @contello/opentelemetry@2.1.0
+
 ## 4.0.1
 
 ### Patch Changes

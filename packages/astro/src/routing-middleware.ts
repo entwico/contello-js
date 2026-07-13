@@ -1,4 +1,5 @@
 import { type ExcludePattern, RECOMMENDED_EXCLUDES, shouldExclude } from '@astroscope/node/excludes';
+import { updateActiveSpan } from '@contello/opentelemetry';
 import {
   type LazyRoutes,
   type MaybePromise,
@@ -55,6 +56,25 @@ function toRedirectStatus(status: number): ValidRedirectStatus {
   return (VALID_REDIRECT_STATUSES.has(status) ? status : 302) as ValidRedirectStatus;
 }
 
+/**
+ * The platform server span is named after the astro route pattern, which for
+ * contello-served paths is the 404 fallback — rename it to the route that
+ * actually handles the request and record what contello resolved.
+ */
+function markServerSpan(method: string, route: StoreRoute): void {
+  const httpRoute = route.type === 'entity' ? `/contello/entities/${route.model}/[id]` : `contello:route:${route.type}`;
+
+  updateActiveSpan({
+    name: `${method} ${httpRoute}`,
+    attributes: {
+      'http.route': httpRoute,
+      'contello.route.type': route.type,
+      'contello.route.path': route.path,
+      ...(route.type === 'entity' && { 'contello.route.model': route.model }),
+    },
+  });
+}
+
 export function createBoundRoutingMiddleware(
   contello: Contello<any>,
   routes: AnyRoutes,
@@ -85,6 +105,8 @@ export function createBoundRoutingMiddleware(
       if (!route) {
         return contello[runRequest]({ url, route: undefined, rewritten: false }, () => next());
       }
+
+      markServerSpan(ctx.request.method, route);
 
       switch (route.type) {
         case 'redirect': {
