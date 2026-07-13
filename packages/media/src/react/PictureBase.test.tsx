@@ -43,3 +43,27 @@ describe('PictureBase sizes', () => {
     expect(renderedSizes({ sizes: { base: '100vw', md: '50vw' } }).img).toBe('(min-width: 768px) 50vw, 100vw');
   });
 });
+
+describe('PictureBase dev collapse check', () => {
+  function renderedImgRef(props: Partial<PictureBaseProps>) {
+    const picture = PictureBase({ src, alt: '', ...props });
+    const [, img] = picture.props.children;
+
+    return img.props.ref as unknown;
+  }
+
+  test('the img ref is wrapped only when the automatic sizes fallback applies', () => {
+    expect(renderedImgRef({})).toBeTypeOf('function');
+    expect(renderedImgRef({ sizes: '600px' })).toBeUndefined();
+    expect(renderedImgRef({ priority: true })).toBeUndefined();
+  });
+
+  test('the wrapped ref still forwards to the caller ref', () => {
+    const seen: unknown[] = [];
+    const wrapped = renderedImgRef({ ref: (node: unknown) => void seen.push(node) }) as (node: unknown) => void;
+
+    wrapped(null);
+
+    expect(seen).toEqual([null]);
+  });
+});

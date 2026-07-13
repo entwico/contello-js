@@ -1,7 +1,10 @@
-import type { ComponentPropsWithRef } from 'react';
+import type { ComponentPropsWithRef, Ref, RefCallback } from 'react';
 
 import { type SizesInput, resolveSizes } from '../sizes';
 import type { DeepReadonly, ImageSource } from '../types';
+
+// bundlers statically replace `process.env.NODE_ENV`
+const DEV = process.env.NODE_ENV !== 'production';
 
 export type ImgSpread = Omit<ComponentPropsWithRef<'img'>, 'src' | 'srcSet' | 'sizes'>;
 
@@ -24,7 +27,8 @@ export type PictureBaseProps = {
    * image itself (e.g. `w-full`, a fixed width, a sized flex/grid track). with an auto-width
    * image the browser sizes the image from its own layout box, picks the smallest srcset
    * candidate, and the image collapses to 0×0 permanently. for "natural size, capped" images
-   * always pass explicit `sizes`.
+   * always pass explicit `sizes`. in development, a console warning fires when the fallback
+   * collapses an image (hydrated islands only — server-only renders run no JS).
    */
   sizes?: SizesInput | undefined;
   /**
@@ -46,6 +50,61 @@ function defaultSizes(sizes: string | undefined, lazy: boolean): string | undefi
   }
 
   return 'auto, 100vw';
+}
+
+const collapseCheckedImgs = new WeakSet<HTMLImageElement>();
+
+/**
+ * dev-only: detects the `sizes="auto"` collapse. the automatic fallback resolves `auto`
+ * against the `<img>`'s own layout box — when CSS gives it no definite width (e.g. `w-auto`),
+ * the box sizes from the image, the browser sees a 0-wide box, and the lazy image never
+ * intersects the viewport, so it stays 0×0 permanently. that state is stable, so a single
+ * delayed measurement after mount is enough to catch it.
+ */
+function scheduleCollapseCheck(img: HTMLImageElement, assetId: string | undefined) {
+  if (collapseCheckedImgs.has(img)) {
+    return;
+  }
+
+  collapseCheckedImgs.add(img);
+
+  setTimeout(() => {
+    if (!img.isConnected || img.getBoundingClientRect().width > 0) {
+      return;
+    }
+
+    if (typeof img.checkVisibility === 'function' && !img.checkVisibility()) {
+      return;
+    }
+
+    console.warn(
+      `[@contello/media] image${assetId ? ` "${assetId}"` : ''} rendered at 0 width under the default sizes="auto, 100vw". ` +
+      'automatic sizing requires the <img> to have a definite CSS width (e.g. w-full) — an auto-width image ' +
+      'collapses and never loads. give it a definite width or pass explicit `sizes`.',
+      img,
+    );
+  }, 1000);
+}
+
+// composes the caller's ref with the dev-only collapse check; only used when the automatic
+// sizes fallback was applied, so prod passes the caller's ref through untouched
+function withCollapseCheck(
+  ref: Ref<HTMLImageElement> | undefined,
+  assetId: string | undefined,
+): RefCallback<HTMLImageElement> {
+  return (node) => {
+    if (node) {
+      scheduleCollapseCheck(node, assetId);
+    }
+
+    if (typeof ref === 'function') {
+      return ref(node);
+    }
+
+    if (ref) {
+      ref.current = node;
+    }
+  };
 }
 
 /**
@@ -71,7 +130,12 @@ export function PictureBase(props: PictureBaseProps) {
   const resolvedLoading = loading ?? (priority ? 'eager' : 'lazy');
   const resolvedFetchPriority = fetchPriority ?? (priority ? 'high' : undefined);
   const lazy = resolvedLoading === 'lazy';
-  const sizesAttr = defaultSizes(resolveSizes(sizes), lazy);
+  const explicitSizes = resolveSizes(sizes);
+  const sizesAttr = defaultSizes(explicitSizes, lazy);
+
+  const autoFallback = lazy && explicitSizes === undefined;
+  const responsive = Boolean(src.image?.srcset) || Boolean(src.sources?.length);
+  const imgRef = DEV && autoFallback && responsive ? withCollapseCheck(ref, src.id) : ref;
 
   return (
     <picture
@@ -89,7 +153,7 @@ export function PictureBase(props: PictureBaseProps) {
         width={src.image?.width}
         height={src.image?.height}
         {...imgProps}
-        ref={ref}
+        ref={imgRef}
         alt={alt}
         src={src.image?.url}
         srcSet={src.image?.srcset}
