@@ -11,10 +11,11 @@ export type ImageProps = Omit<PictureBaseProps, 'unwrap' | 'picture'>;
  * use this as the default for images inside flex/grid slots; reach for `Picture` only
  * when you need to style the wrapper or use art-directed `<source media>` entries.
  *
- * requires a pre-computed `ImageSource` (`mediaResolver.image.source()`). lazy images get
- * `sizes="auto"` and may omit `sizes` (falling back to `auto, 100vw`); priority images should
- * declare `sizes` since they can't use automatic sizing. all other top-level props forward to
- * the `<img>`.
+ * requires a pre-computed `ImageSource` (`mediaResolver.image.source()`). explicit `sizes` is
+ * used verbatim; lazy images may omit it and fall back to `auto, 100vw` — but only when CSS
+ * gives the `<img>` a definite width (e.g. `w-full`), otherwise the image collapses to 0×0.
+ * priority images should declare `sizes` since they can't use automatic sizing. all other
+ * top-level props forward to the `<img>`.
  */
 export function Image(props: ImageProps) {
   return <PictureBase {...props} unwrap />;

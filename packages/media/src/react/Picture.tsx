@@ -10,8 +10,9 @@ export type PictureProps = Omit<PictureBaseProps, 'unwrap'>;
  * requires a pre-computed `ImageSource` — use `mediaResolver.image.source()`
  * at the mapping layer so hydration payloads carry only the resolved data.
  *
- * lazy images get `sizes="auto"` (the browser sizes from the actual rendered box) and may
- * omit `sizes` (falling back to `auto, 100vw`); priority images should declare it. other top-level
+ * explicit `sizes` is used verbatim; lazy images may omit it and fall back to `auto, 100vw` —
+ * but only when CSS gives the `<img>` a definite width (e.g. `w-full`), otherwise the image
+ * collapses to 0×0. priority images should always declare it. other top-level
  * props forward to the `<img>` (ref, className, style, alt, width, height, loading, decoding,
  * fetchPriority, ARIA, event handlers); the `picture={{...}}` prop targets the outer `<picture>`.
  *

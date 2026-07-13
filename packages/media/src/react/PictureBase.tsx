@@ -16,9 +16,15 @@ export type PictureBaseProps = {
    */
   priority?: boolean | undefined;
   /**
-   * responsive sizes — a raw `sizes` string or a breakpoint-keyed `SizesMap`. should be set for
-   * priority (eager) images, which can't use automatic sizing; lazy images may omit it (they fall
-   * back to `auto, 100vw`).
+   * responsive sizes — a raw `sizes` string or a breakpoint-keyed `SizesMap`. when set, it is
+   * used verbatim. should be set for priority (eager) images, which can't use automatic sizing;
+   * lazy images may omit it (they fall back to `auto, 100vw`).
+   *
+   * **the `auto` fallback requires the `<img>` to have a definite CSS width** independent of the
+   * image itself (e.g. `w-full`, a fixed width, a sized flex/grid track). with an auto-width
+   * image the browser sizes the image from its own layout box, picks the smallest srcset
+   * candidate, and the image collapses to 0×0 permanently. for "natural size, capped" images
+   * always pass explicit `sizes`.
    */
   sizes?: SizesInput | undefined;
   /**
@@ -29,16 +35,17 @@ export type PictureBaseProps = {
 } & ImgSpread;
 
 /**
- * lazy images get `sizes="auto"` so the browser sizes from the actual rendered box (covering
- * viewport *and* container queries); the resolved sizes (or `100vw`) trails as a fallback for
- * browsers without `auto` support. eager images can't use `auto`, so they keep their sizes verbatim.
+ * explicit `sizes` always wins verbatim — prepending `auto` would make supporting browsers
+ * ignore the caller's list entirely. only lazy images with no `sizes` fall back to
+ * `auto, 100vw`: `auto` sizes from the actual rendered box (covering viewport *and* container
+ * queries), `100vw` trails for browsers without `auto` support. eager images can't use `auto`.
  */
-function withAutoSizes(sizes: string | undefined, lazy: boolean): string | undefined {
-  if (!lazy) {
+function defaultSizes(sizes: string | undefined, lazy: boolean): string | undefined {
+  if (sizes !== undefined || !lazy) {
     return sizes;
   }
 
-  return sizes ? `auto, ${sizes}` : 'auto, 100vw';
+  return 'auto, 100vw';
 }
 
 /**
@@ -64,7 +71,7 @@ export function PictureBase(props: PictureBaseProps) {
   const resolvedLoading = loading ?? (priority ? 'eager' : 'lazy');
   const resolvedFetchPriority = fetchPriority ?? (priority ? 'high' : undefined);
   const lazy = resolvedLoading === 'lazy';
-  const sizesAttr = withAutoSizes(resolveSizes(sizes), lazy);
+  const sizesAttr = defaultSizes(resolveSizes(sizes), lazy);
 
   return (
     <picture
