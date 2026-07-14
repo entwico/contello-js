@@ -1,5 +1,11 @@
 # @contello/rich-text
 
+## 8.22.2
+
+### Patch Changes
+
+- c1d1182: parseRichTextDocument returns an empty document for malformed JSON instead of throwing
+
 ## 8.22.1
 
 ### Patch Changes

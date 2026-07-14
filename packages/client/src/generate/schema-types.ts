@@ -195,16 +195,12 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
     .toSorted(byName);
 
   for (const iface of interfaces) {
-    const fields = Object.values((iface as any).getFields() as Record<string, GraphQLField<any, any>>).toSorted(
-      (a, b) => a.name.localeCompare(b.name),
-    );
+    const fields = Object.values((iface as any).getFields() as Record<string, GraphQLField<any, any>>)
+      .filter((field) => !isTransportField(field.name))
+      .toSorted((a, b) => a.name.localeCompare(b.name));
     const fieldLines: string[] = [`export type ${iface.name} = {`, `  __typename?: string | undefined;`];
 
     for (const field of fields) {
-      if (isTransportField(field.name)) {
-        continue;
-      }
-
       fieldLines.push(`  ${field.name}${isNonNullType(field.type) ? '' : '?'}: ${typeToTs(field.type)};`);
     }
 

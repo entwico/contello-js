@@ -1,5 +1,13 @@
 # @contello/store
 
+## 4.1.1
+
+### Patch Changes
+
+- 8be8e30: avoid redundant promise allocations when mapping collection items with synchronous mappers
+- Updated dependencies [8be8e30]
+  - @contello/opentelemetry@2.1.1
+
 ## 4.1.0
 
 ### Minor Changes

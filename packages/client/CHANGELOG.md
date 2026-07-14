@@ -1,5 +1,13 @@
 # @contello/client
 
+## 3.0.1
+
+### Patch Changes
+
+- 038a08f: generated schema types no longer expose the internal `_flat_*` companion fields
+- Updated dependencies [8be8e30]
+  - @contello/opentelemetry@2.1.1
+
 ## 3.0.0
 
 ### Major Changes

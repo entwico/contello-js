@@ -1,5 +1,11 @@
 # @contello/opentelemetry
 
+## 2.1.1
+
+### Patch Changes
+
+- 8be8e30: streamline operation span/metric recording (no behavior change)
+
 ## 2.1.0
 
 ### Minor Changes

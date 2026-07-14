@@ -1,5 +1,11 @@
 # @contello/uploader
 
+## 8.21.6
+
+### Patch Changes
+
+- c1d1182: uploads over the http transport no longer fail immediately
+
 ## 8.21.5
 
 ### Patch Changes
