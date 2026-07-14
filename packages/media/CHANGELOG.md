@@ -1,5 +1,11 @@
 # @contello/media
 
+## 2.2.2
+
+### Patch Changes
+
+- 728371a: image.url returns undefined instead of an empty string when nothing resolves; with a configured fallback its return stays a plain string
+
 ## 2.2.1
 
 ### Patch Changes
