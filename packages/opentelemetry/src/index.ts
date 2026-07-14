@@ -1,3 +1,4 @@
+import { maybeThen } from '@entwico/dash';
 import { api } from './api';
 import { otelEnv } from './env';
 
@@ -54,7 +55,7 @@ export function createOperationTelemetry(scope: string): OperationTelemetry {
         span.end();
       };
 
-      const fail = (error: unknown) => {
+      const fail = (error: unknown): never => {
         duration.record(performance.now() - start, { ...attrs, cached: false });
         errors.add(1, attrs);
         span.recordException(error as Error);
@@ -63,6 +64,8 @@ export function createOperationTelemetry(scope: string): OperationTelemetry {
           message: error instanceof Error ? error.message : String(error),
         });
         span.end();
+
+        throw error;
       };
 
       let result: T;
@@ -70,26 +73,20 @@ export function createOperationTelemetry(scope: string): OperationTelemetry {
       try {
         result = fn();
       } catch (error) {
-        fail(error);
-
-        throw error;
+        return fail(error);
       }
 
-      if (result instanceof Promise) {
-        // passive observer: the caller keeps the original promise (no extra hop);
-        // registered before returning, so finish/fail run ahead of the caller's continuation
-        // eslint-disable-next-line unicorn/prefer-await
-        result.then(
-          () => finish(false),
-          (error: unknown) => fail(error),
-        );
+      const cached = !(result instanceof Promise);
 
-        return result;
-      }
+      return maybeThen(
+        result,
+        (value) => {
+          finish(cached);
 
-      finish(true);
-
-      return result;
+          return value;
+        },
+        fail,
+      ) as T;
     });
   };
 

@@ -1,5 +1,5 @@
 import { type ContelloClient, type SourceDef, createSourceSubscription } from '@contello/client';
-import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
+import { type MaybePromise, type ReadonlyDeep, maybeAll, maybeThen } from '@entwico/dash';
 import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
 import { DependencyCollector } from './dependency-collector';
@@ -64,16 +64,14 @@ export function createCollection<
       wrap(`collection:${_def.name}`, () =>
         maybeThen(fetchCollection(source, client, ids), async (rawItems) => {
           // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
-          const items = await Promise.all(
+          const items = await maybeAll(
             rawItems.map((item) =>
-              Promise.resolve(
-                dependencyCollector.createContext((ref, register) =>
-                  maybeThen(mapFn(item, ref), (mapped) => {
-                    register(mapped.id);
+              dependencyCollector.createContext((ref, register) =>
+                maybeThen(mapFn(item, ref), (mapped) => {
+                  register(mapped.id);
 
-                    return mapped;
-                  }),
-                ),
+                  return mapped;
+                }),
               ),
             ),
           );

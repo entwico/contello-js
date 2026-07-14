@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@contello/opentelemetry": "workspace:^",
-    "@entwico/dash": "^1.0.0",
+    "@entwico/dash": "^1.1.0",
     "@entwico/projected": "^5.0.0",
     "lru-cache": "^11.3.5"
   },

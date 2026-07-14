@@ -152,6 +152,10 @@ importers:
         version: 19.2.7(react@19.2.7)
 
   packages/opentelemetry:
+    dependencies:
+      '@entwico/dash':
+        specifier: ^1.2.0
+        version: 1.2.0(clsx@2.1.1)(react@19.2.7)
     devDependencies:
       '@opentelemetry/api':
         specifier: ^1.9.1
@@ -177,8 +181,8 @@ importers:
         specifier: workspace:^
         version: link:../opentelemetry
       '@entwico/dash':
-        specifier: ^1.0.0
-        version: 1.0.0(clsx@2.1.1)(react@19.2.7)
+        specifier: ^1.1.0
+        version: 1.1.0(clsx@2.1.1)(react@19.2.7)
       '@entwico/projected':
         specifier: ^5.0.0
         version: 5.0.0(clsx@2.1.1)(react@19.2.7)
@@ -660,6 +664,20 @@ packages:
 
   '@entwico/dash@1.1.0':
     resolution: {integrity: sha512-iZlSDaXXYJ7tpomXlxsdcZhK34QoVobW9uPdH3UnK6gT95O4PZG2YVfTkV8wZgL0vDCWDhu8a0vJiO2ek532tQ==}
+    peerDependencies:
+      clsx: '>=2'
+      react: '>=18'
+      tailwind-merge: '>=2'
+    peerDependenciesMeta:
+      clsx:
+        optional: true
+      react:
+        optional: true
+      tailwind-merge:
+        optional: true
+
+  '@entwico/dash@1.2.0':
+    resolution: {integrity: sha512-WPwHiYo3dtNZM8QpFW/ym2JEkwAmAzkUCm/A879ODTQATSMS+FFWBTq6818niHNU059szz0xNAxAiuLEJsZcMg==}
     peerDependencies:
       clsx: '>=2'
       react: '>=18'
@@ -5477,6 +5495,11 @@ snapshots:
       clsx: 2.1.1
       react: 19.2.7
 
+  '@entwico/dash@1.2.0(clsx@2.1.1)(react@19.2.7)':
+    optionalDependencies:
+      clsx: 2.1.1
+      react: 19.2.7
+
   '@entwico/eslint-config@2.0.5(@typescript-eslint/utils@8.62.1(eslint@10.6.0(jiti@2.6.1))(typescript@6.0.3))(astro-eslint-parser@2.1.0)(eslint-import-resolver-node@0.3.9)(eslint@10.6.0(jiti@2.6.1))(tailwindcss@4.2.3)(typescript@6.0.3)':
     dependencies:
       '@astroscope/eslint-plugin': 0.4.0(@typescript-eslint/parser@8.62.1(eslint@10.6.0(jiti@2.6.1))(typescript@6.0.3))(astro-eslint-parser@2.1.0)(eslint@10.6.0(jiti@2.6.1))(typescript@6.0.3)
@@ -5509,7 +5532,7 @@ snapshots:
 
   '@entwico/projected@5.0.0(clsx@2.1.1)(react@19.2.7)':
     dependencies:
-      '@entwico/dash': 1.0.0(clsx@2.1.1)(react@19.2.7)
+      '@entwico/dash': 1.1.0(clsx@2.1.1)(react@19.2.7)
     transitivePeerDependencies:
       - clsx
       - react

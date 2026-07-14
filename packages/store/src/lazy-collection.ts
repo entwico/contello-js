@@ -1,5 +1,5 @@
 import { type ContelloClient, type SourceDef, createSourceSubscription } from '@contello/client';
-import { maybeThen } from '@entwico/dash';
+import { maybeAll, maybeThen } from '@entwico/dash';
 import {
   type AsyncIterableSubject,
   concatAsync,
@@ -66,16 +66,14 @@ export function createLazyCollection<
             ),
           ),
           (rawItems) =>
-            Promise.all(
+            maybeAll(
               rawItems.map((item) =>
-                Promise.resolve(
-                  dependencyCollector.createContext((ref, register) =>
-                    maybeThen(mapFn(item, ref), (mapped) => {
-                      register(mapped.id);
+                dependencyCollector.createContext((ref, register) =>
+                  maybeThen(mapFn(item, ref), (mapped) => {
+                    register(mapped.id);
 
-                      return mapped;
-                    }),
-                  ),
+                    return mapped;
+                  }),
                 ),
               ),
             ),

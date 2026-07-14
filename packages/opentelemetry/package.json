@@ -16,6 +16,9 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@entwico/dash": "^1.2.0"
+  },
   "peerDependencies": {
     "@opentelemetry/api": ">=1.9.0"
   },
