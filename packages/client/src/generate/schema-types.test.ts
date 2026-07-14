@@ -148,6 +148,30 @@ describe('generateSchemaTypes', () => {
     expect(result).not.toContain('ModelType');
   });
 
+  test('omits _flat_ transport fields from object and interface types', () => {
+    const schema = buildSchema(`
+      type Query { dummy: String }
+      union ContelloComponent = TextComponent
+      type TextComponent { text: String }
+      type StaticPageAttributes {
+        content: [ContelloComponent]
+        _flat_content: [ContelloComponent]
+        name: String
+      }
+      interface WithBlocks {
+        blocks: [ContelloComponent]
+        _flat_blocks: [ContelloComponent]
+      }
+    `);
+
+    const result = generateSchemaTypes(schema);
+
+    expect(result).toContain('content?: (ContelloComponent | undefined)[] | undefined;');
+    expect(result).toContain('blocks?: (ContelloComponent | undefined)[] | undefined;');
+    expect(result).not.toContain('_flat_content');
+    expect(result).not.toContain('_flat_blocks');
+  });
+
   test('maps DateTime fields to string', () => {
     const schema = buildSchema(`
       scalar DateTime

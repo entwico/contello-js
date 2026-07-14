@@ -751,7 +751,6 @@ export type RootSubscription = {
 export type SectionComponent = {
   __typename?: 'SectionComponent' | undefined;
   __model?: 'section' | undefined;
-  _flat_content?: ContelloComponent[] | undefined;
   _flatId?: string | undefined;
   appearance?: SectionAppearanceStaticDictionary | undefined;
   content?: ContelloComponent[] | undefined;
@@ -760,7 +759,6 @@ export type SectionComponent = {
 
 export type StaticPageAttributes = {
   __typename?: 'StaticPageAttributes' | undefined;
-  _flat_content?: ContelloComponent[] | undefined;
   content?: ContelloComponent[] | undefined;
   name?: string | undefined;
 };

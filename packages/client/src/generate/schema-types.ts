@@ -69,6 +69,10 @@ function generateObjectType(type: GraphQLObjectType, modelNames: Map<string, str
   }
 
   for (const field of fields) {
+    if (isTransportField(field.name)) {
+      continue;
+    }
+
     lines.push(`  ${field.name}${isNonNullType(field.type) ? '' : '?'}: ${typeToTs(field.type)};`);
   }
 
@@ -101,6 +105,16 @@ function generateUnion(type: GraphQLUnionType): string {
 
 function isInternalType(name: string): boolean {
   return name.startsWith('__');
+}
+
+// `_flat_*` companion fields are an internal transport detail: the client selects them
+// to resolve flattened component trees, then `transformResponse` deletes them before
+// results reach consumers. emitting them here would type an always-undefined field as
+// populated, so they are excluded from consumer-facing schema types.
+const FLAT_PREFIX = '_flat_';
+
+function isTransportField(name: string): boolean {
+  return name.startsWith(FLAT_PREFIX);
 }
 
 export function generateSchemaTypes(schema: GraphQLSchema): string {
@@ -187,6 +201,10 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
     const fieldLines: string[] = [`export type ${iface.name} = {`, `  __typename?: string | undefined;`];
 
     for (const field of fields) {
+      if (isTransportField(field.name)) {
+        continue;
+      }
+
       fieldLines.push(`  ${field.name}${isNonNullType(field.type) ? '' : '?'}: ${typeToTs(field.type)};`);
     }
 
