@@ -104,7 +104,11 @@ export class MediaResolver<HasDefault extends boolean = false> {
 
   readonly image: {
     source(source: ImageInputArg | null | undefined, options?: ImageSourceOptions): ImageSource;
-    url(source: ImageInputArg | null | undefined, target: ImageUrlTarget, overrides?: ImageUrlOverrides): string;
+    url(
+      source: ImageInputArg | null | undefined,
+      target: ImageUrlTarget,
+      overrides?: ImageUrlOverrides,
+    ): HasDefault extends true ? string : string | undefined;
   };
 
   readonly video: {
@@ -131,7 +135,8 @@ export class MediaResolver<HasDefault extends boolean = false> {
 
     this.image = {
       source: (source, options) => this.resolveImageSource(source, options),
-      url: (source, target, overrides) => this.resolveImageUrl(source, target, overrides),
+      url: (source, target, overrides) =>
+        this.resolveImageUrl(source, target, overrides) as HasDefault extends true ? string : string | undefined,
     };
 
     this.video = {
@@ -164,11 +169,11 @@ export class MediaResolver<HasDefault extends boolean = false> {
     source: ImageInputArg | null | undefined,
     target: ImageUrlTarget,
     overrides?: ImageUrlOverrides,
-  ): string {
+  ): string | undefined {
     const { def } = this.resolveImage(source, overrides?.fallback);
 
     if (!def) {
-      return '';
+      return undefined;
     }
 
     const spec = TARGETS[target];
@@ -176,7 +181,7 @@ export class MediaResolver<HasDefault extends boolean = false> {
     const maxWidth = overrides?.maxWidth ?? spec.maxWidth;
     const variant = pickVariant(def.variants, spec.priority, minWidth, maxWidth, spec.prefer);
 
-    return variant?.url ?? '';
+    return variant?.url;
   }
 
   private resolveImageSource(source: ImageInputArg | null | undefined, options?: ImageSourceOptions): ImageSource {

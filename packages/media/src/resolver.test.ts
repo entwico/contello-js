@@ -199,8 +199,8 @@ describe('MediaResolver.image.url', () => {
     expect(media.image.url(webpJpeg, 'web', { maxWidth: 100 })).toBe('/w-400');
   });
 
-  test('returns empty string for null source with no fallback', () => {
-    expect(media.image.url(null, 'web')).toBe('');
+  test('returns undefined for null source with no fallback', () => {
+    expect(media.image.url(null, 'web')).toBeUndefined();
   });
 
   test('per-call fallback applies when source is null', () => {
