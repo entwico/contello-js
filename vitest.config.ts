@@ -3,6 +3,21 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    coverage: {
+      provider: 'v8',
+      include: ['packages/*/src/**/*.{ts,tsx}'],
+      exclude: [
+        'packages/*/src/**/*.test.{ts,tsx}',
+        'packages/*/src/**/*.browser.test.{ts,tsx}',
+        'packages/*/src/**/index.ts',
+        'packages/*/src/**/*.d.ts',
+        'packages/*/src/**/generated/**',
+        'packages/store/src/fragments.ts',
+        'packages/media/src/fragments.ts',
+        'packages/client/src/cli.ts',
+      ],
+      reporter: ['text', 'html'],
+    },
     projects: [
       {
         test: {

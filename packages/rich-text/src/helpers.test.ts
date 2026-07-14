@@ -87,6 +87,49 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('quoted');
   });
 
+  test('list item passed directly', () => {
+    const node: RichTextNode = {
+      type: 'listItem',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'item' }] }],
+    };
+
+    expect(richTextNodeToString(node)).toBe('item');
+  });
+
+  test('table row passed directly', () => {
+    const node: RichTextNode = {
+      type: 'tableRow',
+      content: [
+        { type: 'tableCell', content: [{ type: 'text', text: '1' }] },
+        { type: 'tableCell', content: [{ type: 'text', text: '2' }] },
+      ],
+    };
+
+    expect(richTextNodeToString(node)).toBe('1 | 2');
+  });
+
+  test('table cell passed directly', () => {
+    const node: RichTextNode = {
+      type: 'tableCell',
+      content: [{ type: 'text', text: 'cell' }],
+    };
+
+    expect(richTextNodeToString(node)).toBe('cell');
+  });
+
+  test('table header passed directly', () => {
+    const node: RichTextNode = {
+      type: 'tableHeader',
+      content: [{ type: 'text', text: 'head' }],
+    };
+
+    expect(richTextNodeToString(node)).toBe('head');
+  });
+
+  test('unknown node type yields undefined', () => {
+    expect(richTextNodeToString({ type: 'unknownThing' } as unknown as RichTextNode)).toBeUndefined();
+  });
+
   test('table', () => {
     const node: RichTextNode = {
       type: 'table',
@@ -247,5 +290,14 @@ describe('parseRichTextDocument', () => {
 
   test('returns empty doc for non-doc JSON', () => {
     expect(parseRichTextDocument(JSON.stringify({ type: 'other' }))).toEqual({ type: 'doc', content: [] });
+  });
+
+  test('returns empty doc for malformed JSON', () => {
+    expect(parseRichTextDocument('{ not json')).toEqual({ type: 'doc', content: [] });
+  });
+
+  test('returns empty doc for non-object JSON', () => {
+    expect(parseRichTextDocument('42')).toEqual({ type: 'doc', content: [] });
+    expect(parseRichTextDocument('null')).toEqual({ type: 'doc', content: [] });
   });
 });

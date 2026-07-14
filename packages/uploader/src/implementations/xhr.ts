@@ -17,9 +17,9 @@ export function uploadViaXhr(
 
     const xhr = new XMLHttpRequest();
 
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
     xhr.open('POST', `${url}/api/v1/assets`, true);
+
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {

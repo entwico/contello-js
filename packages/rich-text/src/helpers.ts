@@ -92,11 +92,17 @@ export function parseRichTextDocument(text: string | null | undefined): RichText
     return createEmptyRichTextDocument();
   }
 
-  const parsed = JSON.parse(text);
+  let parsed: unknown;
 
-  if (parsed.type !== 'doc') {
+  try {
+    parsed = JSON.parse(text);
+  } catch {
     return createEmptyRichTextDocument();
   }
 
-  return parsed;
+  if (typeof parsed !== 'object' || parsed === null || (parsed as { type?: unknown }).type !== 'doc') {
+    return createEmptyRichTextDocument();
+  }
+
+  return parsed as RichTextDocument;
 }

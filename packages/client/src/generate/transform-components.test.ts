@@ -422,6 +422,26 @@ describe('transformOperation with fragment spreads', () => {
     expect(contentMatch![1]).not.toContain('TextComponent');
   });
 
+  test('rewrites component fields nested under an inline fragment', () => {
+    const result = transformAndPrint(`
+      query GetPages {
+        staticPages {
+          ... on StaticPagesResponse {
+            entities {
+              attributes {
+                content {
+                  ... on TextComponent { text { markdownData } }
+                }
+              }
+            }
+          }
+        }
+      }
+    `);
+
+    expect(result).toContain('_flat_content');
+  });
+
   test('emitted document is valid against the schema (duplicate _flat_ selections merge cleanly)', () => {
     const gql = `
       fragment Inner on ContelloComponent {
@@ -454,5 +474,61 @@ describe('transformOperation with fragment spreads', () => {
     const errors = validate(schema, transformedDoc);
 
     expect(errors).toEqual([]);
+  });
+});
+
+describe('transformOperation / transformFragment edge cases', () => {
+  test('returns the operation unchanged when the root type is absent', () => {
+    const doc = parse(`mutation Save { staticPages { entities { id } } }`);
+    const op = collectOperations([doc])[0]!;
+    const fragments = collectFragments([doc]);
+
+    expect(transformOperation(schema, op, fragments)).toBe(op);
+  });
+
+  test('returns the fragment unchanged when its type is not composite', () => {
+    const fragments = collectFragments([parse(`fragment X on String { __typename }`)]);
+    const fragment = fragments.get('X')!;
+
+    expect(transformFragment(schema, fragment, fragments)).toBe(fragment);
+  });
+
+  test('leaves component fields untouched when the parent lacks a _flat_ companion', () => {
+    const companionlessSchema = buildSchema(`
+      type Query {
+        page: PageAttributes
+      }
+
+      type PageAttributes {
+        content: [ContelloComponent]
+      }
+
+      type TextComponent {
+        text: String
+        _flatId: String
+      }
+
+      type ContelloFlatComponent {
+        _flatId: String
+      }
+
+      union ContelloComponent = TextComponent | ContelloFlatComponent
+    `);
+
+    const doc = parse(`
+      query Q {
+        page {
+          content {
+            ... on TextComponent { text }
+          }
+        }
+      }
+    `);
+    const op = collectOperations([doc])[0]!;
+    const fragments = collectFragments([doc]);
+    const result = print(transformOperation(companionlessSchema, op, fragments));
+
+    expect(result).not.toContain('_flat_content');
+    expect(result).toContain('TextComponent');
   });
 });

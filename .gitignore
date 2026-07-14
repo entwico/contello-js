@@ -17,5 +17,6 @@ dist/
 .astro/
 .turbo/
 .eslintcache
+coverage/
 
 IDEAS.md

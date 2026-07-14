@@ -1,4 +1,4 @@
-import { buildSchema, parse, print } from 'graphql';
+import { Kind, buildSchema, parse, print } from 'graphql';
 import { describe, expect, test } from 'vitest';
 
 import { collectFragments, collectOperations } from './documents';
@@ -141,6 +141,47 @@ describe('transformScalarOperation', () => {
     expect(out).toContain('_ld_openedOn: openedOn');
   });
 
+  test('aliases managed scalars inside inline fragments', () => {
+    const out = transformOpAndPrint(`
+      query GetEvent {
+        event {
+          ... on EventEntity {
+            attributes {
+              startDate
+            }
+          }
+        }
+      }
+    `);
+
+    expect(out).toContain('_ldt_startDate: startDate');
+  });
+
+  test('leaves meta fields absent from the schema untouched', () => {
+    const out = transformOpAndPrint(`
+      query GetEvent {
+        event {
+          __typename
+          attributes {
+            startDate
+          }
+        }
+      }
+    `);
+
+    expect(out).toContain('__typename');
+    expect(out).toContain('_ldt_startDate: startDate');
+  });
+
+  test('returns the operation unchanged when the root type is absent', () => {
+    const ops = collectOperations([
+      parse(`subscription Watch { event { attributes { startDate } } }`),
+    ]);
+    const op = ops[0]!;
+
+    expect(transformScalarOperation(schema, op)).toBe(op);
+  });
+
   test('leaves operations without managed scalars untouched', () => {
     const out = transformOpAndPrint(`
       query GetEvent {
@@ -155,6 +196,28 @@ describe('transformScalarOperation', () => {
 
     expect(out).not.toContain('_ldt_');
     expect(out).not.toContain('_ld_');
+  });
+});
+
+describe('transformScalarFragment edge cases', () => {
+  test('returns the fragment unchanged when its type is not composite', () => {
+    const fragments = collectFragments([parse(`fragment X on LocalDateTime { __typename }`)]);
+    const fragment = fragments.get('X')!;
+
+    expect(transformScalarFragment(schema, fragment)).toBe(fragment);
+  });
+
+  test('returns the fragment unchanged when it has no managed scalars', () => {
+    const fragments = collectFragments([parse(`fragment X on EventAttributes { name }`)]);
+    const fragment = fragments.get('X')!;
+
+    expect(transformScalarFragment(schema, fragment)).toBe(fragment);
+  });
+
+  test('reuses the definition kind for parsed fragments', () => {
+    const fragments = collectFragments([parse(`fragment X on EventAttributes { name }`)]);
+
+    expect(fragments.get('X')!.kind).toBe(Kind.FRAGMENT_DEFINITION);
   });
 });
 

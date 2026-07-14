@@ -405,6 +405,12 @@ describe('MediaResolver fallback handling', () => {
     expect(media.image.source(null)).toEqual({});
   });
 
+  test('a fallback that resolves to no image counts as no fallback', () => {
+    const media = createMediaResolver({ baseUrl, ...testPaths, fallback: [] });
+
+    expect(media.image.source(null)).toEqual({});
+  });
+
   test('fallback from multiple bundled variants', () => {
     const media = createMediaResolver({
       baseUrl,
