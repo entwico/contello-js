@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 4.2.0
+
+### Minor Changes
+
+- 3b5a442: contello-served routes are logged and measured under the route that served them instead of `/404`
+
 ## 4.1.0
 
 ### Minor Changes
