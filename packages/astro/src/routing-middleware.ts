@@ -1,15 +1,8 @@
 import { type ExcludePattern, RECOMMENDED_EXCLUDES, shouldExclude } from '@astroscope/node/excludes';
 import { overrideRequestRoute } from '@astroscope/node/log';
 import { updateActiveSpan } from '@contello/opentelemetry';
-import {
-  type LazyRoutes,
-  type MaybePromise,
-  type Routes,
-  type RoutesSync,
-  type StoreRoute,
-  type StoreRouteCustomHeader,
-  maybeThen,
-} from '@contello/store';
+import type { LazyRoutes, Routes, RoutesSync, StoreRoute, StoreRouteCustomHeader } from '@contello/store';
+import { type MaybePromise, maybeThen } from '@entwico/dash';
 import type { APIContext, ValidRedirectStatus } from 'astro';
 import { defineMiddleware } from 'astro/middleware';
 import { type Contello, runRequest } from './contello';

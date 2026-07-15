@@ -93,6 +93,9 @@ importers:
       '@contello/opentelemetry':
         specifier: workspace:^
         version: link:../opentelemetry
+      '@entwico/dash':
+        specifier: ^1.2.0
+        version: 1.2.0(clsx@2.1.1)(react@19.2.7)
     devDependencies:
       '@astroscope/i18n':
         specifier: ^1.0.2
@@ -119,8 +122,8 @@ importers:
         specifier: workspace:^
         version: link:../opentelemetry
       '@entwico/dash':
-        specifier: ^1.0.0
-        version: 1.0.0(clsx@2.1.1)(react@19.2.7)
+        specifier: ^1.2.0
+        version: 1.2.0(clsx@2.1.1)(react@19.2.7)
       graphql:
         specifier: ^16.13.2
         version: 16.13.2
@@ -181,8 +184,8 @@ importers:
         specifier: workspace:^
         version: link:../opentelemetry
       '@entwico/dash':
-        specifier: ^1.1.0
-        version: 1.1.0(clsx@2.1.1)(react@19.2.7)
+        specifier: ^1.2.0
+        version: 1.2.0(clsx@2.1.1)(react@19.2.7)
       '@entwico/projected':
         specifier: ^5.0.0
         version: 5.0.0(clsx@2.1.1)(react@19.2.7)
@@ -642,34 +645,6 @@ packages:
 
   '@emnapi/wasi-threads@1.2.2':
     resolution: {integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==}
-
-  '@entwico/dash@1.0.0':
-    resolution: {integrity: sha512-g8CYcx1i62yA3/GlTAsTkD0rWPOIl6FhNxHzVSfpGDE+Fihlm8wm0XTat87BChADNvgs7OwoM/tAljgClKcMsA==}
-    peerDependencies:
-      clsx: '>=2'
-      react: '>=18'
-      tailwind-merge: '>=2'
-    peerDependenciesMeta:
-      clsx:
-        optional: true
-      react:
-        optional: true
-      tailwind-merge:
-        optional: true
-
-  '@entwico/dash@1.1.0':
-    resolution: {integrity: sha512-iZlSDaXXYJ7tpomXlxsdcZhK34QoVobW9uPdH3UnK6gT95O4PZG2YVfTkV8wZgL0vDCWDhu8a0vJiO2ek532tQ==}
-    peerDependencies:
-      clsx: '>=2'
-      react: '>=18'
-      tailwind-merge: '>=2'
-    peerDependenciesMeta:
-      clsx:
-        optional: true
-      react:
-        optional: true
-      tailwind-merge:
-        optional: true
 
   '@entwico/dash@1.2.0':
     resolution: {integrity: sha512-WPwHiYo3dtNZM8QpFW/ym2JEkwAmAzkUCm/A879ODTQATSMS+FFWBTq6818niHNU059szz0xNAxAiuLEJsZcMg==}
@@ -5447,16 +5422,6 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@entwico/dash@1.0.0(clsx@2.1.1)(react@19.2.7)':
-    optionalDependencies:
-      clsx: 2.1.1
-      react: 19.2.7
-
-  '@entwico/dash@1.1.0(clsx@2.1.1)(react@19.2.7)':
-    optionalDependencies:
-      clsx: 2.1.1
-      react: 19.2.7
-
   '@entwico/dash@1.2.0(clsx@2.1.1)(react@19.2.7)':
     optionalDependencies:
       clsx: 2.1.1
@@ -5494,7 +5459,7 @@ snapshots:
 
   '@entwico/projected@5.0.0(clsx@2.1.1)(react@19.2.7)':
     dependencies:
-      '@entwico/dash': 1.1.0(clsx@2.1.1)(react@19.2.7)
+      '@entwico/dash': 1.2.0(clsx@2.1.1)(react@19.2.7)
     transitivePeerDependencies:
       - clsx
       - react

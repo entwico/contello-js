@@ -1,8 +1,5 @@
 export { createStore, Store } from './store';
 
-export { maybeThen, maybeCatch } from '@entwico/dash';
-export type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
-
 export type { Assets, AssetsOptions, AssetsSync, AssetsSyncOptions } from './assets';
 export type { LazyAssets, LazyAssetsOptions, StoreAsset, StoreFile, StoreFileMetadata } from './lazy-assets';
 

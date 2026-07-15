@@ -1,4 +1,5 @@
-import type { MaybePromise, StoreRoute } from '@contello/store';
+import type { StoreRoute } from '@contello/store';
+import type { MaybePromise } from '@entwico/dash';
 import type { APIContext, MiddlewareNext } from 'astro';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 

@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@contello/opentelemetry": "workspace:^",
-    "@entwico/dash": "^1.0.0",
+    "@entwico/dash": "^1.2.0",
     "graphql": "^16.13.2",
     "graphql-ws": "^6.0.8",
     "undici": "^8.1.0"

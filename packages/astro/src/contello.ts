@@ -23,7 +23,6 @@ import {
   type LazyRoutes,
   type LazyRoutesOptions,
   type Loadable,
-  type ReadonlyDeep,
   type ResolveSource,
   type Routes,
   type RoutesOptions,
@@ -39,6 +38,7 @@ import {
   type SyncCacheOptions,
   createStore,
 } from '@contello/store';
+import type { ReadonlyDeep } from '@entwico/dash';
 import { type ContelloAssetsMiddlewareOptions, createBoundAssetsMiddleware } from './assets-middleware';
 import { type ContelloRoutingMiddlewareOptions, createBoundRoutingMiddleware } from './routing-middleware';
 
