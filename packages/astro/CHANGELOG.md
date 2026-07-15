@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 4.2.1
+
+### Patch Changes
+
+- a275603: require `@entwico/dash` `^1.2.0` so a single copy of its types is shared with `@entwico/projected`
+
 ## 4.2.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.0.2
+
+### Patch Changes
+
+- a275603: require `@entwico/dash` `^1.2.0` so a single copy of its types is shared with `@entwico/projected`
+
 ## 3.0.1
 
 ### Patch Changes

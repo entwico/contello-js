@@ -1,5 +1,11 @@
 # @contello/store
 
+## 4.2.0
+
+### Minor Changes
+
+- a275603: dash utilities are no longer re-exported — import `maybeThen`, `maybeCatch`, `MaybePromise` and `ReadonlyDeep` from `@entwico/dash`
+
 ## 4.1.1
 
 ### Patch Changes
