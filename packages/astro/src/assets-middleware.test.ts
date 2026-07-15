@@ -4,6 +4,14 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createBoundAssetsMiddleware } from './assets-middleware';
 import type { Contello } from './contello';
 
+const mocks = vi.hoisted(() => ({
+  overrideRequestRoute: vi.fn(),
+}));
+
+vi.mock('@astroscope/node/log', () => ({
+  overrideRequestRoute: mocks.overrideRequestRoute,
+}));
+
 type DownloadResult = { mimeType: string; size: number; stream: () => ReadableStream };
 type HlsResult = { status: number; headers: Headers; stream: () => ReadableStream };
 
@@ -67,6 +75,7 @@ function fakeNext(): NextMock {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  mocks.overrideRequestRoute.mockClear();
 });
 
 describe('createBoundAssetsMiddleware', () => {
@@ -208,5 +217,57 @@ describe('createBoundAssetsMiddleware', () => {
     expect(response.status).toBe(502);
     expect(response.headers.get('content-type')).toBe('text/plain');
     await expect(response.text()).resolves.toBe('Upstream is down');
+  });
+});
+
+describe('createBoundAssetsMiddleware route reporting', () => {
+  test.each([
+    ['/_contello/i/abc.png', '/_contello/i/[file]'],
+    ['/_contello/f/doc.pdf', '/_contello/f/[file]'],
+    ['/_contello/v/vid/master.m3u8', '/_contello/v/[...path]'],
+  ])('reports %s as a templated label carrying no asset id', async (pathname, label) => {
+    const { instance } = fakeContello();
+    const mw = createBoundAssetsMiddleware(instance, undefined);
+
+    await mw(fakeCtx(pathname), fakeNext());
+
+    expect(mocks.overrideRequestRoute).toHaveBeenCalledWith(label);
+  });
+
+  test('templates the label on the configured prefix', async () => {
+    const { instance } = fakeContello();
+
+    (instance as unknown as { media: { imagesPath: string } }).media.imagesPath = '/img/';
+
+    const mw = createBoundAssetsMiddleware(instance, undefined);
+
+    await mw(fakeCtx('/img/abc.png'), fakeNext());
+
+    expect(mocks.overrideRequestRoute).toHaveBeenCalledWith('/img/[file]');
+  });
+
+  test('reports the route even when the asset fails to download', async () => {
+    const { instance } = fakeContello({
+      download: async () => {
+        throw new Error('gone');
+      },
+    });
+    const mw = createBoundAssetsMiddleware(instance, undefined);
+
+    await mw(fakeCtx('/_contello/i/gone.png'), fakeNext());
+
+    expect(mocks.overrideRequestRoute).toHaveBeenCalledWith('/_contello/i/[file]');
+  });
+
+  test.each([
+    ['a path contello does not serve', '/some/page'],
+    ['a bare prefix with no asset id', '/_contello/i/'],
+  ])('leaves the route alone for %s', (_name, pathname) => {
+    const { instance } = fakeContello();
+    const mw = createBoundAssetsMiddleware(instance, undefined);
+
+    mw(fakeCtx(pathname), fakeNext());
+
+    expect(mocks.overrideRequestRoute).not.toHaveBeenCalled();
   });
 });

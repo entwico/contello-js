@@ -5,6 +5,14 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { type Contello, runRequest } from './contello';
 import { type AnyRoutes, createBoundRoutingMiddleware } from './routing-middleware';
 
+const mocks = vi.hoisted(() => ({
+  overrideRequestRoute: vi.fn(),
+}));
+
+vi.mock('@astroscope/node/log', () => ({
+  overrideRequestRoute: mocks.overrideRequestRoute,
+}));
+
 type DownloadResult = {
   mimeType: string;
   size: number;
@@ -66,6 +74,7 @@ function fakeNext(): NextMock {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  mocks.overrideRequestRoute.mockClear();
 });
 
 describe('createBoundRoutingMiddleware', () => {
@@ -302,5 +311,57 @@ describe('createBoundRoutingMiddleware', () => {
 
     expect(result).toBe(passthrough);
     expect(getByPath).not.toHaveBeenCalled();
+  });
+});
+
+describe('createBoundRoutingMiddleware route reporting', () => {
+  test('reports an entity route templated on the model, without the entity id', async () => {
+    const { instance } = fakeContello();
+    const route: StoreRoute = {
+      id: 'r1',
+      path: '/articles/hello',
+      customHeaders: [],
+      type: 'entity',
+      model: 'article',
+      entityType: 'ArticleEntity',
+      entityId: 'e-99',
+    };
+    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/articles/hello': route }), undefined, undefined);
+
+    await mw(fakeCtx('/articles/hello'), fakeNext());
+
+    expect(mocks.overrideRequestRoute).toHaveBeenCalledWith('/contello/entities/article/[id]');
+  });
+
+  test.each([
+    ['redirect', { type: 'redirect', location: '/new', status: 301 }],
+    ['text', { type: 'text', content: 'hi', mimeType: 'text/plain' }],
+    ['asset', { type: 'asset', assetId: 'a', fileId: 'f', contentDisposition: 'inline', mimeType: 'image/png' }],
+  ])('reports a %s route as its own label', async (type, rest) => {
+    const { instance } = fakeContello();
+    const route = { id: 'r1', path: '/p', customHeaders: [], ...rest } as StoreRoute;
+    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/p': route }), undefined, undefined);
+
+    await mw(fakeCtx('/p'), fakeNext());
+
+    expect(mocks.overrideRequestRoute).toHaveBeenCalledWith(`contello:route:${type}`);
+  });
+
+  test('leaves the route alone when no contello route matches', () => {
+    const { instance } = fakeContello();
+    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({}), undefined, undefined);
+
+    mw(fakeCtx('/nope'), fakeNext());
+
+    expect(mocks.overrideRequestRoute).not.toHaveBeenCalled();
+  });
+
+  test('leaves the route alone for excluded paths', () => {
+    const { instance } = fakeContello();
+    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({}), undefined, undefined);
+
+    mw(fakeCtx('/_astro/app.js'), fakeNext());
+
+    expect(mocks.overrideRequestRoute).not.toHaveBeenCalled();
   });
 });

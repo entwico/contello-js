@@ -1,3 +1,4 @@
+import { overrideRequestRoute } from '@astroscope/node/log';
 import type { ContelloClient } from '@contello/client';
 import { defineMiddleware } from 'astro/middleware';
 import type { Contello } from './contello';
@@ -48,14 +49,32 @@ export function createBoundAssetsMiddleware(
     }
 
     if (isImage) {
-      return handleFile(contello.client, next, pathname.slice(imagesPrefix.length), imagesCacheControl);
+      return handleFile(
+        contello.client,
+        next,
+        pathname.slice(imagesPrefix.length),
+        imagesCacheControl,
+        `${imagesPrefix}[file]`,
+      );
     }
 
     if (isFile) {
-      return handleFile(contello.client, next, pathname.slice(filesPrefix.length), filesCacheControl);
+      return handleFile(
+        contello.client,
+        next,
+        pathname.slice(filesPrefix.length),
+        filesCacheControl,
+        `${filesPrefix}[file]`,
+      );
     }
 
-    return handleVideo(contello.client, next, pathname.slice(videoPrefix.length), ctx.request.signal);
+    return handleVideo(
+      contello.client,
+      next,
+      pathname.slice(videoPrefix.length),
+      ctx.request.signal,
+      `${videoPrefix}[...path]`,
+    );
   });
 }
 
@@ -64,6 +83,7 @@ function handleFile(
   next: () => Response | Promise<Response>,
   rest: string,
   cacheControl: string | undefined,
+  routeLabel: string,
 ) {
   const dot = rest.indexOf('.');
   const fileId = dot === -1 ? rest : rest.slice(0, dot);
@@ -71,6 +91,8 @@ function handleFile(
   if (!fileId) {
     return next();
   }
+
+  overrideRequestRoute(routeLabel);
 
   return (async () => {
     try {
@@ -97,10 +119,13 @@ function handleVideo(
   next: () => Response | Promise<Response>,
   path: string,
   signal: AbortSignal,
+  routeLabel: string,
 ) {
   if (!path) {
     return next();
   }
+
+  overrideRequestRoute(routeLabel);
 
   return (async () => {
     try {
