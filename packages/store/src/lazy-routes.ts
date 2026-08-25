@@ -11,8 +11,6 @@ import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './typ
 import { DEFAULT_LRU_MAX, createRefreshChannel, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
-export type { StoreRoute, StoreRouteCustomHeader } from './routes-mapping';
-
 export type LazyRoutesOptions = {
   cache?: LazyCacheOptions | undefined;
   onRefresh?: ((event: RefreshEvent) => void) | undefined;

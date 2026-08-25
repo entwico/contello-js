@@ -16,7 +16,7 @@ const FORWARDED_PROXY_HEADERS = new Set([
 ]);
 
 function assertSafeSegment(segment: string, kind: string): void {
-  if (!SAFE_SEGMENT.test(segment) || segment === '.' || segment === '..') {
+  if (segment === '.' || segment === '..' || !SAFE_SEGMENT.test(segment)) {
     throw new Error(`invalid ${kind}`);
   }
 }

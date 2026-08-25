@@ -5,6 +5,16 @@ export default defineConfig({
   react: true,
   astro: true,
   ignores: ['**/generated/**', '**/_/gql/**', '**/tsdown.config.ts', '**/contello.config.ts'],
+  // published entry points are the one legitimate barrel per package
+  imports: {
+    noReexport: {
+      allow: [
+        'packages/*/src/index.ts',
+        'packages/media/src/react/index.ts',
+        'packages/*/src/fragments.ts',
+      ],
+    },
+  },
   extra: [
     {
       // @contello/media is framework-agnostic

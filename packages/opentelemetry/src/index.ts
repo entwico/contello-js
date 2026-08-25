@@ -140,7 +140,7 @@ export function graphqlOperationAttributes(
     attrs['graphql.document'] = document;
   }
 
-  if (otelEnv.captureVariables && variables !== undefined) {
+  if (variables !== undefined && otelEnv.captureVariables) {
     attrs['graphql.variables'] = JSON.stringify(variables);
   }
 

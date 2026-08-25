@@ -14,7 +14,8 @@ export type {
 } from './i18n';
 
 export type { Routes, RoutesOptions, RoutesSync, RoutesSyncOptions } from './routes';
-export type { LazyRoutes, LazyRoutesOptions, StoreRoute, StoreRouteCustomHeader } from './lazy-routes';
+export type { LazyRoutes, LazyRoutesOptions } from './lazy-routes';
+export type { StoreRoute, StoreRouteCustomHeader } from './routes-mapping';
 
 export type { MapperContext } from './dependency-collector';
 

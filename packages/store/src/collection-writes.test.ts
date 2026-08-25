@@ -292,7 +292,7 @@ describe('collection writes', () => {
     let heldOnce = false;
     const { client, fetched, mutations, state } = makeClient([{ id: 'b', value: 2 }], {
       holdFetch: (ids) => {
-        if (!ids?.includes('b') || heldOnce) {
+        if (heldOnce || !ids?.includes('b')) {
           return;
         }
 

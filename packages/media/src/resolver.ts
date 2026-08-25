@@ -502,7 +502,7 @@ function pickVariant(
   const inRange = variants.filter((v) => {
     if (minWidth !== undefined && v.width < minWidth) return false;
 
-    return !(maxWidth !== undefined && v.width > maxWidth);
+    return maxWidth === undefined || v.width <= maxWidth;
   });
 
   if (inRange.length > 0) {
