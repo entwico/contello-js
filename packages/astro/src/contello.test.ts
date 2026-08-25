@@ -1,7 +1,9 @@
+import type { SourceDef } from '@contello/client';
 import type { MediaAsset } from '@contello/media';
+import type { ReadonlyDeep } from '@entwico/dash';
 import { describe, expect, test } from 'vitest';
 
-import { type ContelloRequestContext, createContello, runRequest } from './contello';
+import { type Contello, type ContelloRequestContext, createContello, runRequest } from './contello';
 
 function makeContello(media?: { baseUrl?: string; imagesPath?: string; videosPath?: string; filesPath?: string }) {
   return createContello({
@@ -138,5 +140,28 @@ describe('Contello middleware factories', () => {
     const mw = makeContello().createAssetsMiddleware();
 
     expect(typeof mw).toBe('function');
+  });
+});
+
+type Article = { id: string; title: string };
+type ArticleWrites = { create: { attributes: { title: string } }; delete: { id: string } };
+type ArticleSource = SourceDef<'article', 'entity', Article, ArticleWrites>;
+
+declare const _contello: Contello<undefined>;
+
+type DefinedCollection = ReturnType<typeof _contello.defineCollection<ArticleSource, Article>>;
+
+// @ts-expect-error — the source binds no update mutation, so the proxied collection has none
+type _NoUpdate = DefinedCollection['update'];
+
+describe('Contello.defineCollection typing', () => {
+  test('keeps the write half of the collection it proxies', () => {
+    const create: (input: { attributes: { title: string } }) => Promise<ReadonlyDeep<Article>> =
+      undefined as unknown as DefinedCollection['create'];
+    const remove: (id: string, options?: Record<never, never> | undefined) => Promise<void> =
+      undefined as unknown as DefinedCollection['delete'];
+
+    expect(create).toBeUndefined();
+    expect(remove).toBeUndefined();
   });
 });

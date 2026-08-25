@@ -98,3 +98,51 @@ describe('createSources singleton-cardinality fetch', () => {
     expect(await accessors.s.fetch()).toEqual({ id: '42', name: 'config' });
   });
 });
+
+describe('createSources write accessors', () => {
+  const writableSource: SourceDef<string, 'entity', unknown> = {
+    document: 'fragment X on XEntity { id name }',
+    fragment: 'X',
+    subscription: 'xBatch',
+    mutations: {
+      create: {
+        field: 'createX',
+        arguments: [{ name: 'request', type: 'CreateXRequestInput!', from: 'input', envelope: 'entity' }],
+        result: 'entity',
+      },
+      delete: {
+        field: 'deleteX',
+        arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }],
+        result: 'idObject',
+      },
+    },
+    __model: 'x',
+    __cardinality: 'entity',
+  };
+
+  function resultSubscribe(result: unknown): AnySubscribe {
+    return () =>
+      (async function* () {
+        yield { result };
+      })();
+  }
+
+  test('a create answers with the entity in the source fragment shape, not with its id', async () => {
+    const entity = { id: '1', name: 'shoes' };
+    const accessors = createSources({ x: writableSource }, resultSubscribe(entity) as never);
+
+    expect(await (accessors.x as any).create({ attributes: { name: 'shoes' } })).toEqual(entity);
+  });
+
+  test('a delete answers with the id it removed', async () => {
+    const accessors = createSources({ x: writableSource }, resultSubscribe({ id: '1' }) as never);
+
+    expect(await (accessors.x as any).delete({ id: '1' })).toBe('1');
+  });
+
+  test('carries no writer for a kind the source binds no mutation for', () => {
+    const accessors = createSources({ x: writableSource }, resultSubscribe({}) as never);
+
+    expect(Object.keys(accessors.x)).toEqual(['fetch', 'create', 'delete']);
+  });
+});

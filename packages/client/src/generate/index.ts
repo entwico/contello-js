@@ -18,10 +18,13 @@ import { generateOperationsConst, generateOperationsType } from './operations';
 import { MANAGED_SCALARS } from './scalar-types';
 import { extractEntityModels, generateSchemaTypes } from './schema-types';
 import {
+  type MutationBindings,
   type SourceEntry,
   generateSourcesConst,
   generateSourcesType,
+  indexBuiltInMutations,
   indexBuiltInSources,
+  indexEntityMutations,
   indexEntitySources,
 } from './sources';
 import { transformFragment, transformOperation } from './transform-components';
@@ -53,6 +56,7 @@ function collectEntitySourceEntries(
   fragments: Map<string, FragmentDefinitionNode>,
   entityBindings: ReturnType<typeof indexEntitySources>,
   transformedFragments: Map<string, FragmentDefinitionNode>,
+  mutationBindings: Map<string, MutationBindings>,
 ): SourceEntry[] {
   const entries: SourceEntry[] = [];
 
@@ -77,6 +81,7 @@ function collectEntitySourceEntries(
         sourceKey: entityBinding.model,
       },
       fragmentExpression: fragmentBundleExpression(transformed, transformedFragments),
+      mutations: mutationBindings.get(entityBinding.model),
     });
   }
 
@@ -87,6 +92,7 @@ function collectBuiltInSourceEntries(
   fragments: Map<string, FragmentDefinitionNode>,
   builtInBindings: ReturnType<typeof indexBuiltInSources>,
   transformedFragments: Map<string, FragmentDefinitionNode>,
+  mutationBindings: ReturnType<typeof indexBuiltInMutations>,
 ): SourceEntry[] {
   const entries: SourceEntry[] = [];
 
@@ -139,6 +145,7 @@ function collectBuiltInSourceEntries(
         sourceKey: uncapitalize(picked.name),
       },
       fragmentExpression: fragmentBundleExpression(transformed, transformedFragments),
+      mutations: mutationBindings.get(builtInBinding.cardinality),
     });
   }
 
@@ -206,9 +213,12 @@ async function main(): Promise<void> {
     // entity sources: one fragment per entity type — collected directly.
     // built-in sources: a type can have multiple fragments (e.g. MediaAsset base + StoreAsset),
     // pick the "root" — the one not spread by any other candidate fragment for the same type.
+    const entityMutations = indexEntityMutations(schema, entityBindings);
+    const builtInMutations = indexBuiltInMutations(schema, builtInBindings);
+
     const sourceEntries: SourceEntry[] = [
-      ...collectEntitySourceEntries(fragments, entityBindings, transformedFragments),
-      ...collectBuiltInSourceEntries(fragments, builtInBindings, transformedFragments),
+      ...collectEntitySourceEntries(fragments, entityBindings, transformedFragments, entityMutations),
+      ...collectBuiltInSourceEntries(fragments, builtInBindings, transformedFragments, builtInMutations),
     ];
 
     const entityModels = extractEntityModels(schema);

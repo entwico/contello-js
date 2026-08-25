@@ -1,4 +1,12 @@
-import { type ContelloClient, type SourceDef, createSourceSubscription } from '@contello/client';
+import {
+  type ContelloClient,
+  type SourceDef,
+  type SourceMutationKind,
+  type SourceMutationValues,
+  createSourceMutation,
+  createSourceMutationVariables,
+  createSourceSubscription,
+} from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeAll, maybeThen } from '@entwico/dash';
 import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
@@ -10,13 +18,16 @@ import type {
   CollectionOptions,
   CollectionSync,
   CollectionSyncOptions,
+  CollectionWrites,
   Created,
   ExtractSourceResult,
+  ExtractSourceWrites,
   RefreshEvent,
   RefreshKind,
 } from './types';
 import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
+import { createWriteBuffer } from './write-buffer';
 
 function fetchCollection<S extends SourceDef<string, 'entity'>>(
   source: S,
@@ -31,6 +42,40 @@ function fetchCollection<S extends SourceDef<string, 'entity'>>(
   );
 }
 
+/**
+ * Runs one write mutation of the source. A create/update selects the source's fragment, so the
+ * answer is a raw entity in exactly the shape the source subscription yields — the cache takes it
+ * from there. A delete only carries an id.
+ */
+async function runMutation<TRaw extends { id: string }>(
+  source: SourceDef<string, 'entity'>,
+  client: ContelloClient<any>,
+  name: string,
+  kind: SourceMutationKind,
+  values: SourceMutationValues,
+): Promise<TRaw> {
+  const binding = source.mutations?.[kind];
+
+  if (!binding) {
+    throw new Error(
+      `@contello/store: collection "${name}" cannot ${kind} — the schema exposes no ${kind} mutation ` +
+      `for model "${source.__model}"`,
+    );
+  }
+
+  const document = createSourceMutation(source, kind);
+  const response = await client.execute<{ result: TRaw | undefined }>(
+    document,
+    createSourceMutationVariables(binding, values),
+  );
+
+  if (!response?.result) {
+    throw new Error(`@contello/store: ${kind} on collection "${name}" returned no entity`);
+  }
+
+  return response.result;
+}
+
 export function createCollection<
   TSource extends SourceDef<TModels, 'entity'>,
   TMapped extends { id: string },
@@ -42,7 +87,7 @@ export function createCollection<
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
   refreshByTtl: RefreshByTtlQueue,
-): Created<Collection<TMapped>> {
+): Created<Collection<TMapped, ExtractSourceWrites<TSource>>> {
   const opts = options ?? {};
   const mapFn = opts.map ?? ((item: ExtractSourceResult<TSource>) => item as unknown as TMapped);
   const _def = {
@@ -58,11 +103,34 @@ export function createCollection<
   const ttl = createTtlOrchestrator({ ttl: _def.cache.ttl, run: () => runFullRefresh('ttl') });
   let loaded = false;
 
+  const writeBuffer = createWriteBuffer<ExtractSourceResult<TSource>>();
+
+  function fetchOrTakeWritten(ids: string[] | undefined): MaybePromise<ExtractSourceResult<TSource>[]> {
+    // a full fetch is authoritative for every id, so nothing stays parked behind it
+    if (ids === undefined) {
+      writeBuffer.clear();
+
+      return fetchCollection(source, client, undefined);
+    }
+
+    const { written, missing } = writeBuffer.take(ids);
+
+    if (missing.length === 0) {
+      return written;
+    }
+
+    if (written.length === 0) {
+      return fetchCollection(source, client, missing);
+    }
+
+    return maybeThen(fetchCollection(source, client, missing), (fetched) => [...written, ...fetched]);
+  }
+
   const projected = new ProjectedMap<string, TMapped>({
     key: (item) => item.id,
     values: (ids) =>
       wrap(`collection:${_def.name}`, () =>
-        maybeThen(fetchCollection(source, client, ids), async (rawItems) => {
+        maybeThen(fetchOrTakeWritten(ids), async (rawItems) => {
           // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
           const items = await maybeAll(
             rawItems.map((item) =>
@@ -125,10 +193,13 @@ export function createCollection<
       return;
     }
 
+    // upstream is authoritative for these until the refetch lands — no local write may answer it
+    const settled = writeBuffer.awaitingUpstream(refreshIds);
+
     void retryWithBackoff(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
-    });
+    }).finally(settled);
   }
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -162,10 +233,13 @@ export function createCollection<
 
     if (_def.cache.eviction === 'clear') {
       dependencyCollector.clear();
+      writeBuffer.clear();
       projected.clear();
 
       return;
     }
+
+    writeBuffer.release(deleted);
 
     for (const id of deleted) {
       dependencyCollector.removeItem(id);
@@ -184,7 +258,66 @@ export function createCollection<
     runPartialRefresh([...refreshIds], deleted);
   });
 
-  const instance: Collection<TMapped> = {
+  /** Puts a written entity into the cache through the normal refresh path and returns it mapped. */
+  async function takeIntoCache(entity: ExtractSourceResult<TSource> & { id: string }): Promise<ReadonlyDeep<TMapped>> {
+    writeBuffer.park(entity.id, entity);
+
+    let map;
+
+    try {
+      map = await projected.refresh([entity.id]);
+    } finally {
+      // a refresh that never ran leaves the entity parked, so release what it did not consume
+      writeBuffer.release([entity.id]);
+    }
+
+    emit([entity.id], 'write');
+
+    const item = map.get(entity.id);
+
+    if (!item) {
+      throw new Error(
+        `@contello/store: collection "${_def.name}" wrote entity "${entity.id}" but it is not in the cache — ` +
+        `a concurrent full refresh did not return it`,
+      );
+    }
+
+    return item;
+  }
+
+  /**
+   * One method per mutation the source binds — a model the schema exposes no `createX` for has
+   * no `create`, matching what `CollectionWrites` types. Permission is not decided here: the
+   * server rejects a write the token may not run.
+   */
+  function createWrites(): CollectionWrites<TMapped, ExtractSourceWrites<TSource>> {
+    const out: Record<string, unknown> = {};
+
+    if (source.mutations?.create) {
+      out['create'] = async (input: unknown) =>
+        takeIntoCache(await runMutation(source, client, _def.name, 'create', { input }));
+    }
+
+    if (source.mutations?.update) {
+      out['update'] = async (input: unknown) =>
+        takeIntoCache(await runMutation(source, client, _def.name, 'update', { input }));
+    }
+
+    if (source.mutations?.delete) {
+      out['delete'] = async (id: string, options?: Record<string, unknown> | undefined) => {
+        await runMutation(source, client, _def.name, 'delete', { input: { ...options, id }, id });
+
+        writeBuffer.release([id]);
+        dependencyCollector.removeItem(id);
+        projected.delete([id]);
+        emit([id], 'write');
+      };
+    }
+
+    return out as CollectionWrites<TMapped, ExtractSourceWrites<TSource>>;
+  }
+
+  const instance: Collection<TMapped, ExtractSourceWrites<TSource>> = {
     name: _def.name,
     refresh$: channel.stream$,
 
@@ -205,6 +338,8 @@ export function createCollection<
         await projected.getAllAsMap();
       }
     },
+
+    ...createWrites(),
   };
 
   return {
@@ -228,7 +363,7 @@ export function createCollectionSync<
   updates$: AsyncIterableSubject<UpdateBatch>,
   resolver: ModelResolver,
   refreshByTtl: RefreshByTtlQueue,
-): Created<CollectionSync<TMapped>> {
+): Created<CollectionSync<TMapped, ExtractSourceWrites<TSource>>> {
   const { instance: base, destroy } = createCollection<TSource, TMapped, TModels>(
     source,
     options,
@@ -247,6 +382,7 @@ export function createCollectionSync<
   }
 
   return {
+    // the write half passes through untouched — a mutation is a round trip either way
     instance: {
       ...base,
       get(idOrIds: string | readonly string[]): any {
@@ -255,7 +391,7 @@ export function createCollectionSync<
       getAll(): ReadonlyArray<ReadonlyDeep<TMapped>> {
         return assertSync(base.getAll(), 'getAll');
       },
-    },
+    } as unknown as CollectionSync<TMapped, ExtractSourceWrites<TSource>>,
     destroy,
   };
 }

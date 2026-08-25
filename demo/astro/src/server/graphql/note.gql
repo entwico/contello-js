@@ -1,0 +1,8 @@
+fragment Note on NoteEntity {
+  id
+  attributes {
+    title
+    body
+    done
+  }
+}

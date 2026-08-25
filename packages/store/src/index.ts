@@ -21,13 +21,17 @@ export type { MapperContext } from './dependency-collector';
 export type { UpdateBatch, UpdateEvent, UpdateEventFor, UpdateMutationType } from './watcher';
 
 export type {
+  BuiltInWrites,
   CacheOptions,
   Collection,
   CollectionOptions,
   CollectionSync,
   CollectionSyncOptions,
+  CollectionWrites,
   CreateStoreOptions,
+  DeleteOptions,
   ExtractSourceResult,
+  ExtractSourceWrites,
   LazyCacheOptions,
   Loadable,
   LazyCollection,

@@ -61,8 +61,10 @@ export type CreateStoreOptions<TSchema extends Schema | undefined = undefined> =
  *   full on singleton / i18n, cache eviction on lazy stores).
  * - `'ttl'` — periodic safety-net timer fired.
  * - `'on-demand'` — consumer called `instance.refresh()`.
+ * - `'write'` — a `create` / `update` / `delete` on the collection itself; the watcher event
+ *   for the same change still arrives afterwards and refreshes again.
  */
-export type RefreshKind = 'upstream-update' | 'ttl' | 'on-demand';
+export type RefreshKind = 'upstream-update' | 'ttl' | 'on-demand' | 'write';
 
 /** Refresh event shape for stores keyed by id (collection, lazy-collection, routes, assets, i18n). */
 export type RefreshEvent = { ids: string[]; kind: RefreshKind };
@@ -176,7 +178,7 @@ export type CollectionSyncOptions<TRaw, TMapped extends { id: string }, TModels 
   onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
-export type Collection<T> = {
+export type Collection<T, TWrites = unknown> = {
   readonly name: string;
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
@@ -184,9 +186,9 @@ export type Collection<T> = {
   get(ids: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   getAll(): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   refresh(): void;
-};
+} & CollectionWrites<T, TWrites>;
 
-export type CollectionSync<T> = {
+export type CollectionSync<T, TWrites = unknown> = {
   readonly name: string;
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
@@ -194,7 +196,49 @@ export type CollectionSync<T> = {
   get(ids: readonly string[]): ReadonlyArray<ReadonlyDeep<T>>;
   getAll(): ReadonlyArray<ReadonlyDeep<T>>;
   refresh(): void;
-};
+} & CollectionWrites<T, TWrites>;
+
+/** The phantom write-input shape a SourceDef carries, or `unknown` when it carries none. */
+export type ExtractSourceWrites<S> = S extends SourceDef<string, SourceCardinality, any, infer TWrites>
+  ? TWrites
+  : unknown;
+
+/** Everything the model's delete mutation accepts besides the id (e.g. `force`). */
+export type DeleteOptions<TDelete> = Omit<TDelete, 'id'>;
+
+/**
+ * The write-input shape of the schema's built-in source of a given cardinality — `unknown` when
+ * the app's documents carry no fragment for it, which is also when its writes cannot be typed.
+ */
+export type BuiltInWrites<TSchema, TCardinality extends SourceCardinality> = [
+  SourceKeysOf<TSchema, TCardinality>,
+] extends [never]
+  ? unknown
+  : ExtractSourceWrites<SourceAt<TSchema, SourceKeysOf<TSchema, TCardinality>>>;
+
+/**
+ * The write half of a source-backed store — collections, routes, assets: one method per mutation
+ * the schema defines for it, so a model without a `createX` has no `create` here, and an asset
+ * (which comes into being through `client.upload()`) has no `create` at all. Whether the token
+ * may run them is the server's call — it answers a write it does not allow with an error, like
+ * any other request.
+ *
+ * Writes are expressed in the model's raw input types, not in the mapped shape: `map()` is
+ * one-way, so there is no way back from `T` to what the server accepts. What comes back is
+ * mapped — `create` and `update` answer with the entity as the collection sees it.
+ *
+ * `update` is a patch: attributes left out keep their stored value, per property and, for
+ * translatable ones, per locale.
+ */
+export type CollectionWrites<TMapped, TWrites> = (TWrites extends { create: infer TCreate }
+  ? { create(input: TCreate): Promise<ReadonlyDeep<TMapped>> }
+  : Record<never, never>)
+& (TWrites extends { update: infer TUpdate }
+  ? { update(input: TUpdate): Promise<ReadonlyDeep<TMapped>> }
+  : Record<never, never>)
+& (TWrites extends { delete: infer TDelete }
+  ? { delete(id: string, options?: DeleteOptions<TDelete> | undefined): Promise<void> }
+  : Record<never, never>);
 
 // ---------------------------------------------------------------------------
 // lazy collection

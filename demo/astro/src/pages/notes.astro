@@ -1,0 +1,73 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { config } from '@/server/config';
+import { notes } from '@/server/notes';
+
+// writes go straight through the collection — the cache picks up what the mutation answered with,
+// so the list rendered below already reflects the change without a re-fetch
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const intent = form.get('intent');
+  const id = String(form.get('id') ?? '');
+
+  switch (intent) {
+    case 'create': {
+      await notes.create({ attributes: { title: String(form.get('title') ?? '').trim(), body: '' } });
+
+      break;
+    }
+    case 'toggle': {
+      // an update is a patch: `body` is left out and keeps its stored value
+      await notes.update({ id, attributes: { done: form.get('done') === 'true' } });
+
+      break;
+    }
+    case 'delete': {
+      await notes.delete(id);
+
+      break;
+    }
+  // No default
+  }
+
+  return Astro.redirect('/notes', 303);
+}
+
+const { brandName } = config.get();
+const items = notes.getAll();
+---
+
+<BaseLayout title={`Notes — ${brandName}`}>
+  <h1>Notes</h1>
+
+  <form method="post">
+    <input type="hidden" name="intent" value="create" />
+    <input type="text" name="title" placeholder="New note" required maxlength="120" />
+    <button type="submit">Add</button>
+  </form>
+
+  <ul>
+    {
+      items.map((note) => (
+        <li>
+          <form method="post">
+            <input type="hidden" name="intent" value="toggle" />
+            <input type="hidden" name="id" value={note.id} />
+            <input type="hidden" name="done" value={String(!note.done)} />
+            <button type="submit">{note.done ? '☑' : '☐'}</button>
+          </form>
+
+          <span style={note.done ? 'text-decoration: line-through' : undefined}>{note.title}</span>
+
+          <form method="post">
+            <input type="hidden" name="intent" value="delete" />
+            <input type="hidden" name="id" value={note.id} />
+            <button type="submit">Delete</button>
+          </form>
+        </li>
+      ))
+    }
+  </ul>
+
+  {items.length === 0 && <p>No notes yet.</p>}
+</BaseLayout>

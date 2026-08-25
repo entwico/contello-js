@@ -148,6 +148,17 @@ export type CreateCategoryRequestInput = {
   entity: CreateCategoryEntityInput;
 };
 
+export type CreateNoteEntityInput = {
+  attributes: NoteAttributesInput;
+  createdAt?: string | undefined;
+  id?: string | undefined;
+  updatedAt?: string | undefined;
+};
+
+export type CreateNoteRequestInput = {
+  entity: CreateNoteEntityInput;
+};
+
 export type CreateProductEntityInput = {
   attributes: ProductAttributesInput;
   createdAt?: string | undefined;
@@ -199,6 +210,22 @@ export type DeleteEntityByIdsInput = {
 
 export type GetEntityByIdInput = {
   id: string;
+};
+
+export type NoteAttributesInput = {
+  body?: string | undefined;
+  done?: boolean | undefined;
+  title?: string | undefined;
+};
+
+export type NotesFilterInput = {
+  ids?: (string | undefined)[] | undefined;
+  title?: StringFilterInput | undefined;
+};
+
+export type NotesRequestInput = {
+  filter?: NotesFilterInput | undefined;
+  pagination?: PaginationInput | undefined;
 };
 
 export type PaginationInput = {
@@ -323,6 +350,17 @@ export type UpdateConfigEntityInput = {
 
 export type UpdateConfigRequestInput = {
   entity: UpdateConfigEntityInput;
+};
+
+export type UpdateNoteEntityInput = {
+  attributes: NoteAttributesInput;
+  createdAt?: string | undefined;
+  id: string;
+  updatedAt?: string | undefined;
+};
+
+export type UpdateNoteRequestInput = {
+  entity: UpdateNoteEntityInput;
 };
 
 export type UpdateProductEntityInput = {
@@ -613,6 +651,36 @@ export type ContelloVideoOptimizationConfig = {
   name: string;
 };
 
+export type NoteAttributes = {
+  __typename?: 'NoteAttributes' | undefined;
+  body?: string | undefined;
+  done?: boolean | undefined;
+  title?: string | undefined;
+};
+
+export type NoteEntity = {
+  __typename?: 'NoteEntity' | undefined;
+  __model?: 'note' | undefined;
+  attributes: NoteAttributes;
+  createdAt: string;
+  id: string;
+  internalName: string;
+  modelId: string;
+  updatedAt: string;
+};
+
+export type NoteEntityUpdate = {
+  __typename?: 'NoteEntityUpdate' | undefined;
+  entity: NoteEntity;
+  mutation: ContelloMutation;
+};
+
+export type NotesResponseCollection = {
+  __typename?: 'NotesResponseCollection' | undefined;
+  entities: NoteEntity[];
+  pagination: Pagination;
+};
+
 export type Pagination = {
   __typename?: 'Pagination' | undefined;
   limit: number;
@@ -674,6 +742,8 @@ export type RootMutation = {
   createCategory?: CategoryEntity | undefined;
   createContelloRoute?: ContelloRoute | undefined;
   createContelloRoutes?: ContelloRoute[] | undefined;
+  createNote?: NoteEntity | undefined;
+  createNotes?: NoteEntity[] | undefined;
   createProduct?: ProductEntity | undefined;
   createProducts?: ProductEntity[] | undefined;
   createStaticPage?: StaticPageEntity | undefined;
@@ -683,6 +753,8 @@ export type RootMutation = {
   deleteConfig: ContelloEntityDeleteResponse;
   deleteContelloAsset: ContelloAssetDeleteResponse;
   deleteContelloRoute: string;
+  deleteNote: ContelloEntityDeleteResponse;
+  deleteNotes?: ContelloEntityDeleteResponse[] | undefined;
   deleteProduct: ContelloEntityDeleteResponse;
   deleteProducts?: ContelloEntityDeleteResponse[] | undefined;
   deleteStaticPage: ContelloEntityDeleteResponse;
@@ -690,6 +762,7 @@ export type RootMutation = {
   registerContelloI18nMessages?: ContelloI18nMessageRegisterResponse | undefined;
   truncateCategories?: ContelloBatchOperationResponse | undefined;
   truncateContelloRoutes?: ContelloBatchOperationResponse | undefined;
+  truncateNotes?: ContelloBatchOperationResponse | undefined;
   truncateProducts?: ContelloBatchOperationResponse | undefined;
   truncateStaticPages?: ContelloBatchOperationResponse | undefined;
   updateCategories?: CategoryEntity[] | undefined;
@@ -697,6 +770,8 @@ export type RootMutation = {
   updateConfig?: ConfigEntity | undefined;
   updateContelloAsset?: ContelloAsset | undefined;
   updateContelloRoute?: ContelloRoute | undefined;
+  updateNote?: NoteEntity | undefined;
+  updateNotes?: NoteEntity[] | undefined;
   updateProduct?: ProductEntity | undefined;
   updateProducts?: ProductEntity[] | undefined;
   updateStaticPage?: StaticPageEntity | undefined;
@@ -717,6 +792,8 @@ export type RootQuery = {
   contelloProject?: ContelloProject | undefined;
   contelloRoute?: ContelloRoute | undefined;
   contelloRoutes?: (ContelloRoute | undefined)[] | undefined;
+  note?: NoteEntity | undefined;
+  notes: NotesResponseCollection;
   product?: ProductEntity | undefined;
   products: ProductsResponseCollection;
   staticPage?: StaticPageEntity | undefined;
@@ -740,6 +817,9 @@ export type RootSubscription = {
   contelloRouteUpdates?: ContelloRouteUpdate | undefined;
   contelloUpdates?: ContelloUpdateEvent | undefined;
   contelloUpdatesBatch?: ContelloUpdateBatch | undefined;
+  notes?: NoteEntity | undefined;
+  notesBatch: NoteEntity[];
+  noteUpdates?: NoteEntityUpdate | undefined;
   products?: ProductEntity | undefined;
   productsBatch: ProductEntity[];
   productUpdates?: ProductEntityUpdate | undefined;
@@ -815,12 +895,12 @@ export type ContelloFlatComponent = {
 };
 
 export type ContelloComponent = ProductListComponent | SectionComponent | TextComponent;
-export type ContelloEntity = CategoryEntity | ConfigEntity | ProductEntity | StaticPageEntity;
+export type ContelloEntity = CategoryEntity | ConfigEntity | NoteEntity | ProductEntity | StaticPageEntity;
 export type ContelloFileMetadata = ContelloImageMetadata | ContelloVideoMetadata;
 export type ContelloOptimizationConfig = ContelloImageOptimizationConfig | ContelloVideoOptimizationConfig;
 export type ContelloRouteTarget = ContelloRouteTargetAsset | ContelloRouteTargetEntity | ContelloRouteTargetRedirect | ContelloRouteTargetText;
 export type ContelloUpdatePrev = ContelloRoute;
-export type ContelloUpdateTarget = CategoryEntity | ConfigEntity | ContelloAsset | ContelloI18nMessage | ContelloRoute | ProductEntity | StaticPageEntity;
+export type ContelloUpdateTarget = CategoryEntity | ConfigEntity | ContelloAsset | ContelloI18nMessage | ContelloRoute | NoteEntity | ProductEntity | StaticPageEntity;
 
 export type MediaFileFragment = {
   uid: string;
@@ -931,6 +1011,15 @@ export type ConfigFragment = {
   };
 };
 
+export type NoteFragment = {
+  id: string;
+  attributes: {
+    title?: string | undefined;
+    body?: string | undefined;
+    done?: boolean | undefined;
+  };
+};
+
 export type ProductFragment = {
   id: string;
   internalName: string;
@@ -1031,6 +1120,14 @@ const MediaFileFragmentSchema = `fragment MediaFile on ContelloFile {
       width
       height
     }
+  }
+}`;
+const NoteFragmentSchema = `fragment Note on NoteEntity {
+  id
+  attributes {
+    title
+    body
+    done
   }
 }`;
 const ProductFragmentSchema = `fragment Product on ProductEntity {
@@ -1134,13 +1231,14 @@ export type Operations = {
 };
 
 export type Sources = {
-  category: SourceDef<'category', 'entity', CategoryFragment>;
-  config: SourceDef<'config', 'singleton', ConfigFragment>;
-  product: SourceDef<'product', 'entity', ProductFragment>;
-  staticPage: SourceDef<'staticPage', 'entity', StaticPageFragment>;
-  storeAsset: SourceDef<'storeAsset', 'asset', StoreAssetFragment>;
+  category: SourceDef<'category', 'entity', CategoryFragment, { create: CreateCategoryEntityInput; update: UpdateCategoryEntityInput; delete: DeleteEntityByIdInput }>;
+  config: SourceDef<'config', 'singleton', ConfigFragment, { update: UpdateConfigEntityInput; delete: DeleteEntityByIdInput }>;
+  note: SourceDef<'note', 'entity', NoteFragment, { create: CreateNoteEntityInput; update: UpdateNoteEntityInput; delete: DeleteEntityByIdInput }>;
+  product: SourceDef<'product', 'entity', ProductFragment, { create: CreateProductEntityInput; update: UpdateProductEntityInput; delete: DeleteEntityByIdInput }>;
+  staticPage: SourceDef<'staticPage', 'entity', StaticPageFragment, { create: CreateStaticPageEntityInput; update: UpdateStaticPageEntityInput; delete: DeleteEntityByIdInput }>;
+  storeAsset: SourceDef<'storeAsset', 'asset', StoreAssetFragment, { update: ContelloAssetUpdateInput; delete: { id: string } }>;
   storeI18nMessage: SourceDef<'storeI18nMessage', 'i18nMessage', StoreI18nMessageFragment>;
-  storeRoute: SourceDef<'storeRoute', 'route', StoreRouteFragment>;
+  storeRoute: SourceDef<'storeRoute', 'route', StoreRouteFragment, { create: ContelloRouteInput; update: ContelloRouteInput; delete: { id: string } }>;
 };
 
 const operations: Operations = {
@@ -1151,6 +1249,11 @@ const sources: Sources = {
     document: CategoryFragmentSchema,
     fragment: 'Category',
     subscription: 'categoriesBatch',
+    mutations: {
+      create: { field: 'createCategory', arguments: [{ name: 'request', type: 'CreateCategoryRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      update: { field: 'updateCategory', arguments: [{ name: 'request', type: 'UpdateCategoryRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      delete: { field: 'deleteCategory', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+    },
     __model: 'category',
     __cardinality: 'entity',
   },
@@ -1158,13 +1261,34 @@ const sources: Sources = {
     document: ConfigFragmentSchema,
     fragment: 'Config',
     subscription: 'config',
+    mutations: {
+      update: { field: 'updateConfig', arguments: [{ name: 'request', type: 'UpdateConfigRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      delete: { field: 'deleteConfig', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+    },
     __model: 'config',
     __cardinality: 'singleton',
+  },
+  note: {
+    document: NoteFragmentSchema,
+    fragment: 'Note',
+    subscription: 'notesBatch',
+    mutations: {
+      create: { field: 'createNote', arguments: [{ name: 'request', type: 'CreateNoteRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      update: { field: 'updateNote', arguments: [{ name: 'request', type: 'UpdateNoteRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      delete: { field: 'deleteNote', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+    },
+    __model: 'note',
+    __cardinality: 'entity',
   },
   product: {
     document: `${MediaFileFragmentSchema}\n${MediaAssetFragmentSchema}\n${StoreAssetFragmentSchema}\n${ProductFragmentSchema}`,
     fragment: 'Product',
     subscription: 'productsBatch',
+    mutations: {
+      create: { field: 'createProduct', arguments: [{ name: 'request', type: 'CreateProductRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      update: { field: 'updateProduct', arguments: [{ name: 'request', type: 'UpdateProductRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      delete: { field: 'deleteProduct', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+    },
     __model: 'product',
     __cardinality: 'entity',
   },
@@ -1172,6 +1296,11 @@ const sources: Sources = {
     document: `${ComponentFragmentSchema}\n${StaticPageFragmentSchema}`,
     fragment: 'StaticPage',
     subscription: 'staticPagesBatch',
+    mutations: {
+      create: { field: 'createStaticPage', arguments: [{ name: 'request', type: 'CreateStaticPageRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      update: { field: 'updateStaticPage', arguments: [{ name: 'request', type: 'UpdateStaticPageRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
+      delete: { field: 'deleteStaticPage', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+    },
     __model: 'staticPage',
     __cardinality: 'entity',
   },
@@ -1179,6 +1308,10 @@ const sources: Sources = {
     document: `${MediaFileFragmentSchema}\n${MediaAssetFragmentSchema}\n${StoreAssetFragmentSchema}`,
     fragment: 'StoreAsset',
     subscription: 'contelloAssetsBatch',
+    mutations: {
+      update: { field: 'updateContelloAsset', arguments: [{ name: 'request', type: 'ContelloAssetUpdateInput!', from: 'input' }], result: 'entity' },
+      delete: { field: 'deleteContelloAsset', arguments: [{ name: 'id', type: 'String!', from: 'id' }], result: 'idObject' },
+    },
     __model: 'storeAsset',
     __cardinality: 'asset',
   },
@@ -1193,6 +1326,11 @@ const sources: Sources = {
     document: StoreRouteFragmentSchema,
     fragment: 'StoreRoute',
     subscription: 'contelloRoutesBatch',
+    mutations: {
+      create: { field: 'createContelloRoute', arguments: [{ name: 'route', type: 'ContelloRouteInput!', from: 'input' }], result: 'entity' },
+      update: { field: 'updateContelloRoute', arguments: [{ name: 'route', type: 'ContelloRouteInput!', from: 'input' }], result: 'entity' },
+      delete: { field: 'deleteContelloRoute', arguments: [{ name: 'id', type: 'String', from: 'id' }], result: 'idScalar' },
+    },
     __model: 'storeRoute',
     __cardinality: 'route',
   },
@@ -1201,6 +1339,7 @@ const sources: Sources = {
 const models = {
   category: 'CategoryEntity',
   config: 'ConfigEntity',
+  note: 'NoteEntity',
   product: 'ProductEntity',
   staticPage: 'StaticPageEntity',
 } as const;

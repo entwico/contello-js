@@ -25,12 +25,14 @@ import {
 import { createSingleton, createSingletonSync } from './singleton';
 import { wrap } from './telemetry';
 import type {
+  BuiltInWrites,
   Collection,
   CollectionOptions,
   CollectionSync,
   CollectionSyncOptions,
   CreateStoreOptions,
   ExtractSourceResult,
+  ExtractSourceWrites,
   LazyCollection,
   LazyCollectionOptions,
   ResolveSource,
@@ -52,6 +54,12 @@ type SingletonArg<TSchema> = SourceKeysOf<TSchema, 'singleton'> | SourceDef<Mode
 type CollectionRaw<TSchema, TArg> = ExtractSourceResult<
   Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'entity'>>
 >;
+/** The write-input shape the source carries — `unknown` for sources the generator bound no mutations to. */
+type CollectionWritesOf<TSchema, TArg> = ExtractSourceWrites<
+  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'entity'>>
+>;
+type RouteWrites<TSchema> = BuiltInWrites<TSchema, 'route'>;
+type AssetWrites<TSchema> = BuiltInWrites<TSchema, 'asset'>;
 type SingletonRaw<TSchema, TArg> = ExtractSourceResult<
   Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'singleton'>>
 >;
@@ -183,7 +191,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
   >(
     sourceOrKey: TArg,
     options?: CollectionOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
-  ): Collection<TMapped> {
+  ): Collection<TMapped, CollectionWritesOf<TSchema, TArg>> {
     const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'entity'>;
     const { instance, destroy } = createCollection(
       source,
@@ -196,7 +204,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
     this._cleanups.push(destroy);
 
-    return instance as Collection<TMapped>;
+    return instance as unknown as Collection<TMapped, CollectionWritesOf<TSchema, TArg>>;
   }
 
   public defineCollectionSync<
@@ -205,7 +213,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
   >(
     sourceOrKey: TArg,
     options?: CollectionSyncOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
-  ): CollectionSync<TMapped> {
+  ): CollectionSync<TMapped, CollectionWritesOf<TSchema, TArg>> {
     const source = this._resolveSource(sourceOrKey as string | SourceDef) as SourceDef<string, 'entity'>;
     const { instance, destroy } = createCollectionSync(
       source,
@@ -218,7 +226,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
     this._cleanups.push(destroy);
 
-    return instance as CollectionSync<TMapped>;
+    return instance as unknown as CollectionSync<TMapped, CollectionWritesOf<TSchema, TArg>>;
   }
 
   // --- lazy collection ---
@@ -248,7 +256,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
   // --- assets ---
 
-  public defineAssets(options?: AssetsOptions | undefined): Assets {
+  public defineAssets(options?: AssetsOptions | undefined): Assets<AssetWrites<TSchema>> {
     const { instance, destroy } = createAssetsCollection(
       options,
       this._client,
@@ -258,10 +266,10 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as Assets<AssetWrites<TSchema>>;
   }
 
-  public defineAssetsSync(options?: AssetsSyncOptions | undefined): AssetsSync {
+  public defineAssetsSync(options?: AssetsSyncOptions | undefined): AssetsSync<AssetWrites<TSchema>> {
     const { instance, destroy } = createAssetsSyncCollection(
       options,
       this._client,
@@ -271,7 +279,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as AssetsSync<AssetWrites<TSchema>>;
   }
 
   public defineLazyAssets(options?: LazyAssetsOptions | undefined): LazyAssets {
@@ -284,7 +292,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
   // --- routes ---
 
-  public defineRoutes(options?: RoutesOptions | undefined): Routes {
+  public defineRoutes(options?: RoutesOptions | undefined): Routes<RouteWrites<TSchema>> {
     const { instance, destroy } = createRoutesCollection(
       options,
       this._client,
@@ -295,10 +303,10 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as Routes<RouteWrites<TSchema>>;
   }
 
-  public defineRoutesSync(options?: RoutesSyncOptions | undefined): RoutesSync {
+  public defineRoutesSync(options?: RoutesSyncOptions | undefined): RoutesSync<RouteWrites<TSchema>> {
     const { instance, destroy } = createRoutesSyncCollection(
       options,
       this._client,
@@ -309,7 +317,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
 
     this._cleanups.push(destroy);
 
-    return instance;
+    return instance as RoutesSync<RouteWrites<TSchema>>;
   }
 
   public defineLazyRoutes(options?: LazyRoutesOptions | undefined): LazyRoutes {

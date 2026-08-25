@@ -1,4 +1,11 @@
-import { type ContelloClient, createSourceSubscription } from '@contello/client';
+import {
+  BUILT_IN_MUTATIONS,
+  type ContelloClient,
+  type SourceMutationKind,
+  createSourceMutation,
+  createSourceMutationVariables,
+  createSourceSubscription,
+} from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
 import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
@@ -7,9 +14,10 @@ import { type StoreRouteFragment, schema as storeSchema } from './generated/grap
 import type { ModelResolver } from './model-resolver';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import { wrap } from './telemetry';
-import type { CacheOptions, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
+import type { CacheOptions, CollectionWrites, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
 import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
+import { createWriteBuffer } from './write-buffer';
 
 export type RoutesOptions = {
   cache?: CacheOptions | undefined;
@@ -23,7 +31,11 @@ export type RoutesSyncOptions = {
   onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
-export type Routes = {
+/**
+ * `update` is not the patch a collection's is: `updateContelloRoute` is keyed by the `path` in its
+ * input — there is no id — and it replaces the route, so a field left out is cleared, not kept.
+ */
+export type Routes<TWrites = unknown> = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined>;
@@ -31,9 +43,9 @@ export type Routes = {
   getByPath(path: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined>;
   getByPath(paths: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<StoreRoute>>>;
   refresh(): void;
-};
+} & CollectionWrites<StoreRoute, TWrites>;
 
-export type RoutesSync = {
+export type RoutesSync<TWrites = unknown> = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): ReadonlyDeep<StoreRoute> | undefined;
@@ -41,7 +53,7 @@ export type RoutesSync = {
   getByPath(path: string): ReadonlyDeep<StoreRoute> | undefined;
   getByPath(paths: readonly string[]): ReadonlyArray<ReadonlyDeep<StoreRoute>>;
   refresh(): void;
-};
+} & CollectionWrites<StoreRoute, TWrites>;
 
 export function createRoutesCollection(
   options: RoutesOptions | undefined,
@@ -65,15 +77,46 @@ export function createRoutesCollection(
   const idByPath = new Map<string, string>();
   let loaded = false;
 
-  const routesSourceDoc = createSourceSubscription(storeSchema.sources.storeRoute);
+  // the built-in route source plus its fixed write bindings — `mutations` is constant for every
+  // Contello schema, so the store carries it rather than depending on a regenerated bundle
+  const routeSource = { ...storeSchema.sources.storeRoute, mutations: BUILT_IN_MUTATIONS.route };
+  const routesSourceDoc = createSourceSubscription(routeSource);
+
+  const writeBuffer = createWriteBuffer<StoreRouteFragment>();
+
+  function fetchRoutes(ids: string[] | undefined): Promise<StoreRouteFragment[]> {
+    return concatAsync(
+      mapAsync(
+        client.subscribe<{ source: StoreRouteFragment[] }>(routesSourceDoc, { ids }),
+        (data) => data.source,
+      ),
+    );
+  }
+
+  async function fetchOrTakeWritten(ids: string[] | undefined): Promise<StoreRouteFragment[]> {
+    // a full fetch is authoritative for every id, so nothing stays parked behind it
+    if (ids === undefined) {
+      writeBuffer.clear();
+
+      return fetchRoutes(undefined);
+    }
+
+    const { written, missing } = writeBuffer.take(ids);
+
+    if (missing.length === 0) {
+      return written;
+    }
+
+    const fetched = await fetchRoutes(missing);
+
+    return written.length === 0 ? fetched : [...written, ...fetched];
+  }
 
   const projected = new ProjectedMap<string, StoreRoute>({
     key: (route) => route.id,
     values: (ids) =>
       wrap('routes', async () => {
-        const rawItems = await concatAsync(
-          mapAsync(client.subscribe<{ source: StoreRouteFragment[] }>(routesSourceDoc, { ids }), (data) => data.source),
-        );
+        const rawItems = await fetchOrTakeWritten(ids);
         const items = rawItems.reduce<StoreRoute[]>((acc, raw) => {
           const mapped = mapRoute(raw, resolver);
 
@@ -155,10 +198,13 @@ export function createRoutesCollection(
       return;
     }
 
+    // upstream is authoritative for these until the refetch lands — no local write may answer it
+    const settled = writeBuffer.awaitingUpstream(refreshIds);
+
     void retryWithBackoff(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
-    });
+    }).finally(settled);
   }
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -180,10 +226,13 @@ export function createRoutesCollection(
     if (cache.eviction === 'clear') {
       pathById.clear();
       idByPath.clear();
+      writeBuffer.clear();
       projected.clear();
 
       return;
     }
+
+    writeBuffer.release(deleted);
 
     for (const id of deleted) {
       const oldPath = pathById.get(id);
@@ -241,7 +290,80 @@ export function createRoutesCollection(
     return maybeThen(projected.getAllAsMap(), () => {});
   }
 
+  async function runMutation(kind: SourceMutationKind, values: { input?: unknown; id?: string }): Promise<unknown> {
+    const binding = routeSource.mutations?.[kind];
+
+    if (!binding) {
+      throw new Error(`@contello/store: routes cannot ${kind} — the schema exposes no ${kind} mutation for routes`);
+    }
+
+    const response = await client.execute<{ result: unknown }>(
+      createSourceMutation(routeSource, kind),
+      createSourceMutationVariables(binding, values),
+    );
+
+    if (response?.result === undefined || response.result === null) {
+      throw new Error(`@contello/store: ${kind} on routes returned nothing`);
+    }
+
+    return response.result;
+  }
+
+  /** Takes a written route into the cache through the normal refresh path, keeping both indexes. */
+  async function takeIntoCache(raw: StoreRouteFragment): Promise<ReadonlyDeep<StoreRoute>> {
+    writeBuffer.park(raw.id, raw);
+
+    let map;
+
+    try {
+      map = await projected.refresh([raw.id]);
+    } finally {
+      // a refresh that never ran leaves the route parked, so release what it did not consume
+      writeBuffer.release([raw.id]);
+    }
+
+    emit([raw.id], 'write');
+
+    const route = map.get(raw.id);
+
+    if (!route) {
+      throw new Error(
+        `@contello/store: wrote route "${raw.id}" but it is not in the cache — ` +
+        `its target may not have resolved, or a concurrent full refresh did not return it`,
+      );
+    }
+
+    return route;
+  }
+
+  const writes = {
+    async create(input: unknown): Promise<ReadonlyDeep<StoreRoute>> {
+      return takeIntoCache((await runMutation('create', { input })) as StoreRouteFragment);
+    },
+
+    async update(input: unknown): Promise<ReadonlyDeep<StoreRoute>> {
+      return takeIntoCache((await runMutation('update', { input })) as StoreRouteFragment);
+    },
+
+    async delete(id: string): Promise<void> {
+      await runMutation('delete', { input: { id }, id });
+
+      writeBuffer.release([id]);
+
+      const oldPath = pathById.get(id);
+
+      if (oldPath !== undefined) {
+        idByPath.delete(oldPath);
+        pathById.delete(id);
+      }
+
+      projected.delete([id]);
+      emit([id], 'write');
+    },
+  };
+
   const instance: Routes = {
+    ...writes,
     refresh$: channel.stream$,
 
     async load() {

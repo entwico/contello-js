@@ -1,10 +1,15 @@
 import {
+  BUILT_IN_MUTATIONS,
   type ContelloClient,
   type DownloadResult,
   type ProxyResult,
+  type SourceMutationKind,
+  type SourceMutationValues,
   type UploadData,
   type UploadMetadata,
   type UploadOptions,
+  createSourceMutation,
+  createSourceMutationVariables,
   createSourceSubscription,
 } from '@contello/client';
 import type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
@@ -14,9 +19,10 @@ import { ProjectedMap } from '@entwico/projected';
 import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
 import type { StoreAsset, StoreFile } from './lazy-assets';
 import { wrap } from './telemetry';
-import type { CacheOptions, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
+import type { CacheOptions, CollectionWrites, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
 import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
+import { createWriteBuffer } from './write-buffer';
 
 export type AssetsOptions = {
   cache?: CacheOptions | undefined;
@@ -30,7 +36,11 @@ export type AssetsSyncOptions = {
   onRefresh?: ((event: RefreshEvent) => void) | undefined;
 };
 
-export type Assets = {
+/**
+ * There is no `create`: an asset comes into being through `upload()`, which is the transport, not
+ * a mutation. `update` patches the mutable metadata — fields left out keep their value.
+ */
+export type Assets<TWrites = unknown> = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): MaybePromise<ReadonlyDeep<StoreAsset> | undefined>;
@@ -39,9 +49,9 @@ export type Assets = {
   download(fileId: string): Promise<DownloadResult>;
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
   refresh(): void;
-};
+} & CollectionWrites<StoreAsset, TWrites>;
 
-export type AssetsSync = {
+export type AssetsSync<TWrites = unknown> = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): ReadonlyDeep<StoreAsset> | undefined;
@@ -50,7 +60,7 @@ export type AssetsSync = {
   download(fileId: string): Promise<DownloadResult>;
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;
   refresh(): void;
-};
+} & CollectionWrites<StoreAsset, TWrites>;
 
 function mapFile(raw: StoreFileFragment): StoreFile {
   return {
@@ -85,15 +95,46 @@ export function createAssetsCollection(
   const ttl = createTtlOrchestrator({ ttl: cache.ttl, run: () => runFullRefresh('ttl') });
   let loaded = false;
 
-  const assetsSourceDoc = createSourceSubscription(storeSchema.sources.storeAsset);
+  // the built-in asset source plus its fixed write bindings — `mutations` is constant for every
+  // Contello schema, so the store carries it rather than depending on a regenerated bundle
+  const assetSource = { ...storeSchema.sources.storeAsset, mutations: BUILT_IN_MUTATIONS.asset };
+  const assetsSourceDoc = createSourceSubscription(assetSource);
+
+  const writeBuffer = createWriteBuffer<StoreAssetFragment>();
+
+  function fetchAssets(ids: string[] | undefined): Promise<StoreAssetFragment[]> {
+    return concatAsync(
+      mapAsync(
+        client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }),
+        (data) => data.source,
+      ),
+    );
+  }
+
+  async function fetchOrTakeWritten(ids: string[] | undefined): Promise<StoreAssetFragment[]> {
+    // a full fetch is authoritative for every id, so nothing stays parked behind it
+    if (ids === undefined) {
+      writeBuffer.clear();
+
+      return fetchAssets(undefined);
+    }
+
+    const { written, missing } = writeBuffer.take(ids);
+
+    if (missing.length === 0) {
+      return written;
+    }
+
+    const fetched = await fetchAssets(missing);
+
+    return written.length === 0 ? fetched : [...written, ...fetched];
+  }
 
   const projected = new ProjectedMap<string, StoreAsset>({
     key: (asset) => asset.id,
     values: (ids) =>
       wrap('assets', async () => {
-        const rawItems = await concatAsync(
-          mapAsync(client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }), (data) => data.source),
-        );
+        const rawItems = await fetchOrTakeWritten(ids);
         const items = rawItems.map((item) => mapAsset(item));
 
         if (ids === undefined && !loaded) {
@@ -130,10 +171,13 @@ export function createAssetsCollection(
       return;
     }
 
+    // upstream is authoritative for these until the refetch lands — no local write may answer it
+    const settled = writeBuffer.awaitingUpstream(refreshIds);
+
     void retryWithBackoff(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
-    });
+    }).finally(settled);
   }
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -153,10 +197,13 @@ export function createAssetsCollection(
     }
 
     if (cache.eviction === 'clear') {
+      writeBuffer.clear();
       projected.clear();
 
       return;
     }
+
+    writeBuffer.release(deleted);
 
     if (deleted.length > 0) {
       projected.delete(deleted);
@@ -165,7 +212,65 @@ export function createAssetsCollection(
     runPartialRefresh([...upserted], deleted);
   });
 
+  async function runMutation(kind: SourceMutationKind, values: SourceMutationValues): Promise<unknown> {
+    const binding = assetSource.mutations?.[kind];
+
+    if (!binding) {
+      throw new Error(`@contello/store: assets cannot ${kind} — the schema exposes no ${kind} mutation for assets`);
+    }
+
+    const response = await client.execute<{ result: unknown }>(
+      createSourceMutation(assetSource, kind),
+      createSourceMutationVariables(binding, values),
+    );
+
+    if (response?.result === undefined || response.result === null) {
+      throw new Error(`@contello/store: ${kind} on assets returned nothing`);
+    }
+
+    return response.result;
+  }
+
+  const writes = {
+    async update(input: unknown): Promise<ReadonlyDeep<StoreAsset>> {
+      const raw = (await runMutation('update', { input })) as StoreAssetFragment;
+
+      writeBuffer.park(raw.id, raw);
+
+      let map;
+
+      try {
+        map = await projected.refresh([raw.id]);
+      } finally {
+        // a refresh that never ran leaves the asset parked, so release what it did not consume
+        writeBuffer.release([raw.id]);
+      }
+
+      emit([raw.id], 'write');
+
+      const asset = map.get(raw.id);
+
+      if (!asset) {
+        throw new Error(
+          `@contello/store: wrote asset "${raw.id}" but it is not in the cache — ` +
+          `a concurrent full refresh did not return it`,
+        );
+      }
+
+      return asset;
+    },
+
+    async delete(id: string): Promise<void> {
+      await runMutation('delete', { input: { id }, id });
+
+      writeBuffer.release([id]);
+      projected.delete([id]);
+      emit([id], 'write');
+    },
+  };
+
   const instance: Assets = {
+    ...writes,
     refresh$: channel.stream$,
 
     async load() {

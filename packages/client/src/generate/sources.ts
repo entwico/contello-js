@@ -1,13 +1,19 @@
 import {
+  type GraphQLArgument,
+  type GraphQLInputObjectType,
   type GraphQLObjectType,
   type GraphQLSchema,
   type GraphQLType,
+  isInputObjectType,
   isListType,
   isNonNullType,
   isObjectType,
+  isScalarType,
 } from 'graphql';
 
-import { deriveModelName, isContelloModel } from './utils';
+import { BUILT_IN_MUTATIONS } from '../built-in-mutations';
+import type { SourceMutationArgument, SourceMutationBinding, SourceMutations } from '../types';
+import { deriveModelName, isContelloModel, pascalCase } from './utils';
 
 export type BuiltInCardinality = 'route' | 'asset' | 'i18nMessage';
 export type SourceCardinality = 'entity' | 'singleton' | BuiltInCardinality;
@@ -120,6 +126,248 @@ export function indexBuiltInSources(
   return result;
 }
 
+export type MutationKind = 'create' | 'update' | 'delete';
+
+/** A runtime binding plus the TS type the generated accessor takes for it. */
+export type MutationBinding = SourceMutationBinding & {
+  /** TS type expression the accessor takes — the inner type when enveloped */
+  inputType: string;
+};
+
+export type MutationBindings = Partial<Record<MutationKind, MutationBinding>>;
+
+const MUTATION_KINDS: MutationKind[] = ['create', 'update', 'delete'];
+
+/**
+ * A create/update mutation answers with the entity itself; a delete answers with a response
+ * object. Both are only ever selected down to `id`, so the requirement is structural: the
+ * return type must be an object type carrying an `id` field, and for create/update it must be
+ * the entity type the source is bound to.
+ */
+function returnsEntityId(type: GraphQLType, entityTypeName: string | undefined): boolean {
+  const { entityType, isList } = unwrapEntity(type);
+
+  if (!entityType || isList) {
+    return false;
+  }
+
+  if (entityTypeName !== undefined && entityType.name !== entityTypeName) {
+    return false;
+  }
+
+  return Object.hasOwn(entityType.getFields(), 'id');
+}
+
+/**
+ * Unwraps a one-field envelope argument (`CreateCategoryRequestInput { entity: ... }`) so the
+ * accessor takes the entity input directly. Only a single non-null input-object field is
+ * unwrapped — anything else (lists, scalars, several fields) is passed through as-is.
+ */
+function resolveArgumentInput(type: GraphQLInputObjectType): { envelope: string | undefined; inputTypeName: string } {
+  const fields = Object.values(type.getFields());
+  const only = fields.length === 1 ? fields[0] : undefined;
+
+  if (only && isNonNullType(only.type) && isInputObjectType(only.type.ofType)) {
+    return { envelope: only.name, inputTypeName: only.type.ofType.name };
+  }
+
+  return { envelope: undefined, inputTypeName: type.name };
+}
+
+function indexMutationsForModel(
+  mutationType: GraphQLObjectType,
+  model: string,
+  entityTypeName: string,
+): MutationBindings {
+  const fields = mutationType.getFields();
+  const result: MutationBindings = {};
+
+  for (const kind of MUTATION_KINDS) {
+    // the server derives these names the same way — `create` + the capitalized model reference name
+    const field = fields[`${kind}${pascalCase(model)}`];
+
+    if (!field || field.args.length !== 1) {
+      continue;
+    }
+
+    // a delete answers with a delete-response object, not with the entity
+    if (!returnsEntityId(field.type, kind === 'delete' ? undefined : entityTypeName)) {
+      continue;
+    }
+
+    const argument = field.args[0]!;
+    const argumentNamedType = isNonNullType(argument.type) ? argument.type.ofType : argument.type;
+
+    if (!isInputObjectType(argumentNamedType)) {
+      continue;
+    }
+
+    const { envelope, inputTypeName } = resolveArgumentInput(argumentNamedType);
+
+    result[kind] = {
+      field: field.name,
+      arguments: [
+        {
+          name: argument.name,
+          type: argument.type.toString(),
+          from: 'input',
+          ...(envelope !== undefined && { envelope }),
+        },
+      ],
+      result: kind === 'delete' ? 'idObject' : 'entity',
+      inputType: inputTypeName,
+    };
+  }
+
+  return result;
+}
+
+/**
+ * TS input types for the built-in write bindings. Route and asset inputs are fixed schema types;
+ * a delete is addressed by id alone, so its input type is spelled out rather than named.
+ */
+const BUILT_IN_INPUT_TYPES: Partial<Record<BuiltInCardinality, Partial<Record<MutationKind, string>>>> = {
+  route: { create: 'ContelloRouteInput', update: 'ContelloRouteInput', delete: '{ id: string }' },
+  asset: { update: 'ContelloAssetUpdateInput', delete: '{ id: string }' },
+};
+
+/** An argument the server insists on: non-null with no default, so a request omitting it is rejected. */
+function isRequiredArgument(argument: GraphQLArgument): boolean {
+  return isNonNullType(argument.type) && argument.defaultValue === undefined;
+}
+
+/**
+ * Checks one built-in binding against the introspected schema: the field must exist, carry every
+ * bound argument, leave no required argument unbound, and answer with the shape the binding
+ * declares. A server that renamed, dropped or added to any of it yields no binding at all rather
+ * than a document that fails at request time.
+ */
+function verifyBuiltInMutation(
+  mutationType: GraphQLObjectType,
+  binding: SourceMutationBinding,
+  typeName: string,
+): SourceMutationBinding | undefined {
+  const field = mutationType.getFields()[binding.field];
+
+  if (!field) {
+    return undefined;
+  }
+
+  const args = binding.arguments.map((argument) => {
+    const schemaArgument = field.args.find((a) => a.name === argument.name);
+
+    return schemaArgument ? { ...argument, type: schemaArgument.type.toString() } : undefined;
+  });
+
+  if (args.includes(undefined)) {
+    return undefined;
+  }
+
+  const bound = new Set(binding.arguments.map((argument) => argument.name));
+
+  if (field.args.some((argument) => !bound.has(argument.name) && isRequiredArgument(argument))) {
+    return undefined;
+  }
+
+  const answersWithEntity = returnsEntityId(field.type, typeName);
+  const matches =
+    binding.result === 'entity'
+      ? answersWithEntity
+      : (binding.result === 'idObject' ? returnsEntityId(field.type, undefined) : isScalarResult(field.type));
+
+  if (!matches) {
+    return undefined;
+  }
+
+  return { ...binding, arguments: args as SourceMutationArgument[] };
+}
+
+function isScalarResult(type: GraphQLType): boolean {
+  return isScalarType(isNonNullType(type) ? type.ofType : type);
+}
+
+function verifyBuiltInMutations(
+  mutationType: GraphQLObjectType,
+  typeName: string,
+  declared: SourceMutations,
+  inputTypes: Partial<Record<MutationKind, string>>,
+): MutationBindings {
+  const bindings: MutationBindings = {};
+
+  for (const kind of MUTATION_KINDS) {
+    const binding = declared[kind];
+    const inputType = inputTypes[kind];
+    const verified = binding && inputType ? verifyBuiltInMutation(mutationType, binding, typeName) : undefined;
+
+    if (verified && inputType) {
+      bindings[kind] = { ...verified, inputType };
+    }
+  }
+
+  return bindings;
+}
+
+/**
+ * Indexes the write mutations of the built-in sources the schema actually exposes, keyed by
+ * cardinality. Bindings are fixed (their field names are part of every Contello schema) but each
+ * one is verified before it is emitted.
+ */
+export function indexBuiltInMutations(
+  schema: GraphQLSchema,
+  builtInBindings: Map<string, { cardinality: BuiltInCardinality; fieldName: string }>,
+): Map<BuiltInCardinality, MutationBindings> {
+  const result = new Map<BuiltInCardinality, MutationBindings>();
+  const mutationType = schema.getMutationType();
+
+  if (!mutationType) {
+    return result;
+  }
+
+  for (const [typeName, { cardinality }] of builtInBindings) {
+    const declared = BUILT_IN_MUTATIONS[cardinality];
+    const inputTypes = BUILT_IN_INPUT_TYPES[cardinality];
+
+    if (!declared || !inputTypes) {
+      continue;
+    }
+
+    const bindings = verifyBuiltInMutations(mutationType, typeName, declared, inputTypes);
+
+    if (Object.keys(bindings).length > 0) {
+      result.set(cardinality, bindings);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Indexes the write mutations each entity source can bind to, keyed by model reference name.
+ * A model with no mutations at all is left out of the map; a model missing one kind gets the
+ * others — singletons, for one, have no `create`.
+ */
+export function indexEntityMutations(
+  schema: GraphQLSchema,
+  entityBindings: Map<string, EntitySourceBinding>,
+): Map<string, MutationBindings> {
+  const result = new Map<string, MutationBindings>();
+  const mutationType = schema.getMutationType();
+
+  if (!mutationType) {
+    return result;
+  }
+
+  for (const [entityTypeName, binding] of entityBindings) {
+    const bindings = indexMutationsForModel(mutationType, binding.model, entityTypeName);
+
+    if (Object.keys(bindings).length > 0) {
+      result.set(binding.model, bindings);
+    }
+  }
+
+  return result;
+}
+
 function unwrapEntity(type: GraphQLType): { entityType: GraphQLObjectType | undefined; isList: boolean } {
   let current = type;
   let isList = false;
@@ -147,6 +395,7 @@ export type SourceEntry = {
   fragmentName: string;
   binding: SourceBinding;
   fragmentExpression: string;
+  mutations?: MutationBindings | undefined;
 };
 
 /**
@@ -182,10 +431,15 @@ export function generateSourcesType(entries: SourceEntry[]): string {
 
   const lines: string[] = ['export type Sources = {'];
 
-  for (const { fragmentName, binding } of sorted) {
-    const type = `SourceDef<'${binding.sourceKey}', '${binding.cardinality}', ${fragmentName}Fragment>`;
+  for (const { fragmentName, binding, mutations } of sorted) {
+    const writes = generateWritesType(mutations);
+    const args = [`'${binding.sourceKey}'`, `'${binding.cardinality}'`, `${fragmentName}Fragment`];
 
-    lines.push(`  ${binding.sourceKey}: ${type};`);
+    if (writes) {
+      args.push(writes);
+    }
+
+    lines.push(`  ${binding.sourceKey}: SourceDef<${args.join(', ')}>;`);
   }
 
   lines.push('};');
@@ -203,11 +457,69 @@ export function generateSourcesConst(entries: SourceEntry[]): string {
 
   const lines: string[] = ['const sources: Sources = {'];
 
-  for (const { fragmentName, binding, fragmentExpression } of sorted) {
-    lines.push(`  ${binding.sourceKey}: {`, `    document: ${fragmentExpression},`, `    fragment: '${fragmentName}',`, `    subscription: '${binding.fieldName}',`, `    __model: '${binding.sourceKey}',`, `    __cardinality: '${binding.cardinality}',`, `  },`);
+  for (const { fragmentName, binding, fragmentExpression, mutations } of sorted) {
+    lines.push(`  ${binding.sourceKey}: {`, `    document: ${fragmentExpression},`, `    fragment: '${fragmentName}',`, `    subscription: '${binding.fieldName}',`);
+
+    for (const line of generateMutationsConst(mutations)) {
+      lines.push(line);
+    }
+
+    lines.push(`    __model: '${binding.sourceKey}',`, `    __cardinality: '${binding.cardinality}',`, `  },`);
   }
 
   lines.push('};');
 
   return lines.join('\n');
+}
+
+/** The phantom write shape — `{ create: CreateCategoryEntityInput; ... }`, omitted when there are no mutations. */
+function generateWritesType(mutations: MutationBindings | undefined): string | undefined {
+  const entries = mutationEntries(mutations);
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return `{ ${entries.map(([kind, binding]) => `${kind}: ${binding.inputType}`).join('; ')} }`;
+}
+
+/** The runtime `mutations` object of a source const. */
+function generateMutationsConst(mutations: MutationBindings | undefined): string[] {
+  const entries = mutationEntries(mutations);
+
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const lines = ['    mutations: {'];
+
+  for (const [kind, binding] of entries) {
+    const args = binding.arguments
+      .map((argument) => {
+        const parts = [`name: '${argument.name}'`, `type: '${argument.type}'`, `from: '${argument.from}'`];
+
+        if (argument.envelope) {
+          parts.push(`envelope: '${argument.envelope}'`);
+        }
+
+        return `{ ${parts.join(', ')} }`;
+      })
+      .join(', ');
+
+    lines.push(
+      `      ${kind}: { field: '${binding.field}', arguments: [${args}], result: '${binding.result}' },`,
+    );
+  }
+
+  lines.push('    },');
+
+  return lines;
+}
+
+function mutationEntries(mutations: MutationBindings | undefined): [MutationKind, MutationBinding][] {
+  return MUTATION_KINDS.flatMap((kind) => {
+    const binding = mutations?.[kind];
+
+    return binding ? [[kind, binding] as [MutationKind, MutationBinding]] : [];
+  });
 }

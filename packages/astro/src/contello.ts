@@ -8,12 +8,14 @@ import {
   type AssetsOptions,
   type AssetsSync,
   type AssetsSyncOptions,
+  type BuiltInWrites,
   type Collection,
   type CollectionOptions,
   type CollectionSync,
   type CollectionSyncOptions,
   type CreateStoreOptions,
   type ExtractSourceResult,
+  type ExtractSourceWrites,
   type I18nMessageRegistrationDefinition,
   type I18nMessages,
   type LazyAssets,
@@ -132,6 +134,12 @@ type SingletonArg<TSchema> = SourceKeysOf<TSchema, 'singleton'> | SourceDef<Mode
 type CollectionRaw<TSchema, TArg> = ExtractSourceResult<
   Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'entity'>>
 >;
+/** The write-input shape the source carries — keeps the collection's write half through the proxy. */
+type CollectionWritesOf<TSchema, TArg> = ExtractSourceWrites<
+  Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'entity'>>
+>;
+type RouteWrites<TSchema> = BuiltInWrites<TSchema, 'route'>;
+type AssetWrites<TSchema> = BuiltInWrites<TSchema, 'asset'>;
 type SingletonRaw<TSchema, TArg> = ExtractSourceResult<
   Extract<ResolveSource<TSchema, TArg>, SourceDef<string, 'singleton'>>
 >;
@@ -303,8 +311,11 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   >(
     sourceOrKey: TArg,
     options?: CollectionOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
-  ): Collection<TMapped> {
-    return this._store.defineCollection(sourceOrKey as any, options as any) as Collection<TMapped>;
+  ): Collection<TMapped, CollectionWritesOf<TSchema, TArg>> {
+    return this._store.defineCollection(sourceOrKey as any, options as any) as Collection<
+      TMapped,
+      CollectionWritesOf<TSchema, TArg>
+    >;
   }
 
   defineCollectionSync<
@@ -313,8 +324,11 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   >(
     sourceOrKey: TArg,
     options?: CollectionSyncOptions<CollectionRaw<TSchema, TArg>, TMapped, ModelsOf<TSchema>>,
-  ): CollectionSync<TMapped> {
-    return this._store.defineCollectionSync(sourceOrKey as any, options as any) as CollectionSync<TMapped>;
+  ): CollectionSync<TMapped, CollectionWritesOf<TSchema, TArg>> {
+    return this._store.defineCollectionSync(sourceOrKey as any, options as any) as CollectionSync<
+      TMapped,
+      CollectionWritesOf<TSchema, TArg>
+    >;
   }
 
   defineLazyCollection<
@@ -327,11 +341,11 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
     return this._store.defineLazyCollection(sourceOrKey as any, options as any) as LazyCollection<TMapped>;
   }
 
-  defineRoutes(options?: RoutesOptions | undefined): Routes {
+  defineRoutes(options?: RoutesOptions | undefined): Routes<RouteWrites<TSchema>> {
     return this._store.defineRoutes(options);
   }
 
-  defineRoutesSync(options?: RoutesSyncOptions | undefined): RoutesSync {
+  defineRoutesSync(options?: RoutesSyncOptions | undefined): RoutesSync<RouteWrites<TSchema>> {
     return this._store.defineRoutesSync(options);
   }
 
@@ -339,11 +353,11 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
     return this._store.defineLazyRoutes(options);
   }
 
-  defineAssets(options?: AssetsOptions | undefined): Assets {
+  defineAssets(options?: AssetsOptions | undefined): Assets<AssetWrites<TSchema>> {
     return this._store.defineAssets(options);
   }
 
-  defineAssetsSync(options?: AssetsSyncOptions | undefined): AssetsSync {
+  defineAssetsSync(options?: AssetsSyncOptions | undefined): AssetsSync<AssetWrites<TSchema>> {
     return this._store.defineAssetsSync(options);
   }
 
