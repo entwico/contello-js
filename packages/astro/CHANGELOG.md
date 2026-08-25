@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 4.3.0
+
+### Minor Changes
+
+- 6e3e942: collections, routes and assets carry the writes their schema defines — `create` / `update` / `delete`, typed from the model's own inputs
+
 ## 4.2.1
 
 ### Patch Changes

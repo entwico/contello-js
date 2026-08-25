@@ -1,5 +1,12 @@
 # @contello/client
 
+## 3.1.0
+
+### Minor Changes
+
+- 6e3e942: `client.sources.<model>` exposes `create` / `update` / `delete` for the mutations the schema defines for that model. A `create`/`update` selects the source's own fragment, so it answers with the entity in the same shape `fetch` yields; a `delete` answers with the id it removed
+- 6e3e942: collections, routes and assets carry the writes their schema defines — `create` / `update` / `delete`, typed from the model's own inputs
+
 ## 3.0.2
 
 ### Patch Changes
