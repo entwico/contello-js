@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.1.1
+
+### Patch Changes
+
+- 7f0299e: built-in route/asset write bindings are no longer dropped when a mutation argument declares a default value
+
 ## 3.1.0
 
 ### Minor Changes
