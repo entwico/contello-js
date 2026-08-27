@@ -1,5 +1,4 @@
 import {
-  type GraphQLArgument,
   type GraphQLInputObjectType,
   type GraphQLObjectType,
   type GraphQLSchema,
@@ -8,6 +7,7 @@ import {
   isListType,
   isNonNullType,
   isObjectType,
+  isRequiredArgument,
   isScalarType,
 } from 'graphql';
 
@@ -230,11 +230,6 @@ const BUILT_IN_INPUT_TYPES: Partial<Record<BuiltInCardinality, Partial<Record<Mu
   route: { create: 'ContelloRouteInput', update: 'ContelloRouteInput', delete: '{ id: string }' },
   asset: { update: 'ContelloAssetUpdateInput', delete: '{ id: string }' },
 };
-
-/** An argument the server insists on: non-null with no default, so a request omitting it is rejected. */
-function isRequiredArgument(argument: GraphQLArgument): boolean {
-  return isNonNullType(argument.type) && argument.defaultValue === undefined;
-}
 
 /**
  * Checks one built-in binding against the introspected schema: the field must exist, carry every

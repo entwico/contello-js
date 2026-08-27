@@ -18,10 +18,10 @@
   },
   "dependencies": {
     "@contello/opentelemetry": "workspace:^",
-    "@entwico/dash": "^1.2.0",
-    "graphql": "^16.13.2",
-    "graphql-ws": "^6.0.8",
-    "undici": "^8.1.0"
+    "@entwico/dash": "^1.3.0",
+    "graphql": "^17.0.2",
+    "graphql-ws": "^6.2.1",
+    "undici": "^8.10.0"
   },
   "bin": {
     "contello-client": "./dist/cli.js"
