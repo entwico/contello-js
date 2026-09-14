@@ -4,8 +4,8 @@ import { updateActiveSpan } from '@contello/opentelemetry';
 import type { LazyRoutes, Routes, RoutesSync, StoreRoute, StoreRouteCustomHeader } from '@contello/store';
 import { type MaybePromise, maybeThen } from '@entwico/dash';
 import type { APIContext, ValidRedirectStatus } from 'astro';
-import { defineMiddleware } from 'astro/middleware';
 import { type Contello, runRequest } from './contello';
+import { defineMiddleware } from './middleware';
 import { wrap } from './telemetry';
 
 export type AnyRoutes = Routes | RoutesSync | LazyRoutes;

@@ -1,7 +1,7 @@
 import { overrideRequestRoute } from '@astroscope/node/log';
 import type { ContelloClient } from '@contello/client';
-import { defineMiddleware } from 'astro/middleware';
 import type { Contello } from './contello';
+import { defineMiddleware } from './middleware';
 import { wrap } from './telemetry';
 
 export type ContelloAssetsImagesOptions = {

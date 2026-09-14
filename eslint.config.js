@@ -25,6 +25,25 @@ export default defineConfig({
       },
     },
     {
+      // runtime imports of astro would put every consumer of this package into astro's runtime module graph
+      // (see packages/astro/src/middleware.ts) — types are fine
+      files: ['packages/astro/src/**'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: ['astro', 'astro/*', 'astro:*'],
+                allowTypeImports: true,
+                message: 'import only types from astro here — a runtime import couples the package to astro\'s module graph',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ['**/*.test.{ts,tsx}'],
       rules: {
         // tests pull vitest from the workspace root, not each package's package.json
