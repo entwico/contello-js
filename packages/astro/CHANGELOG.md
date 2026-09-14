@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 4.3.1
+
+### Patch Changes
+
+- 3bc81ea: the package no longer imports `astro/middleware` at runtime, so modules that create the Contello instance stay out of astro's runtime module graph
+
 ## 4.3.0
 
 ### Minor Changes
