@@ -183,6 +183,10 @@ export type Collection<T, TWrites = unknown> = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): MaybePromise<ReadonlyDeep<T> | undefined>;
+  /**
+   * Resolves the given ids in the given order; ids that are unknown to the collection are skipped,
+   * so the result may be shorter than the input.
+   */
   get(ids: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   getAll(): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   refresh(): void;
@@ -193,6 +197,10 @@ export type CollectionSync<T, TWrites = unknown> = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
   load(): Promise<void>;
   get(id: string): ReadonlyDeep<T> | undefined;
+  /**
+   * Resolves the given ids in the given order; ids that are unknown to the collection are skipped,
+   * so the result may be shorter than the input.
+   */
   get(ids: readonly string[]): ReadonlyArray<ReadonlyDeep<T>>;
   getAll(): ReadonlyArray<ReadonlyDeep<T>>;
   refresh(): void;
@@ -255,6 +263,10 @@ export type LazyCollection<T> = {
   readonly name: string;
   readonly refresh$: AsyncIterable<RefreshEvent>;
   get(id: string): MaybePromise<ReadonlyDeep<T> | undefined>;
+  /**
+   * Resolves the given ids in the given order; ids that are unknown to the collection are skipped,
+   * so the result may be shorter than the input.
+   */
   get(ids: readonly string[]): MaybePromise<ReadonlyArray<ReadonlyDeep<T>>>;
   refresh(): void;
   clear(): void;

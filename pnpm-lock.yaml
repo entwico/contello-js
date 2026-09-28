@@ -128,8 +128,8 @@ importers:
         specifier: ^17.0.2
         version: 17.0.2
       graphql-ws:
-        specifier: ^6.2.1
-        version: 6.2.1(crossws@0.3.5)(graphql@17.0.2)(ws@8.21.3)
+        specifier: ^6.3.0
+        version: 6.3.0(crossws@0.3.5)(graphql@17.0.2)(ws@8.21.3)
       undici:
         specifier: ^8.10.0
         version: 8.10.0
@@ -172,8 +172,8 @@ importers:
         specifier: ^17.0.2
         version: 17.0.2
       graphql-ws:
-        specifier: ^6.2.1
-        version: 6.2.1(crossws@0.3.5)(graphql@17.0.2)(ws@8.21.3)
+        specifier: ^6.3.0
+        version: 6.3.0(crossws@0.3.5)(graphql@17.0.2)(ws@8.21.3)
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
@@ -2939,12 +2939,12 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  graphql-ws@6.2.1:
-    resolution: {integrity: sha512-NMbPNeTwXpUOxmczdMtzEnynLNbbR267E9hRcJ81SSbQeIvZup3cMjbD1ZT3jpS2xkpxooisitvO7LZNOyz17Q==}
+  graphql-ws@6.3.0:
+    resolution: {integrity: sha512-qBAXPtFjWHF3QypDyNcBp8Rycd+rmofxUSJsu3bGI9QMMq7pImKBSLSg9hZ2ojIMbJ54T/LPjKBIeOUoJbNBnQ==}
     engines: {node: '>=20'}
     peerDependencies:
       '@fastify/websocket': ^10 || ^11
-      crossws: ~0.3
+      crossws: ~0.3 || ~0.4
       graphql: ^15.10.1 || ^16 || ^17
       ws: ^8
     peerDependenciesMeta:
@@ -6564,8 +6564,8 @@ snapshots:
   astro-eslint-parser@3.1.0(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(supports-color@7.2.0):
     dependencies:
       '@astrojs/compiler-rs': 0.4.0(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)
-      '@typescript-eslint/scope-manager': 8.67.0
-      '@typescript-eslint/types': 8.67.0
+      '@typescript-eslint/scope-manager': 8.68.0
+      '@typescript-eslint/types': 8.68.0
       debug: 4.4.3(supports-color@7.2.0)
       eslint-scope: 9.1.2
       eslint-visitor-keys: 5.0.1
@@ -7294,7 +7294,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  graphql-ws@6.2.1(crossws@0.3.5)(graphql@17.0.2)(ws@8.21.3):
+  graphql-ws@6.3.0(crossws@0.3.5)(graphql@17.0.2)(ws@8.21.3):
     dependencies:
       graphql: 17.0.2
     optionalDependencies:
