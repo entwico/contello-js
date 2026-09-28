@@ -98,6 +98,18 @@ describe('mapRoute', () => {
     expect(result).toBeUndefined();
   });
 
+  test('maps a sitemap target', () => {
+    const result = mapRoute(route({ __typename: 'ContelloRouteTargetSitemap', sitemapId: 'sm1' }), resolver);
+
+    expect(result).toEqual({
+      id: 'r1',
+      path: '/some/path',
+      customHeaders: [],
+      type: 'sitemap',
+      sitemapId: 'sm1',
+    });
+  });
+
   test('returns undefined for an unknown target type', () => {
     const result = mapRoute(route({ __typename: 'ContelloRouteTargetSomethingNew' }), resolver);
 

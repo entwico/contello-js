@@ -157,6 +157,40 @@ export function createBoundRoutingMiddleware(
           );
         }
 
+        case 'sitemap': {
+          return contello[runRequest]({ url, route, rewritten: false }, () =>
+            wrap('route:sitemap', async () => {
+              const result = await contello.client.proxySitemap(
+                route.sitemapId,
+                {
+                  source: url.searchParams.get('source') ?? undefined,
+                  page: url.searchParams.get('page') ?? undefined,
+                  acceptEncoding: ctx.request.headers.get('accept-encoding') ?? undefined,
+                  ifNoneMatch: ctx.request.headers.get('if-none-match') ?? undefined,
+                },
+                ctx.request.signal,
+              );
+
+              const passthrough = result.status === 304 || (result.status >= 200 && result.status < 300);
+
+              if (!passthrough) {
+                // core's error format stays internal: same status, no body, none of the upstream headers
+                await result.stream().cancel();
+
+                return new Response(null, { status: result.status, headers: customHeaders(route.customHeaders) });
+              }
+
+              const headers = new Headers(result.headers);
+
+              for (const { name, value } of route.customHeaders) {
+                headers.set(name, value);
+              }
+
+              return new Response(result.status === 304 ? null : result.stream(), { status: result.status, headers });
+            }),
+          );
+        }
+
         case 'entity': {
           return contello[runRequest]({ url, route, rewritten: true }, () =>
             wrap(`route:entity:${route.model}`, async () => {

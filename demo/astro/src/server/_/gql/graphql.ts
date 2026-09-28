@@ -10,7 +10,7 @@ export type ContelloBatchOperationStatus = 'error' | 'success';
 export type ContelloContentDispositionEnum = 'ATTACHMENT' | 'AUTOMATIC' | 'INLINE';
 export type ContelloDictionaryType = 'ENTITY' | 'STATIC';
 export type ContelloMutationType = 'CREATE' | 'DELETE' | 'UPDATE';
-export type ContelloRouteTargetTypeEnum = 'ENTITY' | 'FILE' | 'REDIRECT' | 'TEXT_RESPONSE';
+export type ContelloRouteTargetTypeEnum = 'ENTITY' | 'FILE' | 'REDIRECT' | 'SITEMAP' | 'TEXT_RESPONSE';
 export type SectionAppearanceStaticDictionary = 'dark' | 'light';
 export type ShippingOptionsStaticDictionary = 'delivery' | 'selfPickup';
 
@@ -121,6 +121,7 @@ export type ContelloRouteInput = {
   targetEntityConfig?: TargetEntityConfigInput | undefined;
   targetFileConfig?: TargetFileConfig | undefined;
   targetRedirectConfig?: TargetRedirectConfig | undefined;
+  targetSitemapConfig?: TargetSitemapConfig | undefined;
   targetTextResponseConfig?: TargetTextResponseConfig | undefined;
   targetType: ContelloRouteTargetTypeEnum;
 };
@@ -319,6 +320,10 @@ export type TargetFileConfig = {
 export type TargetRedirectConfig = {
   location: string;
   responseCode: number;
+};
+
+export type TargetSitemapConfig = {
+  sitemapId: string;
 };
 
 export type TargetTextResponseConfig = {
@@ -616,6 +621,12 @@ export type ContelloRouteTargetRedirect = {
   responseCode: number;
 };
 
+export type ContelloRouteTargetSitemap = {
+  __typename?: 'ContelloRouteTargetSitemap' | undefined;
+  displayName: string;
+  sitemapId: string;
+};
+
 export type ContelloRouteTargetText = {
   __typename?: 'ContelloRouteTargetText' | undefined;
   content: string;
@@ -898,7 +909,7 @@ export type ContelloComponent = ProductListComponent | SectionComponent | TextCo
 export type ContelloEntity = CategoryEntity | ConfigEntity | NoteEntity | ProductEntity | StaticPageEntity;
 export type ContelloFileMetadata = ContelloImageMetadata | ContelloVideoMetadata;
 export type ContelloOptimizationConfig = ContelloImageOptimizationConfig | ContelloVideoOptimizationConfig;
-export type ContelloRouteTarget = ContelloRouteTargetAsset | ContelloRouteTargetEntity | ContelloRouteTargetRedirect | ContelloRouteTargetText;
+export type ContelloRouteTarget = ContelloRouteTargetAsset | ContelloRouteTargetEntity | ContelloRouteTargetRedirect | ContelloRouteTargetSitemap | ContelloRouteTargetText;
 export type ContelloUpdatePrev = ContelloRoute;
 export type ContelloUpdateTarget = CategoryEntity | ConfigEntity | ContelloAsset | ContelloI18nMessage | ContelloRoute | NoteEntity | ProductEntity | StaticPageEntity;
 
@@ -971,6 +982,9 @@ export type StoreRouteFragment = {
     __typename: 'ContelloRouteTargetText';
     content: string;
     mimeType: string;
+  } | {
+    __typename: 'ContelloRouteTargetSitemap';
+    sitemapId: string;
   };
   customHeaders: ({
     name: string;
@@ -1219,6 +1233,9 @@ const StoreRouteFragmentSchema = `fragment StoreRoute on ContelloRoute {
     ... on ContelloRouteTargetText {
       content
       mimeType
+    }
+    ... on ContelloRouteTargetSitemap {
+      sitemapId
     }
   }
   customHeaders {

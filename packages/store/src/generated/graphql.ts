@@ -10,7 +10,7 @@ export type ContelloBatchOperationStatus = 'error' | 'success';
 export type ContelloContentDispositionEnum = 'ATTACHMENT' | 'AUTOMATIC' | 'INLINE';
 export type ContelloDictionaryType = 'ENTITY' | 'STATIC';
 export type ContelloMutationType = 'CREATE' | 'DELETE' | 'UPDATE';
-export type ContelloRouteTargetTypeEnum = 'ENTITY' | 'FILE' | 'REDIRECT' | 'TEXT_RESPONSE';
+export type ContelloRouteTargetTypeEnum = 'ENTITY' | 'FILE' | 'REDIRECT' | 'SITEMAP' | 'TEXT_RESPONSE';
 
 export type ContelloAnnotationFilterInput = {
   key?: string | undefined;
@@ -88,6 +88,7 @@ export type ContelloRouteInput = {
   targetEntityConfig?: TargetEntityConfigInput | undefined;
   targetFileConfig?: TargetFileConfig | undefined;
   targetRedirectConfig?: TargetRedirectConfig | undefined;
+  targetSitemapConfig?: TargetSitemapConfig | undefined;
   targetTextResponseConfig?: TargetTextResponseConfig | undefined;
   targetType: ContelloRouteTargetTypeEnum;
 };
@@ -190,6 +191,10 @@ export type TargetFileConfig = {
 export type TargetRedirectConfig = {
   location: string;
   responseCode: number;
+};
+
+export type TargetSitemapConfig = {
+  sitemapId: string;
 };
 
 export type TargetTextResponseConfig = {
@@ -381,6 +386,12 @@ export type ContelloRouteTargetRedirect = {
   responseCode: number;
 };
 
+export type ContelloRouteTargetSitemap = {
+  __typename?: 'ContelloRouteTargetSitemap' | undefined;
+  displayName: string;
+  sitemapId: string;
+};
+
 export type ContelloRouteTargetText = {
   __typename?: 'ContelloRouteTargetText' | undefined;
   content: string;
@@ -526,7 +537,7 @@ export type ContelloFile = {
 export type ContelloEntity = DummyEntity;
 export type ContelloFileMetadata = ContelloImageMetadata | ContelloVideoMetadata;
 export type ContelloOptimizationConfig = ContelloImageOptimizationConfig | ContelloVideoOptimizationConfig;
-export type ContelloRouteTarget = ContelloRouteTargetAsset | ContelloRouteTargetEntity | ContelloRouteTargetRedirect | ContelloRouteTargetText;
+export type ContelloRouteTarget = ContelloRouteTargetAsset | ContelloRouteTargetEntity | ContelloRouteTargetRedirect | ContelloRouteTargetSitemap | ContelloRouteTargetText;
 export type ContelloUpdatePrev = ContelloRoute;
 export type ContelloUpdateTarget = ContelloAsset | ContelloI18nMessage | ContelloRoute | DummyEntity;
 
@@ -599,6 +610,9 @@ export type StoreRouteFragment = {
     __typename: 'ContelloRouteTargetText';
     content: string;
     mimeType: string;
+  } | {
+    __typename: 'ContelloRouteTargetSitemap';
+    sitemapId: string;
   };
   customHeaders: ({
     name: string;
@@ -724,6 +738,9 @@ const StoreRouteFragmentSchema = `fragment StoreRoute on ContelloRoute {
       content
       mimeType
     }
+    ... on ContelloRouteTargetSitemap {
+      sitemapId
+    }
   }
   customHeaders {
     name
@@ -789,9 +806,9 @@ export type Operations = {
 };
 
 export type Sources = {
-  storeAsset: SourceDef<'storeAsset', 'asset', StoreAssetFragment>;
+  storeAsset: SourceDef<'storeAsset', 'asset', StoreAssetFragment, { update: ContelloAssetUpdateInput; delete: { id: string } }>;
   storeI18nMessage: SourceDef<'storeI18nMessage', 'i18nMessage', StoreI18nMessageFragment>;
-  storeRoute: SourceDef<'storeRoute', 'route', StoreRouteFragment>;
+  storeRoute: SourceDef<'storeRoute', 'route', StoreRouteFragment, { create: ContelloRouteInput; update: ContelloRouteInput; delete: { id: string } }>;
 };
 
 const operations: Operations = {
@@ -804,6 +821,10 @@ const sources: Sources = {
     document: `${MediaFileFragmentSchema}\n${MediaAssetFragmentSchema}\n${StoreAssetFragmentSchema}`,
     fragment: 'StoreAsset',
     subscription: 'contelloAssetsBatch',
+    mutations: {
+      update: { field: 'updateContelloAsset', arguments: [{ name: 'request', type: 'ContelloAssetUpdateInput!', from: 'input' }], result: 'entity' },
+      delete: { field: 'deleteContelloAsset', arguments: [{ name: 'id', type: 'String!', from: 'id' }], result: 'idObject' },
+    },
     __model: 'storeAsset',
     __cardinality: 'asset',
   },
@@ -818,6 +839,11 @@ const sources: Sources = {
     document: StoreRouteFragmentSchema,
     fragment: 'StoreRoute',
     subscription: 'contelloRoutesBatch',
+    mutations: {
+      create: { field: 'createContelloRoute', arguments: [{ name: 'route', type: 'ContelloRouteInput!', from: 'input' }], result: 'entity' },
+      update: { field: 'updateContelloRoute', arguments: [{ name: 'route', type: 'ContelloRouteInput!', from: 'input' }], result: 'entity' },
+      delete: { field: 'deleteContelloRoute', arguments: [{ name: 'id', type: 'String', from: 'id' }], result: 'idScalar' },
+    },
     __model: 'storeRoute',
     __cardinality: 'route',
   },

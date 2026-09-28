@@ -26,5 +26,5 @@ export {
   readSourceMutationId,
 } from './source-mutation';
 export { BUILT_IN_MUTATIONS } from './built-in-mutations';
-export type { DownloadResult, HttpAgentOptions, ProxyResult } from './http';
+export type { DownloadResult, HttpAgentOptions, ProxyResult, SitemapProxyOptions } from './http';
 export type { UploadData, UploadMetadata, UploadOptions } from './upload';

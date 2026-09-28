@@ -29,6 +29,9 @@ fragment StoreRoute on ContelloRoute {
       content
       mimeType
     }
+    ... on ContelloRouteTargetSitemap {
+      sitemapId
+    }
   }
   customHeaders {
     name

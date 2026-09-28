@@ -13,6 +13,7 @@ const FORWARDED_PROXY_HEADERS = new Set([
   'last-modified',
   'expires',
   'age',
+  'vary',
 ]);
 
 function assertSafeSegment(segment: string, kind: string): void {
@@ -108,6 +109,75 @@ export async function proxyHls(
   });
 
   return buildProxyResult(response, signal);
+}
+
+export type SitemapProxyOptions = {
+  /** chunk source as received from the query string; core decides whether the source/page pair is valid */
+  source?: string | undefined;
+  /** chunk page as received from the query string */
+  page?: string | undefined;
+  /** the incoming request's Accept-Encoding, so stored gzip bytes pass through untouched */
+  acceptEncoding?: string | undefined;
+  /** the incoming request's If-None-Match, so core can answer 304 */
+  ifNoneMatch?: string | undefined;
+};
+
+export async function proxySitemap(
+  agent: Dispatcher,
+  url: string,
+  token: string,
+  projectRef: string,
+  sitemapId: string,
+  options: SitemapProxyOptions,
+  signal?: AbortSignal | undefined,
+): Promise<ProxyResult> {
+  assertSafeSegment(projectRef, 'project ref');
+  assertSafeSegment(sitemapId, 'sitemap id');
+
+  const search = new URLSearchParams();
+
+  if (options.source !== undefined) {
+    search.set('source', options.source);
+  }
+
+  if (options.page !== undefined) {
+    search.set('page', options.page);
+  }
+
+  const query = search.size > 0 ? `?${search}` : '';
+  const headers: Record<string, string> = { token };
+
+  if (options.acceptEncoding) {
+    headers['accept-encoding'] = options.acceptEncoding;
+  }
+
+  if (options.ifNoneMatch) {
+    headers['if-none-match'] = options.ifNoneMatch;
+  }
+
+  const response = await undiciRequest(`${url}/api/v1/projects/${projectRef}/sitemaps/${sitemapId}${query}`, {
+    headers,
+    dispatcher: agent,
+    signal: signal ?? null,
+  });
+
+  const result = buildProxyResult(response, signal);
+
+  if (response.statusCode === 304) {
+    safeDestroyBody(response.body);
+
+    return { ...result, stream: emptyStream };
+  }
+
+  return result;
+}
+
+function emptyStream(): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.close();
+    },
+  });
 }
 
 function buildProxyResult(response: Dispatcher.ResponseData, signal: AbortSignal | undefined): ProxyResult {

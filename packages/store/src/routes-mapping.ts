@@ -15,6 +15,7 @@ export type StoreRoute = {
   | { type: 'text'; content: string; mimeType: string }
   | { type: 'asset'; assetId: string; fileId: string; contentDisposition: 'inline' | 'attachment'; mimeType: string }
   | { type: 'entity'; model: string; entityType: string; entityId: string }
+  | { type: 'sitemap'; sitemapId: string }
 );
 
 export function mapRoute(raw: StoreRouteFragment, resolver: ModelResolver): StoreRoute | undefined {
@@ -67,6 +68,14 @@ export function mapRoute(raw: StoreRouteFragment, resolver: ModelResolver): Stor
         model: resolver.resolveModel(entityType),
         entityType,
         entityId: raw.target.entity.id,
+      };
+    }
+
+    case 'ContelloRouteTargetSitemap': {
+      return {
+        ...base,
+        type: 'sitemap',
+        sitemapId: raw.target.sitemapId,
       };
     }
 

@@ -7,9 +7,11 @@ import {
   type DownloadResult,
   type HttpAgentOptions,
   type ProxyResult,
+  type SitemapProxyOptions,
   createHttpAgent,
   downloadFile,
   proxyHls,
+  proxySitemap,
 } from './http';
 import { ping } from './ping';
 import { ConnectionPool } from './pool';
@@ -267,6 +269,16 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
 
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult> {
     return wrap('@contello/client:proxyHls', () => proxyHls(this._agent, this._url, this._token, path, signal));
+  }
+
+  proxySitemap(
+    sitemapId: string,
+    options: SitemapProxyOptions,
+    signal?: AbortSignal | undefined,
+  ): Promise<ProxyResult> {
+    return wrap('@contello/client:proxySitemap', () =>
+      proxySitemap(this._agent, this._url, this._token, this._project, sitemapId, options, signal),
+    );
   }
 
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string> {

@@ -20,13 +20,24 @@ type DownloadResult = {
   stream: () => ReadableStream;
 };
 
+type ProxyResult = {
+  status: number;
+  headers: Headers;
+  stream: () => ReadableStream;
+};
+
 type FakeContello = {
   instance: Contello<any>;
   contexts: unknown[];
   download: ReturnType<typeof vi.fn>;
+  proxySitemap: ReturnType<typeof vi.fn>;
 };
 
-function fakeContello(overrides?: { isReady?: boolean; download?: () => Promise<DownloadResult> }): FakeContello {
+function fakeContello(overrides?: {
+  isReady?: boolean;
+  download?: () => Promise<DownloadResult>;
+  proxySitemap?: () => Promise<ProxyResult>;
+}): FakeContello {
   const contexts: unknown[] = [];
   const download = vi.fn(
     overrides?.download ??
@@ -36,10 +47,18 @@ function fakeContello(overrides?: { isReady?: boolean; download?: () => Promise<
       stream: () => new Response('abc').body!,
     })),
   );
+  const proxySitemap = vi.fn(
+    overrides?.proxySitemap ??
+    (async (): Promise<ProxyResult> => ({
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/xml' }),
+      stream: () => new Response('<sitemapindex/>').body!,
+    })),
+  );
 
   const instance = {
     isReady: overrides?.isReady ?? true,
-    client: { download },
+    client: { download, proxySitemap },
     [runRequest]<T>(ctx: unknown, fn: () => T): T {
       contexts.push(ctx);
 
@@ -47,7 +66,7 @@ function fakeContello(overrides?: { isReady?: boolean; download?: () => Promise<
     },
   } as unknown as Contello<any>;
 
-  return { instance, contexts, download };
+  return { instance, contexts, download, proxySitemap };
 }
 
 function fakeRoutes(byPath: Record<string, MaybePromise<StoreRoute | undefined>>): AnyRoutes {
@@ -56,12 +75,20 @@ function fakeRoutes(byPath: Record<string, MaybePromise<StoreRoute | undefined>>
   } as unknown as AnyRoutes;
 }
 
-function fakeCtx(pathname: string, method = 'GET'): APIContext {
+function fakeCtx(pathname: string, method = 'GET', headers?: Record<string, string>): APIContext {
   return {
     url: new URL(`https://example.com${pathname}`),
-    request: { method, signal: new AbortController().signal },
+    request: { method, signal: new AbortController().signal, headers: new Headers(headers) },
   } as unknown as APIContext;
 }
+
+const sitemapRoute: StoreRoute = {
+  id: 'r5',
+  path: '/sitemap.xml',
+  customHeaders: [{ name: 'X-Robots-Tag', value: 'noindex' }],
+  type: 'sitemap',
+  sitemapId: 'sm1',
+};
 
 const passthrough = Symbol('passthrough');
 
@@ -235,6 +262,94 @@ describe('createBoundRoutingMiddleware', () => {
     expect(response.headers.get('content-length')).toBeNull();
   });
 
+  test('serves a sitemap index by proxying core and merging custom headers on top', async () => {
+    const { instance, proxySitemap } = fakeContello({
+      proxySitemap: async () => ({
+        status: 200,
+        headers: new Headers({
+          'content-type': 'application/xml',
+          etag: '"gen-1"',
+          'last-modified': 'Mon, 28 Sep 2026 12:00:00 GMT',
+          'x-robots-tag': 'all',
+        }),
+        stream: () => new Response('<sitemapindex/>').body!,
+      }),
+    });
+    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
+    const ctx = fakeCtx('/sitemap.xml', 'GET', { 'accept-encoding': 'gzip', 'if-none-match': '"old"' });
+
+    const response = (await mw(ctx, fakeNext())) as Response;
+
+    expect(proxySitemap).toHaveBeenCalledWith(
+      'sm1',
+      { source: undefined, page: undefined, acceptEncoding: 'gzip', ifNoneMatch: '"old"' },
+      ctx.request.signal,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/xml');
+    expect(response.headers.get('etag')).toBe('"gen-1"');
+    expect(response.headers.get('last-modified')).toBe('Mon, 28 Sep 2026 12:00:00 GMT');
+    expect(response.headers.get('x-robots-tag')).toBe('noindex');
+    await expect(response.text()).resolves.toBe('<sitemapindex/>');
+  });
+
+  test('passes chunk parameters through to core untouched', async () => {
+    const { instance, proxySitemap } = fakeContello({
+      proxySitemap: async () => ({
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/xml', 'content-encoding': 'gzip' }),
+        stream: () => new Response('gz').body!,
+      }),
+    });
+    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
+
+    const response = (await mw(fakeCtx('/sitemap.xml?source=products&page=2'), fakeNext())) as Response;
+
+    expect(proxySitemap).toHaveBeenCalledWith(
+      'sm1',
+      { source: 'products', page: '2', acceptEncoding: undefined, ifNoneMatch: undefined },
+      expect.any(AbortSignal),
+    );
+    expect(response.headers.get('content-encoding')).toBe('gzip');
+  });
+
+  test.each([404, 500])('keeps a %s status from core but drops its body and headers', async (status) => {
+    const cancel = vi.fn(async () => {});
+    const { instance } = fakeContello({
+      proxySitemap: async () => ({
+        status,
+        headers: new Headers({ 'content-type': 'application/json', 'cache-control': 'private, max-age=60' }),
+        stream: () => ({ cancel }) as unknown as ReadableStream,
+      }),
+    });
+    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
+
+    const response = (await mw(fakeCtx('/sitemap.xml?source=nope&page=9'), fakeNext())) as Response;
+
+    expect(response.status).toBe(status);
+    expect(response.body).toBeNull();
+    expect(response.headers.get('content-type')).toBeNull();
+    expect(response.headers.get('cache-control')).toBeNull();
+    expect(response.headers.get('x-robots-tag')).toBe('noindex');
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  test('passes a 304 from core through without a body', async () => {
+    const stream = vi.fn();
+    const { instance } = fakeContello({
+      proxySitemap: async () => ({ status: 304, headers: new Headers({ etag: '"gen-1"' }), stream }),
+    });
+    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
+
+    const response = (await mw(fakeCtx('/sitemap.xml', 'GET', { 'if-none-match': '"gen-1"' }), fakeNext())) as Response;
+
+    expect(response.status).toBe(304);
+    expect(response.body).toBeNull();
+    expect(response.headers.get('etag')).toBe('"gen-1"');
+    expect(response.headers.get('x-robots-tag')).toBe('noindex');
+    expect(stream).not.toHaveBeenCalled();
+  });
+
   test('rewrites an entity route to the internal entities path and propagates custom headers', async () => {
     const { instance, contexts } = fakeContello();
     const route: StoreRoute = {
@@ -338,6 +453,7 @@ describe('createBoundRoutingMiddleware route reporting', () => {
     ['redirect', { type: 'redirect', location: '/new', status: 301 }],
     ['text', { type: 'text', content: 'hi', mimeType: 'text/plain' }],
     ['asset', { type: 'asset', assetId: 'a', fileId: 'f', contentDisposition: 'inline', mimeType: 'image/png' }],
+    ['sitemap', { type: 'sitemap', sitemapId: 'sm1' }],
   ])('reports a %s route as its own label', async (type, rest) => {
     const { instance } = fakeContello();
     const route = { id: 'r1', path: '/p', customHeaders: [], ...rest } as StoreRoute;
