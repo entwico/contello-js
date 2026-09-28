@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 4.4.0
+
+### Minor Changes
+
+- d356e6a: support sitemaps
+
 ## 4.3.1
 
 ### Patch Changes

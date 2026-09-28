@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.2.0
+
+### Minor Changes
+
+- d356e6a: support sitemaps
+
 ## 3.1.2
 
 ### Patch Changes
