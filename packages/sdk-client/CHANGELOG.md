@@ -1,5 +1,11 @@
 # @contello/sdk-client
 
+## 8.22.4
+
+### Patch Changes
+
+- 0a4af95: Update `graphql-ws` to 6.3.0, which fixes the client leaking memory per operation on long-living connections
+
 ## 8.22.3
 
 ### Patch Changes
