@@ -12,32 +12,28 @@ export class ExtensionChannel<OWN extends ContelloMethods, REMOTE extends Contel
   private targetOrigin!: string;
   private isParent!: boolean;
   private handler = (event: MessageEvent) => {
-    if (event.data.channelId !== this.channelId) {
+    if (!this.accepts(event)) {
       return;
     }
 
-    if (this.targetOrigin === '*' || event.origin === this.targetOrigin) {
-      const { channelId: requestChannelId, requestId, method } = event.data;
+    const { requestId, method } = event.data;
 
-      if (requestChannelId === this.channelId) {
-        if (this.params.debug) {
-          console.log(this.isParent ? 'Parent received' : 'Child received', event.data);
+    if (this.params.debug) {
+      console.log(this.isParent ? 'Parent received' : 'Child received', event.data);
+    }
+
+    if (this.handlers.has(requestId)) {
+      this.handlers.get(requestId)(event.data);
+    } else if (this.listeners.has(method)) {
+      void (async () => {
+        try {
+          const responsePayload = await this.listeners.get(method)?.(event.data.payload);
+
+          this.respond(event.data, responsePayload);
+        } catch (error) {
+          this.respondError(event.data, error);
         }
-
-        if (this.handlers.has(requestId)) {
-          this.handlers.get(requestId)(event.data);
-        } else if (this.listeners.has(method)) {
-          void (async () => {
-            try {
-              const responsePayload = await this.listeners.get(method)?.(event.data.payload);
-
-              this.respond(event.data, responsePayload);
-            } catch (error) {
-              this.respondError(event.data, error);
-            }
-          })();
-        }
-      }
+      })();
     }
   };
 
@@ -45,6 +41,18 @@ export class ExtensionChannel<OWN extends ContelloMethods, REMOTE extends Contel
   listeners = new Map<string, Handler<any, any>>();
 
   constructor(private params: { debug: boolean }) {}
+
+  private accepts(event: MessageEvent): boolean {
+    if (event.data?.channelId !== this.channelId) {
+      return false;
+    }
+
+    if (event.source !== this.targetWindow) {
+      return false;
+    }
+
+    return this.targetOrigin === '*' || event.origin === this.targetOrigin;
+  }
 
   private connect() {
     window.addEventListener('message', this.handler);
@@ -76,10 +84,10 @@ export class ExtensionChannel<OWN extends ContelloMethods, REMOTE extends Contel
     this.connect();
   }
 
-  connectChild(targetWindow: Window) {
+  connectChild(targetWindow: Window, targetOrigin = '*') {
     this.populateChannelId();
     this.targetWindow = targetWindow;
-    this.targetOrigin = '*';
+    this.targetOrigin = targetOrigin;
     this.isParent = true;
     this.connect();
   }
