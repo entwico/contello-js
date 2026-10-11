@@ -98,10 +98,12 @@ export async function startDemoServer(otlpUrl: string): Promise<DemoServer> {
 
       await Promise.race([once(child, 'exit'), new Promise((resolve) => setTimeout(resolve, 15_000))]);
 
-      if (child.exitCode === null) {
-        child.kill('SIGKILL');
-        await once(child, 'exit');
+      if (child.exitCode !== null) {
+        return;
       }
+
+      child.kill('SIGKILL');
+      await once(child, 'exit');
     },
   };
 }

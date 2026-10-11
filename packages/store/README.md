@@ -16,12 +16,10 @@ Not an issue for eager collections — any same-model event triggers a full refr
 
 Route delete events carry only the route `id`, not the full route object. Route-target invalidation is therefore not evaluated on deletes.
 
-In practice this is a non-issue: routes are never deleted — they become redirects. The update event for a redirect carries the full route object, so route-target invalidation works correctly.
-
-TTL or the next same-model refresh catches up for the theoretical delete case.
+TTL or the next same-model refresh catches up after a delete.
 
 ## Route tracking
 
 Route-target invalidation is always on. When a route pointing to an entity is created, updated, or reassigned, the affected entity (and the entity that previously held the route, if any) is automatically invalidated.
 
-Non-routable entities pay no meaningful overhead: route events are pre-grouped by target entity model in `UpdateBatch.routeByEntityModel`, so lookups for models with no matching routes resolve immediately to empty sets.
+Non-routable entities pay no meaningful overhead.

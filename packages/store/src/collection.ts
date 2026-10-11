@@ -106,7 +106,6 @@ export function createCollection<
   const writeBuffer = createWriteBuffer<ExtractSourceResult<TSource>>();
 
   function fetchOrTakeWritten(ids: string[] | undefined): MaybePromise<ExtractSourceResult<TSource>[]> {
-    // a full fetch is authoritative for every id, so nothing stays parked behind it
     if (ids === undefined) {
       writeBuffer.clear();
 
@@ -129,13 +128,14 @@ export function createCollection<
   const projected = new ProjectedMap<string, TMapped>({
     key: (item) => item.id,
     values: (ids) =>
-      wrap(`collection:${_def.name}`, () =>
-        maybeThen(fetchOrTakeWritten(ids), async (rawItems) => {
+      wrap(
+        `collection:${_def.name}`,
+        () => maybeThen(fetchOrTakeWritten(ids), async (rawItems) => {
           // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
           const items = await maybeAll(
-            rawItems.map((item) =>
-              dependencyCollector.createContext((ref, register) =>
-                maybeThen(mapFn(item, ref), (mapped) => {
+            rawItems.map(
+              (item) => dependencyCollector.createContext(
+                (ref, register) => maybeThen(mapFn(item, ref), (mapped) => {
                   register(mapped.id);
 
                   return mapped;
@@ -174,8 +174,8 @@ export function createCollection<
   }
 
   function runFullRefresh(kind: RefreshKind): void {
-    refreshByTtl.enqueue(() =>
-      retryWithBackoff(async () => {
+    refreshByTtl.enqueue(
+      () => retryWithBackoff(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -267,7 +267,6 @@ export function createCollection<
     try {
       map = await projected.refresh([entity.id]);
     } finally {
-      // a refresh that never ran leaves the entity parked, so release what it did not consume
       writeBuffer.release([entity.id]);
     }
 

@@ -48,8 +48,8 @@ describe('DependencyCollector track auto-detection', () => {
   test('track throws when the object has no id', () => {
     const collector = new DependencyCollector<string>('post', resolver);
 
-    expect(() =>
-      collector.createContext((ref, register) => {
+    expect(
+      () => collector.createContext((ref, register) => {
         ref.track({ __typename: 'ContelloAsset', id: '' });
         register('item-1');
       }),
@@ -59,8 +59,8 @@ describe('DependencyCollector track auto-detection', () => {
   test('track throws for an unrecognized __typename', () => {
     const collector = new DependencyCollector<string>('post', resolver);
 
-    expect(() =>
-      collector.createContext((ref, register) => {
+    expect(
+      () => collector.createContext((ref, register) => {
         ref.track({ __typename: 'SomethingElse', id: 'x' });
         register('item-1');
       }),

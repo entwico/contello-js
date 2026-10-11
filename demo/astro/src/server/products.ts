@@ -1,5 +1,5 @@
 import { log } from '@astroscope/node/log';
-import { schema } from '@/server/_/gql/graphql';
+import { schema } from '@/server/_/contello/graphql';
 import { contello } from '@/server/contello';
 
 export type Product = {

@@ -17,7 +17,7 @@ export default {
         '../../packages/store/fragments/**/*.gql',
         '../../packages/media/fragments/**/*.gql',
       ],
-      output: 'src/server/_/gql/graphql.ts',
+      output: 'src/server/_/contello/graphql.ts',
       sources: true,
     },
   ],

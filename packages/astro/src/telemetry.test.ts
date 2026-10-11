@@ -18,8 +18,8 @@ describe('telemetry', () => {
   test('rethrows a sync error from the wrapped fn', () => {
     const error = new Error('boom');
 
-    expect(() =>
-      wrap('a:b', () => {
+    expect(
+      () => wrap('a:b', () => {
         throw error;
       }),
     ).toThrow(error);

@@ -94,7 +94,6 @@ export function createRoutesCollection(
   }
 
   async function fetchOrTakeWritten(ids: string[] | undefined): Promise<StoreRouteFragment[]> {
-    // a full fetch is authoritative for every id, so nothing stays parked behind it
     if (ids === undefined) {
       writeBuffer.clear();
 
@@ -152,10 +151,12 @@ export function createRoutesCollection(
 
             const oldPath = pathById.get(id);
 
-            if (oldPath !== undefined) {
-              idByPath.delete(oldPath);
-              pathById.delete(id);
+            if (oldPath === undefined) {
+              continue;
             }
+
+            idByPath.delete(oldPath);
+            pathById.delete(id);
           }
 
           for (const r of items) {
@@ -179,8 +180,8 @@ export function createRoutesCollection(
   }
 
   function runFullRefresh(kind: RefreshKind): void {
-    refreshByTtl.enqueue(() =>
-      retryWithBackoff(async () => {
+    refreshByTtl.enqueue(
+      () => retryWithBackoff(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -237,10 +238,12 @@ export function createRoutesCollection(
     for (const id of deleted) {
       const oldPath = pathById.get(id);
 
-      if (oldPath !== undefined) {
-        idByPath.delete(oldPath);
-        pathById.delete(id);
+      if (oldPath === undefined) {
+        continue;
       }
+
+      idByPath.delete(oldPath);
+      pathById.delete(id);
     }
 
     if (deleted.length > 0) {
@@ -318,7 +321,6 @@ export function createRoutesCollection(
     try {
       map = await projected.refresh([raw.id]);
     } finally {
-      // a refresh that never ran leaves the route parked, so release what it did not consume
       writeBuffer.release([raw.id]);
     }
 

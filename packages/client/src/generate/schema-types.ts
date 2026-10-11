@@ -136,7 +136,6 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
     lines.push('');
   }
 
-  // enums
   const enums = Object.values(typeMap)
     .filter((t): t is GraphQLEnumType => isEnumType(t) && !isInternalType(t.name))
     .toSorted(byName);
@@ -149,7 +148,6 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
     lines.push('');
   }
 
-  // input types
   const inputs = Object.values(typeMap)
     .filter((t): t is GraphQLInputObjectType => isInputObjectType(t) && !isInternalType(t.name))
     .toSorted(byName);
@@ -169,18 +167,19 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
       for (const member of union.getTypes()) {
         const model = deriveModelName(member.name);
 
-        if (model) {
-          modelNames.set(member.name, model);
+        if (!model) {
+          continue;
+        }
 
-          if (unionName === 'ContelloEntity') {
-            entityModelNames.set(member.name, model);
-          }
+        modelNames.set(member.name, model);
+
+        if (unionName === 'ContelloEntity') {
+          entityModelNames.set(member.name, model);
         }
       }
     }
   }
 
-  // object types
   const objects = Object.values(typeMap)
     .filter((t): t is GraphQLObjectType => isObjectType(t) && !isInternalType(t.name))
     .toSorted(byName);
@@ -208,7 +207,6 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
     lines.push(fieldLines.join('\n'), '');
   }
 
-  // unions
   const unions = Object.values(typeMap)
     .filter((t): t is GraphQLUnionType => isUnionType(t) && !isInternalType(t.name))
     .toSorted(byName);

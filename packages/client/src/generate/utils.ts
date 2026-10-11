@@ -33,12 +33,14 @@ export function isContelloModel(schema: { getType(name: string): unknown }, type
   for (const unionName of ['ContelloEntity', 'ContelloComponent']) {
     const union = schema.getType(unionName);
 
-    if (union && typeof union === 'object' && 'getTypes' in union) {
-      const members = (union as { getTypes(): { name: string }[] }).getTypes();
+    if (!union || typeof union !== 'object' || !('getTypes' in union)) {
+      continue;
+    }
 
-      if (members.some((m) => m.name === typeName)) {
-        return true;
-      }
+    const members = (union as { getTypes(): { name: string }[] }).getTypes();
+
+    if (members.some((m) => m.name === typeName)) {
+      return true;
     }
   }
 

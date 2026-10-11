@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "agentGuidance": false,
   "globalDependencies": ["eslint.config.js", "tsconfig.base.json"],
   "tasks": {
     "build": {
@@ -12,6 +13,9 @@
     "lint": {},
     "lint:fix": {},
     "test": {},
+    "//#test": {
+      "dependsOn": ["@contello/client#build", "@contello/media#build", "@contello/opentelemetry#build", "@contello/store#build"]
+    },
     "generate": {
       "dependsOn": ["^build"],
       "cache": false

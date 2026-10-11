@@ -82,16 +82,13 @@ describe('ConnectionPool', () => {
       connected = true;
     })();
 
-    // not yet connected
     await Promise.resolve();
     expect(connected).toBe(false);
 
-    // connect first client
     clients[0]!._emit('connected', null, undefined, false);
     await Promise.resolve();
     expect(connected).toBe(false);
 
-    // connect second client
     clients[1]!._emit('connected', null, undefined, false);
     await connectPromise;
     expect(connected).toBe(true);

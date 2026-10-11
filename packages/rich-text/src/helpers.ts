@@ -28,8 +28,9 @@ export function richTextNodeToString(node: DeepReadonly<RichTextNode>): string {
     }
     case 'table': {
       return (node.content ?? [])
-        .map((row) =>
-          (row.content ?? []).map((cell) => (cell.content ?? []).map((node) => richTextNodeToString(node)).join('')).join(' | '),
+        .map(
+          (row) =>
+            (row.content ?? []).map((cell) => (cell.content ?? []).map((node) => richTextNodeToString(node)).join('')).join(' | '),
         )
         .join('\n');
     }

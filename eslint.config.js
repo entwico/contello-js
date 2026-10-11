@@ -4,7 +4,7 @@ export default defineConfig({
   root: import.meta.dirname,
   react: true,
   astro: true,
-  ignores: ['**/generated/**', '**/_/gql/**', '**/tsdown.config.ts', '**/contello.config.ts'],
+  ignores: ['**/generated/**', '**/_/contello/**', '**/tsdown.config.ts', '**/contello.config.ts'],
   // published entry points are the one legitimate barrel per package
   imports: {
     noReexport: {

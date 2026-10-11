@@ -105,40 +105,41 @@ export function createBoundRoutingMiddleware(
 
       switch (route.type) {
         case 'redirect': {
-          return contello[runRequest]({ url, route, rewritten: false }, () =>
-            wrap(
+          return contello[runRequest](
+            { url, route, rewritten: false },
+            () => wrap(
               'route:redirect',
-              () =>
-                new Response(null, {
-                  status: toRedirectStatus(route.status),
-                  headers: {
-                    Location: route.location,
-                    ...customHeaders(route.customHeaders),
-                  },
-                }),
+              () => new Response(null, {
+                status: toRedirectStatus(route.status),
+                headers: {
+                  Location: route.location,
+                  ...customHeaders(route.customHeaders),
+                },
+              }),
             ),
           );
         }
 
         case 'text': {
-          return contello[runRequest]({ url, route, rewritten: false }, () =>
-            wrap(
+          return contello[runRequest](
+            { url, route, rewritten: false },
+            () => wrap(
               'route:text',
-              () =>
-                new Response(route.content, {
-                  status: 200,
-                  headers: {
-                    'Content-Type': route.mimeType,
-                    ...customHeaders(route.customHeaders),
-                  },
-                }),
+              () => new Response(route.content, {
+                status: 200,
+                headers: {
+                  'Content-Type': route.mimeType,
+                  ...customHeaders(route.customHeaders),
+                },
+              }),
             ),
           );
         }
 
         case 'asset': {
-          return contello[runRequest]({ url, route, rewritten: false }, () =>
-            wrap('route:asset', async () => {
+          return contello[runRequest](
+            { url, route, rewritten: false },
+            () => wrap('route:asset', async () => {
               const result = await contello.client.download(route.fileId);
               const headers = new Headers({ 'content-type': route.mimeType || result.mimeType });
 
@@ -158,8 +159,9 @@ export function createBoundRoutingMiddleware(
         }
 
         case 'sitemap': {
-          return contello[runRequest]({ url, route, rewritten: false }, () =>
-            wrap('route:sitemap', async () => {
+          return contello[runRequest](
+            { url, route, rewritten: false },
+            () => wrap('route:sitemap', async () => {
               const result = await contello.client.proxySitemap(
                 route.sitemapId,
                 {
@@ -192,8 +194,9 @@ export function createBoundRoutingMiddleware(
         }
 
         case 'entity': {
-          return contello[runRequest]({ url, route, rewritten: true }, () =>
-            wrap(`route:entity:${route.model}`, async () => {
+          return contello[runRequest](
+            { url, route, rewritten: true },
+            () => wrap(`route:entity:${route.model}`, async () => {
               const response = await next(`/contello/entities/${route.model}/${route.entityId}${url.search}`);
 
               for (const { name, value } of route.customHeaders) {

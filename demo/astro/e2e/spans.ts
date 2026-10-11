@@ -88,20 +88,22 @@ export function findTraceProblems(spans: CollectedSpan[]): TraceProblem[] {
       }
     }
 
-    if (span.kind === SPAN_KIND_SERVER) {
-      if (typeof span.attributes['ttfb'] !== 'number') {
-        problems.push({ traceId: span.traceId, span: span.name, problem: 'server span without ttfb attribute' });
-      }
+    if (span.kind !== SPAN_KIND_SERVER) {
+      continue;
+    }
 
-      const firstByte = spans.filter((s) => s.parentSpanId === span.spanId && s.name === 'response:first-byte');
+    if (typeof span.attributes['ttfb'] !== 'number') {
+      problems.push({ traceId: span.traceId, span: span.name, problem: 'server span without ttfb attribute' });
+    }
 
-      if (firstByte.length !== 1) {
-        problems.push({
-          traceId: span.traceId,
-          span: span.name,
-          problem: `expected 1 response:first-byte child, found ${firstByte.length}`,
-        });
-      }
+    const firstByte = spans.filter((s) => s.parentSpanId === span.spanId && s.name === 'response:first-byte');
+
+    if (firstByte.length !== 1) {
+      problems.push({
+        traceId: span.traceId,
+        span: span.name,
+        problem: `expected 1 response:first-byte child, found ${firstByte.length}`,
+      });
     }
   }
 

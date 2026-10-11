@@ -1,5 +1,5 @@
 import { log } from '@astroscope/node/log';
-import type { ComponentFragment } from '@/server/_/gql/graphql';
+import type { ComponentFragment } from '@/server/_/contello/graphql';
 
 export type Component =
   | { type: 'text'; markdownData: string }

@@ -95,8 +95,8 @@ const passthrough = Symbol('passthrough');
 type NextMock = ReturnType<typeof vi.fn> & MiddlewareNext;
 
 function fakeNext(): NextMock {
-  return vi.fn((path?: string) =>
-    path === undefined ? (passthrough as unknown) : new Response('entity-body'),
+  return vi.fn(
+    (path?: string) => path === undefined ? (passthrough as unknown) : new Response('entity-body'),
   ) as unknown as NextMock;
 }
 

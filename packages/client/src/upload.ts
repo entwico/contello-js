@@ -137,12 +137,14 @@ export function upload(
         return;
       }
 
-      if (message.type === 'done') {
-        done = true;
-        cleanup();
-        ws.close();
-        resolve(message.id);
+      if (message.type !== 'done') {
+        return;
       }
+
+      done = true;
+      cleanup();
+      ws.close();
+      resolve(message.id);
     });
 
     ws.addEventListener('error', () => {

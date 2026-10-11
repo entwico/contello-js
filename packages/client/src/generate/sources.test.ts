@@ -234,8 +234,8 @@ describe('generateSourcesConst', () => {
   test('throws when two fragments target the same source key', () => {
     const binding: SourceBinding = { cardinality: 'entity', fieldName: 'categoriesBatch', sourceKey: 'category' };
 
-    expect(() =>
-      generateSourcesConst([
+    expect(
+      () => generateSourcesConst([
         { fragmentName: 'CategoryListing', binding, fragmentExpression: 'CategoryListingFragmentSchema' },
         { fragmentName: 'CategoryDetail', binding, fragmentExpression: 'CategoryDetailFragmentSchema' },
       ]),

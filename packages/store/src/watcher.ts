@@ -222,8 +222,9 @@ export function createInternalWatcher(client: ContelloClient<any>, resolver: Mod
             { signal },
           );
 
-          const events = mapAsync(source, (data) =>
-            (data.contelloUpdatesBatch?.events ?? [])
+          const events = mapAsync(
+            source,
+            (data) => (data.contelloUpdatesBatch?.events ?? [])
               // a single malformed event must not throw out of the loop and kill
               // the watcher — skip it and keep consuming the stream
               .map((e) => safeMapEvent(e, resolver))

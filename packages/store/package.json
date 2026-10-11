@@ -21,7 +21,7 @@
     "@contello/opentelemetry": "workspace:^",
     "@entwico/dash": "^1.3.0",
     "@entwico/projected": "^5.0.0",
-    "lru-cache": "^11.5.2"
+    "lru-cache": "^11.5.3"
   },
   "peerDependencies": {
     "@contello/client": "workspace:^",
@@ -35,6 +35,7 @@
     "dist",
     "fragments"
   ],
+  "sideEffects": false,
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -42,8 +43,8 @@
       "require": "./dist/index.cjs"
     },
     "./fragments": {
-      "import": "./dist/fragments.js",
-      "types": "./dist/fragments.d.ts"
+      "types": "./dist/fragments.d.ts",
+      "import": "./dist/fragments.js"
     }
   },
   "publishConfig": {

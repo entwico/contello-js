@@ -211,7 +211,7 @@ function resolveSelection(
 
       break;
     }
-  // No default
+  // no default
   }
 
   return { fields, inlineUnions, fragmentRefs, hasTypenameField: false };
@@ -369,7 +369,6 @@ export function generateOperationTypes(
 
     lines.push('');
 
-    // variables type
     const variablesType = generateVariablesType(schema, op);
 
     lines.push(`export type ${variablesTypeName} = ${variablesType};`, '');

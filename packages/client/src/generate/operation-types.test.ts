@@ -279,8 +279,8 @@ describe('generateOperationTypes', () => {
       type Post { id: ID! title: String! }
     `;
 
-    expect(() =>
-      generate(
+    expect(
+      () => generate(
         sdl,
         `
           fragment PostFields on Post { id title }
@@ -334,8 +334,8 @@ describe('generateOperationTypes', () => {
       type Comment { id: ID! body: String! }
     `;
 
-    expect(() =>
-      generate(
+    expect(
+      () => generate(
         sdl,
         `
           fragment CommentFields on Comment { id body }

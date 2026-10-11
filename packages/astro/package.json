@@ -34,16 +34,17 @@
     }
   },
   "devDependencies": {
-    "@astroscope/i18n": "^2.0.0",
-    "@astroscope/node": "^2.0.0",
+    "@astroscope/i18n": "^2.1.2",
+    "@astroscope/node": "^4.0.0",
     "@contello/client": "workspace:^",
     "@contello/media": "workspace:^",
     "@contello/store": "workspace:^",
-    "astro": "^7.2.7"
+    "astro": "^7.3.8"
   },
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {

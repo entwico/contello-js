@@ -21,13 +21,16 @@
     "@entwico/dash": "^1.3.0",
     "graphql": "^17.0.2",
     "graphql-ws": "^6.3.0",
-    "undici": "^8.10.0"
+    "undici": "^8.11.2"
   },
   "bin": {
     "contello-client": "./dist/cli.js"
   },
   "files": [
     "dist"
+  ],
+  "sideEffects": [
+    "./dist/cli.js"
   ],
   "types": "./dist/index.d.ts",
   "exports": {

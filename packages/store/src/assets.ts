@@ -112,7 +112,6 @@ export function createAssetsCollection(
   }
 
   async function fetchOrTakeWritten(ids: string[] | undefined): Promise<StoreAssetFragment[]> {
-    // a full fetch is authoritative for every id, so nothing stays parked behind it
     if (ids === undefined) {
       writeBuffer.clear();
 
@@ -152,8 +151,8 @@ export function createAssetsCollection(
   }
 
   function runFullRefresh(kind: RefreshKind): void {
-    refreshByTtl.enqueue(() =>
-      retryWithBackoff(async () => {
+    refreshByTtl.enqueue(
+      () => retryWithBackoff(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -242,7 +241,6 @@ export function createAssetsCollection(
       try {
         map = await projected.refresh([raw.id]);
       } finally {
-        // a refresh that never ran leaves the asset parked, so release what it did not consume
         writeBuffer.release([raw.id]);
       }
 

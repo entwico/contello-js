@@ -148,7 +148,6 @@ function transformSelectionSet(
 
       const namedTypeName = getNamedTypeName(schemaField.type);
 
-      // check if this field is a [ContelloComponent] field
       if (namedTypeName && isComponentUnion(schema, namedTypeName) && selection.selectionSet) {
         const flatFieldName = `${FLAT_PREFIX}${fieldName}`;
 
@@ -242,7 +241,6 @@ export function transformFragment(
 
   let selectionSet = fragment.selectionSet;
 
-  // if this fragment is on ContelloComponent, ensure it has flat ref selections
   if (typeName === COMPONENT_UNION) {
     selectionSet = addFlatRefSelections(selectionSet);
   }

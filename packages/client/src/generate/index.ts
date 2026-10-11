@@ -165,10 +165,8 @@ async function main(): Promise<void> {
 
     console.log(`${cyan('●')} ${bold(project.project)}`);
 
-    // remove stale output before generating
     rmSync(resolve(cwd, project.output), { force: true });
 
-    // introspect schema
     const schema = await introspectSchema(project.url, project.project, project.token);
 
     // load .gql documents
@@ -259,10 +257,8 @@ async function main(): Promise<void> {
       parts.push('');
     }
 
-    // Operations type
     parts.push(generateOperationsType(operations), '');
 
-    // Sources type (only when there are sources)
     const sourcesTypeSrc = generateSourcesType(sourceEntries);
 
     if (sourcesTypeSrc) {
@@ -300,7 +296,6 @@ async function main(): Promise<void> {
 
     let output = parts.join('\n');
 
-    // optional namespace wrapping
     if (project.namespace) {
       const indented = output
         .split('\n')
@@ -310,7 +305,6 @@ async function main(): Promise<void> {
       output = `export namespace ${project.namespace} {\n${indented}\n}\n`;
     }
 
-    // write output
     const outputPath = resolve(cwd, project.output);
 
     mkdirSync(dirname(outputPath), { recursive: true });

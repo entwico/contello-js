@@ -12,7 +12,7 @@ export default {
       schema: {
         [`${CONTELLO_URL}/graphql/projects/${CONTELLO_DEMO_ASTRO_PROJECT}`]: { headers: { token: CONTELLO_TOKEN } },
       },
-      documents: ['demo/astro/src/server/graphql/**/*.(graphql|gql)', 'packages/store/fragments/**/*.gql'],
+      documents: ['demo/astro/src/server/graphql/**/*.(graphql|gql)', 'packages/store/fragments/**/*.gql', 'packages/media/fragments/**/*.gql'],
     },
   },
 };

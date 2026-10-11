@@ -74,10 +74,12 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     const onConnectionUp = () => {
       connectedCount++;
 
-      if (connectedCount === connections && state !== 'connected') {
-        state = 'connected';
-        options.onConnected?.();
+      if (connectedCount !== connections || state === 'connected') {
+        return;
       }
+
+      state = 'connected';
+      options.onConnected?.();
     };
 
     const onConnectionDown = () => {
@@ -85,10 +87,12 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
         connectedCount--;
       }
 
-      if (state === 'connected') {
-        state = 'reconnecting';
-        options.onReconnecting?.();
+      if (state !== 'connected') {
+        return;
       }
+
+      state = 'reconnecting';
+      options.onReconnecting?.();
     };
 
     this._pool = new ConnectionPool((id: string) => {
@@ -210,22 +214,26 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
               done = true;
               error = err;
 
-              if (pending) {
-                const p = pending;
-
-                pending = undefined;
-                p.reject(err);
+              if (!pending) {
+                return;
               }
+
+              const p = pending;
+
+              pending = undefined;
+              p.reject(err);
             },
             complete() {
               done = true;
 
-              if (pending) {
-                const p = pending;
-
-                pending = undefined;
-                p.resolve({ value: undefined as unknown as TData, done: true });
+              if (!pending) {
+                return;
               }
+
+              const p = pending;
+
+              pending = undefined;
+              p.resolve({ value: undefined as unknown as TData, done: true });
             },
           },
         );
@@ -276,14 +284,16 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     options: SitemapProxyOptions,
     signal?: AbortSignal | undefined,
   ): Promise<ProxyResult> {
-    return wrap('@contello/client:proxySitemap', () =>
-      proxySitemap(this._agent, this._url, this._token, this._project, sitemapId, options, signal),
+    return wrap(
+      '@contello/client:proxySitemap',
+      () => proxySitemap(this._agent, this._url, this._token, this._project, sitemapId, options, signal),
     );
   }
 
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string> {
-    return wrap('@contello/client:upload', () =>
-      uploadAsset(this._url, this._project, this._token, data, meta, options),
+    return wrap(
+      '@contello/client:upload',
+      () => uploadAsset(this._url, this._project, this._token, data, meta, options),
     );
   }
 

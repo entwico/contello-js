@@ -350,7 +350,6 @@ describe('transformOperation with fragment spreads', () => {
     const transformedOp = transformOperation(schema, op, transformedFragments);
     const printed = print(transformedOp);
 
-    // operation level should have _flat_content
     expect(printed).toContain('_flat_content');
 
     // the fragment should NOT produce _flat_content (refs only inside fragments)

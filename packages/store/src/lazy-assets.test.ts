@@ -196,8 +196,8 @@ describe('lazy assets', () => {
 
     const upload = vi.fn(() => Promise.resolve('uploaded-id'));
     const download = vi.fn(() => Promise.resolve({ stream: () => new ReadableStream(), mimeType: 'image/png', size: 0 }));
-    const proxyHls = vi.fn(() =>
-      Promise.resolve({ stream: () => new ReadableStream(), status: 200, headers: new Headers() }),
+    const proxyHls = vi.fn(
+      () => Promise.resolve({ stream: () => new ReadableStream(), status: 200, headers: new Headers() }),
     );
 
     (client as unknown as { upload: typeof upload }).upload = upload;

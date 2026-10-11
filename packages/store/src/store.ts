@@ -129,7 +129,6 @@ export class Store<TSchema extends Schema | undefined = undefined> {
   }
 
   public async destroy() {
-    // eslint-disable-next-line unicorn/no-unnecessary-splice -- splice(0) is used for its return value (a snapshot of the cleanups) *and* to atomically empty the array; `.length = 0` would drop the returned snapshot we iterate
     for (const fn of this._cleanups.splice(0)) {
       try {
         fn();

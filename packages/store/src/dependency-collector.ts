@@ -113,12 +113,14 @@ export class DependencyCollector<TKey, TModels extends string = string> {
     for (const dk of existingDeps) {
       const set = this.reverseIndex.get(dk);
 
-      if (set) {
-        set.delete(key);
+      if (!set) {
+        continue;
+      }
 
-        if (set.size === 0) {
-          this.reverseIndex.delete(dk);
-        }
+      set.delete(key);
+
+      if (set.size === 0) {
+        this.reverseIndex.delete(dk);
       }
     }
 

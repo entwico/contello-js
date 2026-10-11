@@ -63,12 +63,14 @@ export function createRefresher<K>(
       inFlightKind = undefined;
       onRefreshed(finished);
 
-      if (pendingKind) {
-        const { kind: next } = pendingKind;
-
-        pendingKind = undefined;
-        scheduleRefresh(next);
+      if (!pendingKind) {
+        return;
       }
+
+      const { kind: next } = pendingKind;
+
+      pendingKind = undefined;
+      scheduleRefresh(next);
     });
   }
 

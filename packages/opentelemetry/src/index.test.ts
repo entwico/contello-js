@@ -122,8 +122,8 @@ describe('createOperationTelemetry', () => {
     const { wrap } = createOperationTelemetry('@contello/test');
     const error = new Error('boom');
 
-    expect(() =>
-      wrap('a:b', () => {
+    expect(
+      () => wrap('a:b', () => {
         throw error;
       }),
     ).toThrow(error);

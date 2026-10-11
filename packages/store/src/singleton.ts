@@ -56,29 +56,29 @@ export function createSingleton<
   // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
   const projected = new ProjectedValue<TMapped>({
     value: () =>
-      wrap(`singleton:${_def.name}`, () =>
-        maybeThen(
+      wrap(
+        `singleton:${_def.name}`,
+        () => maybeThen(
           firstAsync(
             mapAsync(
               client.subscribe<{ source: ExtractSourceResult<TSource> }>(createSourceSubscription(source)),
               (r) => r.source,
             ),
           ),
-          (raw) =>
-            dependencyCollector.createContext((ref, register) =>
-              maybeThen(mapFn(raw, ref), (mapped) => {
-                register(itemKey);
+          (raw) => dependencyCollector.createContext(
+            (ref, register) => maybeThen(mapFn(raw, ref), (mapped) => {
+              register(itemKey);
 
-                // start tracking refresh by ttl on first successful full fetch
-                if (!loaded) {
-                  loaded = true;
-                  ttl.mark();
-                  opts.onLoad?.();
-                }
+              // start tracking refresh by ttl on first successful full fetch
+              if (!loaded) {
+                loaded = true;
+                ttl.mark();
+                opts.onLoad?.();
+              }
 
-                return mapped;
-              }),
-            ),
+              return mapped;
+            }),
+          ),
         ),
       ),
   });

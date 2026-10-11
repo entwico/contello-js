@@ -55,8 +55,9 @@ export function createLazyCollection<
   const projected = new ProjectedLazyMap<string, TMapped>({
     key: (item) => item.id,
     values: (keys) =>
-      wrap(`lazy-collection:${_def.name}`, () =>
-        maybeThen(
+      wrap(
+        `lazy-collection:${_def.name}`,
+        () => maybeThen(
           concatAsync(
             mapAsync(
               client.subscribe<{ source: ExtractSourceResult<TSource>[] }>(createSourceSubscription(source), {
@@ -65,18 +66,17 @@ export function createLazyCollection<
               (r) => r.source,
             ),
           ),
-          (rawItems) =>
-            maybeAll(
-              rawItems.map((item) =>
-                dependencyCollector.createContext((ref, register) =>
-                  maybeThen(mapFn(item, ref), (mapped) => {
-                    register(mapped.id);
+          (rawItems) => maybeAll(
+            rawItems.map(
+              (item) => dependencyCollector.createContext(
+                (ref, register) => maybeThen(mapFn(item, ref), (mapped) => {
+                  register(mapped.id);
 
-                    return mapped;
-                  }),
-                ),
+                  return mapped;
+                }),
               ),
             ),
+          ),
         ),
       ),
     cache,
@@ -127,14 +127,16 @@ export function createLazyCollection<
       }
     }
 
-    if (evicted.size > 0) {
-      for (const key of evicted) {
-        dependencyCollector.removeItem(key);
-        projected.delete(key);
-      }
-
-      emit([...evicted], 'upstream-update');
+    if (evicted.size === 0) {
+      return;
     }
+
+    for (const key of evicted) {
+      dependencyCollector.removeItem(key);
+      projected.delete(key);
+    }
+
+    emit([...evicted], 'upstream-update');
   });
 
   return {

@@ -363,8 +363,7 @@ export class MediaResolver<HasDefault extends boolean = false> {
   private assetToImageDef(asset: MediaAssetInput): ImageDef {
     const { id, original, preview, optimized } = asset;
 
-    // SVG originals are already scalable and universally supported — use the
-    // original directly, skip everything else (no raster variants apply)
+    // svg is already scalable and universally supported, so no raster variants apply
     if (original.mimeType === 'image/svg+xml') {
       return { id, variants: compactVariant(this.fileToVariant(original)) };
     }
@@ -461,9 +460,7 @@ function groupVariantsByType(variants: ImageDefVariant[]): Map<string, ImageDefV
   return map;
 }
 
-// dedupe by width descriptor: a srcset must not list two candidates at the same width (the
-// browser discards one). keep the first after the ascending sort. non-positive widths are
-// skipped — a `0w` descriptor is invalid and makes the browser drop the candidate.
+// a srcset must not list two candidates at the same width (the browser discards one), and a `0w` descriptor is invalid
 function toSrcset(variants: ImageDefVariant[]): string {
   const byWidth = new Map<number, ImageDefVariant>();
   const sorted = variants.filter((v) => v.width > 0).toSorted((a, b) => a.width - b.width);

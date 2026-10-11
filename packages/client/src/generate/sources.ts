@@ -78,7 +78,6 @@ export function indexEntitySources(schema: GraphQLSchema): Map<string, EntitySou
   }
 
   for (const [typeName, { fieldName }] of singletonCandidates) {
-    // entity-collection wins over any singleton-shaped lookup field (e.g. `categories(id: ID)`)
     if (result.has(typeName)) {
       continue;
     }

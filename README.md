@@ -6,25 +6,29 @@ A collection of shared JavaScript/TypeScript libraries for Contello projects.
 
 | Package | Description |
 |---------|-------------|
+| [@contello/client](./packages/client) | GraphQL WebSocket client and codegen CLI |
+| [@contello/store](./packages/store) | Framework-agnostic reactive data layer on top of the client |
+| [@contello/astro](./packages/astro) | Astro integration |
+| [@contello/media](./packages/media) | Asset primitives and rendering helpers, optional `/react` |
 | [@contello/rich-text](./packages/rich-text) | Rich text document types and helpers |
 | [@contello/uploader](./packages/uploader) | File uploader with WebSocket and HTTP transports |
-| [@contello/sdk-client](./packages/sdk-client) | GraphQL SDK client with WebSocket transport and connection pooling |
+| [@contello/sdk-client](./packages/sdk-client) | Legacy GraphQL SDK client — use `@contello/client` for new code |
 | [@contello/extension](./packages/extension) | Client SDK for building Contello CMS extensions and custom properties |
 
 ## Development
 
 ```bash
 # Install dependencies
-bun install
+pnpm install
 
 # Build all packages
-bun run build
+pnpm run build
 
 # Run tests
-bun test
+pnpm test
 
 # Typecheck
-bun run typecheck
+pnpm run typecheck
 ```
 
 ## License
