@@ -1,5 +1,11 @@
 # @contello/sdk-client
 
+## 8.22.5
+
+### Patch Changes
+
+- dfee5e6: mark packages as side-effect free so bundlers can tree-shake them
+
 ## 8.22.4
 
 ### Patch Changes

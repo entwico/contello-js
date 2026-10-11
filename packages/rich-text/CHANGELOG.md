@@ -1,5 +1,11 @@
 # @contello/rich-text
 
+## 8.22.3
+
+### Patch Changes
+
+- dfee5e6: mark packages as side-effect free so bundlers can tree-shake them
+
 ## 8.22.2
 
 ### Patch Changes

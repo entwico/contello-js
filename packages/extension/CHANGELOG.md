@@ -1,5 +1,16 @@
 # @contello/extension
 
+## 8.22.0
+
+### Minor Changes
+
+- cbc49cb: `ExtensionChannel.connectChild` accepts an optional origin to restrict the channel to
+
+### Patch Changes
+
+- dfee5e6: a channel ignores messages from windows other than the one it is connected to
+- dfee5e6: mark packages as side-effect free so bundlers can tree-shake them
+
 ## 8.21.4
 
 ### Patch Changes

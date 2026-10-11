@@ -1,5 +1,13 @@
 # @contello/client
 
+## 3.2.1
+
+### Patch Changes
+
+- dfee5e6: mark packages as side-effect free so bundlers can tree-shake them
+- Updated dependencies [dfee5e6]
+  - @contello/opentelemetry@2.1.2
+
 ## 3.2.0
 
 ### Minor Changes

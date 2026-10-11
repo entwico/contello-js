@@ -1,5 +1,11 @@
 # @contello/media
 
+## 2.2.3
+
+### Patch Changes
+
+- dfee5e6: mark packages as side-effect free so bundlers can tree-shake them
+
 ## 2.2.2
 
 ### Patch Changes
