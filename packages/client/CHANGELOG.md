@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.2.2
+
+### Patch Changes
+
+- fbef418: fix `generate` doing nothing (its code was tree-shaken out of the published cli in 3.2.1)
+
 ## 3.2.1
 
 ### Patch Changes
