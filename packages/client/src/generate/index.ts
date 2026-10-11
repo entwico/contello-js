@@ -152,7 +152,7 @@ function collectBuiltInSourceEntries(
   return entries;
 }
 
-async function main(): Promise<void> {
+export async function run(): Promise<void> {
   const cwd = process.cwd();
   const config = await loadConfig(cwd);
 
@@ -316,11 +316,4 @@ async function main(): Promise<void> {
     console.log(`      ${dim('operations')} ${operations.length}  ${dim('fragments')} ${fragments.size}`);
     console.log('');
   }
-}
-
-try {
-  await main();
-} catch (error) {
-  console.error(error);
-  process.exit(1);
 }

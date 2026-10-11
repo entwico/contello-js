@@ -5,7 +5,16 @@ const command = process.argv[2];
 
 switch (command) {
   case 'generate': {
-    await import('./generate/index');
+    // the package is marked side-effect free (except this entry), so the module
+    // must be used via its export - a bare import would be tree-shaken away
+    const { run } = await import('./generate/index');
+
+    try {
+      await run();
+    } catch (error) {
+      console.error(error);
+      process.exit(1);
+    }
 
     break;
   }
