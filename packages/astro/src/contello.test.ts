@@ -124,6 +124,10 @@ describe('Contello accessors before init', () => {
     expect(() => makeContello().i18nMessages).toThrow(/accessed before init/);
   });
 
+  test('routes throws before init', () => {
+    expect(() => makeContello().routes).toThrow(/accessed before init/);
+  });
+
   test('client is available without connecting', () => {
     expect(makeContello().client).toBeDefined();
   });

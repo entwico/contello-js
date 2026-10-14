@@ -110,7 +110,7 @@ describe('createBoundRoutingMiddleware', () => {
     const { instance, contexts } = fakeContello();
     const routes = fakeRoutes({});
     const getByPath = vi.spyOn(routes, 'getByPath');
-    const mw = createBoundRoutingMiddleware(instance, routes, undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => routes, undefined, undefined);
     const next = fakeNext();
 
     const result = mw(fakeCtx('/_astro/app.js'), next);
@@ -121,10 +121,23 @@ describe('createBoundRoutingMiddleware', () => {
     expect(contexts).toHaveLength(0);
   });
 
+  test('passes through when routing is disabled', () => {
+    const { instance, contexts } = fakeContello();
+    const disabled = (): AnyRoutes | undefined => void 0;
+    const mw = createBoundRoutingMiddleware(instance, disabled, undefined, undefined);
+    const next = fakeNext();
+
+    const result = mw(fakeCtx('/some/page'), next);
+
+    expect(result).toBe(passthrough);
+    expect(next).toHaveBeenCalledOnce();
+    expect(contexts).toEqual([]);
+  });
+
   test('passes through with a warning when not initialized', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { instance } = fakeContello({ isReady: false });
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({}), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({}), undefined, undefined);
     const next = fakeNext();
 
     const result = mw(fakeCtx('/some/page'), next);
@@ -136,7 +149,7 @@ describe('createBoundRoutingMiddleware', () => {
 
   test('routes /contello/entities/ paths through the request context without a route', () => {
     const { instance, contexts } = fakeContello();
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({}), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({}), undefined, undefined);
     const next = fakeNext();
 
     const result = mw(fakeCtx('/contello/entities/article/42'), next);
@@ -149,7 +162,7 @@ describe('createBoundRoutingMiddleware', () => {
 
   test('unknown path runs through the request context with no route and passes through', () => {
     const { instance, contexts } = fakeContello();
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({}), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({}), undefined, undefined);
     const next = fakeNext();
 
     const result = mw(fakeCtx('/nope'), next);
@@ -169,7 +182,7 @@ describe('createBoundRoutingMiddleware', () => {
       location: '/new',
       status: 301,
     };
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/old': route }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/old': route }), undefined, undefined);
 
     const response = (await mw(fakeCtx('/old'), fakeNext())) as Response;
 
@@ -188,7 +201,7 @@ describe('createBoundRoutingMiddleware', () => {
       location: '/new',
       status: 999,
     };
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/old': route }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/old': route }), undefined, undefined);
 
     const response = (await mw(fakeCtx('/old'), fakeNext())) as Response;
 
@@ -205,7 +218,7 @@ describe('createBoundRoutingMiddleware', () => {
       content: 'User-agent: *',
       mimeType: 'text/plain',
     };
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/robots.txt': route }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/robots.txt': route }), undefined, undefined);
 
     const response = (await mw(fakeCtx('/robots.txt'), fakeNext())) as Response;
 
@@ -229,7 +242,7 @@ describe('createBoundRoutingMiddleware', () => {
       contentDisposition: 'attachment',
       mimeType: 'application/pdf',
     };
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/doc.pdf': route }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/doc.pdf': route }), undefined, undefined);
 
     const response = (await mw(fakeCtx('/doc.pdf'), fakeNext())) as Response;
 
@@ -254,7 +267,7 @@ describe('createBoundRoutingMiddleware', () => {
       contentDisposition: 'inline',
       mimeType: '',
     };
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/img': route }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/img': route }), undefined, undefined);
 
     const response = (await mw(fakeCtx('/img'), fakeNext())) as Response;
 
@@ -275,7 +288,7 @@ describe('createBoundRoutingMiddleware', () => {
         stream: () => new Response('<sitemapindex/>').body!,
       }),
     });
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
     const ctx = fakeCtx('/sitemap.xml', 'GET', { 'accept-encoding': 'gzip', 'if-none-match': '"old"' });
 
     const response = (await mw(ctx, fakeNext())) as Response;
@@ -301,7 +314,7 @@ describe('createBoundRoutingMiddleware', () => {
         stream: () => new Response('gz').body!,
       }),
     });
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
 
     const response = (await mw(fakeCtx('/sitemap.xml?source=products&page=2'), fakeNext())) as Response;
 
@@ -322,7 +335,7 @@ describe('createBoundRoutingMiddleware', () => {
         stream: () => ({ cancel }) as unknown as ReadableStream,
       }),
     });
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
 
     const response = (await mw(fakeCtx('/sitemap.xml?source=nope&page=9'), fakeNext())) as Response;
 
@@ -339,7 +352,7 @@ describe('createBoundRoutingMiddleware', () => {
     const { instance } = fakeContello({
       proxySitemap: async () => ({ status: 304, headers: new Headers({ etag: '"gen-1"' }), stream }),
     });
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
 
     const response = (await mw(fakeCtx('/sitemap.xml', 'GET', { 'if-none-match': '"gen-1"' }), fakeNext())) as Response;
 
@@ -361,7 +374,7 @@ describe('createBoundRoutingMiddleware', () => {
       entityType: 'ArticleEntity',
       entityId: 'e-99',
     };
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/articles/hello': route }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/articles/hello': route }), undefined, undefined);
     const next = fakeNext();
 
     const response = (await mw(fakeCtx('/articles/hello?preview=1'), next)) as Response;
@@ -375,7 +388,7 @@ describe('createBoundRoutingMiddleware', () => {
     const { instance } = fakeContello();
     const routes = fakeRoutes({});
     const getByPath = vi.spyOn(routes, 'getByPath');
-    const mw = createBoundRoutingMiddleware(instance, routes, undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => routes, undefined, undefined);
 
     mw(fakeCtx('/lookup/me'), fakeNext());
 
@@ -387,7 +400,7 @@ describe('createBoundRoutingMiddleware', () => {
     const routes = fakeRoutes({});
     const getByPath = vi.spyOn(routes, 'getByPath');
     const resolveRoutePath = (ctx: APIContext) => `/${ctx.url.hostname}${ctx.url.pathname}`;
-    const mw = createBoundRoutingMiddleware(instance, routes, undefined, resolveRoutePath);
+    const mw = createBoundRoutingMiddleware(instance, () => routes, undefined, resolveRoutePath);
 
     mw(fakeCtx('/tenant/page'), fakeNext());
 
@@ -406,7 +419,7 @@ describe('createBoundRoutingMiddleware', () => {
     };
     const mw = createBoundRoutingMiddleware(
       instance,
-      fakeRoutes({ '/async': Promise.resolve(route) }),
+      () => fakeRoutes({ '/async': Promise.resolve(route) }),
       undefined,
       undefined,
     );
@@ -420,7 +433,7 @@ describe('createBoundRoutingMiddleware', () => {
     const { instance } = fakeContello();
     const routes = fakeRoutes({});
     const getByPath = vi.spyOn(routes, 'getByPath');
-    const mw = createBoundRoutingMiddleware(instance, routes, [{ prefix: '/skip/' }], undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => routes, [{ prefix: '/skip/' }], undefined);
     const next = fakeNext();
 
     const result = mw(fakeCtx('/skip/here'), next);
@@ -442,7 +455,7 @@ describe('createBoundRoutingMiddleware route reporting', () => {
       entityType: 'ArticleEntity',
       entityId: 'e-99',
     };
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/articles/hello': route }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/articles/hello': route }), undefined, undefined);
 
     await mw(fakeCtx('/articles/hello'), fakeNext());
 
@@ -457,7 +470,7 @@ describe('createBoundRoutingMiddleware route reporting', () => {
   ])('reports a %s route as its own label', async (type, rest) => {
     const { instance } = fakeContello();
     const route = { id: 'r1', path: '/p', customHeaders: [], ...rest } as StoreRoute;
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({ '/p': route }), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/p': route }), undefined, undefined);
 
     await mw(fakeCtx('/p'), fakeNext());
 
@@ -466,7 +479,7 @@ describe('createBoundRoutingMiddleware route reporting', () => {
 
   test('leaves the route alone when no contello route matches', () => {
     const { instance } = fakeContello();
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({}), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({}), undefined, undefined);
 
     mw(fakeCtx('/nope'), fakeNext());
 
@@ -475,7 +488,7 @@ describe('createBoundRoutingMiddleware route reporting', () => {
 
   test('leaves the route alone for excluded paths', () => {
     const { instance } = fakeContello();
-    const mw = createBoundRoutingMiddleware(instance, fakeRoutes({}), undefined, undefined);
+    const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({}), undefined, undefined);
 
     mw(fakeCtx('/_astro/app.js'), fakeNext());
 

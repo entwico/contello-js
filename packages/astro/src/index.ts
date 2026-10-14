@@ -1,5 +1,16 @@
+export { default } from './integration';
+export type { ContelloIntegrationOptions } from './integration';
+
 export { Contello, createContello } from './contello';
-export type { ContelloI18nOptions, ContelloInitOptions, ContelloOptions, ContelloRequestContext } from './contello';
+export type {
+  ContelloHealthOptions,
+  ContelloI18nOptions,
+  ContelloInitI18nOptions,
+  ContelloInitOptions,
+  ContelloOptions,
+  ContelloRequestContext,
+  ContelloRoutingOptions,
+} from './contello';
 
 export type {
   ContelloAssetsFilesOptions,
@@ -8,4 +19,4 @@ export type {
   ContelloAssetsVideoOptions,
 } from './assets-middleware';
 
-export type { AnyRoutes, ContelloRoutingMiddlewareOptions } from './routing-middleware';
+export type { AnyRoutes, ContelloRoutingMiddlewareOptions, RoutePathResolver } from './routing-middleware';

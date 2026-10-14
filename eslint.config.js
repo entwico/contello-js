@@ -26,8 +26,10 @@ export default defineConfig({
     },
     {
       // runtime imports of astro would put every consumer of this package into astro's runtime module graph
-      // (see packages/astro/src/middleware.ts) — types are fine
+      // (see packages/astro/src/middleware.ts) — types are fine. The middleware entrypoints are astro's own
+      // graph by design: they import the virtual instance/config modules the integration serves
       files: ['packages/astro/src/**'],
+      ignores: ['packages/astro/src/*-entrypoint.ts'],
       rules: {
         '@typescript-eslint/no-restricted-imports': [
           'error',

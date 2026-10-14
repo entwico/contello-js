@@ -13,8 +13,8 @@
     "test:e2e": "astro build && vitest run --config e2e/vitest.config.ts"
   },
   "dependencies": {
-    "@astroscope/i18n": "^2.1.2",
-    "@astroscope/node": "^4.0.0",
+    "@astroscope/i18n": "^3.0.0",
+    "@astroscope/node": "^4.1.0",
     "@contello/astro": "workspace:^",
     "@contello/client": "workspace:^",
     "@contello/store": "workspace:^",

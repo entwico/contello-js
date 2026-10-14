@@ -2,6 +2,4 @@ import { createContello } from '@contello/astro';
 import { Config } from '@/config';
 import { schema } from '@/server/_/contello/graphql';
 
-const { url, project, token, i18nMessageCollection: collection } = Config.services.contello;
-
-export const contello = createContello({ schema, url, project, token, i18n: { collection, languages: ['en'] } });
+export const contello = createContello({ ...Config.services.contello, schema });

@@ -6,7 +6,9 @@ const schema = zc.define({
       url: zc.env('CONTELLO_URL').string(),
       project: zc.env('CONTELLO_DEMO_ASTRO_PROJECT').string(),
       token: zc.env('CONTELLO_TOKEN').string(),
-      i18nMessageCollection: zc.env('CONTELLO_I18N_MESSAGE_COLLECTION').string().default('demo'),
+      i18n: zc.object({
+        collection: zc.env('CONTELLO_I18N_MESSAGE_COLLECTION').string().default('demo'),
+      }),
     }),
   }),
 });

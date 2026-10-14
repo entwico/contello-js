@@ -81,7 +81,7 @@ afterEach(() => {
 describe('createBoundAssetsMiddleware', () => {
   test('passes through paths outside the media prefixes', () => {
     const { instance, client } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
     const next = fakeNext();
 
     const result = mw(fakeCtx('/about'), next);
@@ -91,10 +91,21 @@ describe('createBoundAssetsMiddleware', () => {
     expect(client.proxyHls).not.toHaveBeenCalled();
   });
 
+  test('passes through media paths when assets are disabled', () => {
+    const { instance, client } = fakeContello();
+    const mw = createBoundAssetsMiddleware(instance, () => false);
+    const next = fakeNext();
+
+    const result = mw(fakeCtx('/_contello/i/abc.png'), next);
+
+    expect(result).toBe(passthrough);
+    expect(client.download).not.toHaveBeenCalled();
+  });
+
   test('passes through with a warning when not initialized', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { instance } = fakeContello({ isReady: false });
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
     const next = fakeNext();
 
     const result = mw(fakeCtx('/_contello/i/abc.png'), next);
@@ -107,7 +118,7 @@ describe('createBoundAssetsMiddleware', () => {
     const { instance, client } = fakeContello({
       download: async () => ({ mimeType: 'image/jpeg', size: 200, stream: () => new Response('img').body! }),
     });
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     const response = (await mw(fakeCtx('/_contello/i/abc.jpg'), fakeNext())) as Response;
 
@@ -119,7 +130,7 @@ describe('createBoundAssetsMiddleware', () => {
 
   test('honors a custom image cache-control', async () => {
     const { instance } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, { images: { cacheControl: 'no-store' } });
+    const mw = createBoundAssetsMiddleware(instance, () => ({ images: { cacheControl: 'no-store' } }));
 
     const response = (await mw(fakeCtx('/_contello/i/abc.png'), fakeNext())) as Response;
 
@@ -128,7 +139,7 @@ describe('createBoundAssetsMiddleware', () => {
 
   test('strips the extension after the first dot to derive the file id', async () => {
     const { instance, client } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     await mw(fakeCtx('/_contello/i/abc.def.png'), fakeNext());
 
@@ -137,7 +148,7 @@ describe('createBoundAssetsMiddleware', () => {
 
   test('uses the whole segment as the file id when there is no extension', async () => {
     const { instance, client } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     await mw(fakeCtx('/_contello/i/no-extension-id'), fakeNext());
 
@@ -148,7 +159,7 @@ describe('createBoundAssetsMiddleware', () => {
     const { instance, client } = fakeContello({
       download: async () => ({ mimeType: 'application/pdf', size: 0, stream: () => new Response('pdf').body! }),
     });
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     const response = (await mw(fakeCtx('/_contello/f/file-1.pdf'), fakeNext())) as Response;
 
@@ -160,7 +171,7 @@ describe('createBoundAssetsMiddleware', () => {
 
   test('serves an HLS video through proxyHls with the request signal', async () => {
     const { instance, client } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     const response = (await mw(fakeCtx('/_contello/v/vid/master.m3u8'), fakeNext())) as Response;
 
@@ -171,7 +182,7 @@ describe('createBoundAssetsMiddleware', () => {
 
   test('passes through when the image id resolves to empty', () => {
     const { instance, client } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
     const next = fakeNext();
 
     const result = mw(fakeCtx('/_contello/i/.png'), next);
@@ -182,7 +193,7 @@ describe('createBoundAssetsMiddleware', () => {
 
   test('passes through when the video path is empty', () => {
     const { instance, client } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
     const next = fakeNext();
 
     const result = mw(fakeCtx('/_contello/v/'), next);
@@ -197,7 +208,7 @@ describe('createBoundAssetsMiddleware', () => {
         throw new Error('missing');
       },
     });
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     const response = (await mw(fakeCtx('/_contello/i/gone.png'), fakeNext())) as Response;
 
@@ -210,7 +221,7 @@ describe('createBoundAssetsMiddleware', () => {
         throw new Error('upstream down');
       },
     });
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     const response = (await mw(fakeCtx('/_contello/v/vid/master.m3u8'), fakeNext())) as Response;
 
@@ -227,7 +238,7 @@ describe('createBoundAssetsMiddleware route reporting', () => {
     ['/_contello/v/vid/master.m3u8', '/_contello/v/[...path]'],
   ])('reports %s as a templated label carrying no asset id', async (pathname, label) => {
     const { instance } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     await mw(fakeCtx(pathname), fakeNext());
 
@@ -239,7 +250,7 @@ describe('createBoundAssetsMiddleware route reporting', () => {
 
     (instance as unknown as { media: { imagesPath: string } }).media.imagesPath = '/img/';
 
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     await mw(fakeCtx('/img/abc.png'), fakeNext());
 
@@ -252,7 +263,7 @@ describe('createBoundAssetsMiddleware route reporting', () => {
         throw new Error('gone');
       },
     });
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     await mw(fakeCtx('/_contello/i/gone.png'), fakeNext());
 
@@ -264,7 +275,7 @@ describe('createBoundAssetsMiddleware route reporting', () => {
     ['a bare prefix with no asset id', '/_contello/i/'],
   ])('leaves the route alone for %s', (_name, pathname) => {
     const { instance } = fakeContello();
-    const mw = createBoundAssetsMiddleware(instance, undefined);
+    const mw = createBoundAssetsMiddleware(instance, () => ({}));
 
     mw(fakeCtx(pathname), fakeNext());
 

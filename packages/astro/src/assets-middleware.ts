@@ -22,14 +22,16 @@ export type ContelloAssetsMiddlewareOptions = {
 
 const DEFAULT_IMAGES_CACHE_CONTROL = 'public, max-age=31536000';
 
+/**
+ * `options` is read per request: the integration creates the middleware before `init()`
+ * brings the project's assets options; `false` disables the middleware (`init({ assets: false })`).
+ */
 export function createBoundAssetsMiddleware(
   contello: Contello<any>,
-  options: ContelloAssetsMiddlewareOptions | undefined,
+  options: () => ContelloAssetsMiddlewareOptions | false | undefined,
 ) {
   const imagesPrefix = contello.media.imagesPath;
-  const imagesCacheControl = options?.images?.cacheControl ?? DEFAULT_IMAGES_CACHE_CONTROL;
   const filesPrefix = contello.media.filesPath;
-  const filesCacheControl = options?.files?.cacheControl;
   const videoPrefix = contello.media.videosPath;
 
   return defineMiddleware((ctx, next) => {
@@ -39,6 +41,12 @@ export function createBoundAssetsMiddleware(
     const isVideo = !isImage && !isFile && pathname.startsWith(videoPrefix);
 
     if (!isImage && !isFile && !isVideo) {
+      return next();
+    }
+
+    const current = options();
+
+    if (current === false) {
       return next();
     }
 
@@ -53,7 +61,7 @@ export function createBoundAssetsMiddleware(
         contello.client,
         next,
         pathname.slice(imagesPrefix.length),
-        imagesCacheControl,
+        current?.images?.cacheControl ?? DEFAULT_IMAGES_CACHE_CONTROL,
         `${imagesPrefix}[file]`,
       );
     }
@@ -63,7 +71,7 @@ export function createBoundAssetsMiddleware(
         contello.client,
         next,
         pathname.slice(filesPrefix.length),
-        filesCacheControl,
+        current?.files?.cacheControl,
         `${filesPrefix}[file]`,
       );
     }

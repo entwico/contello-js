@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { type RawTranslations, i18n } from '@astroscope/i18n';
+import { type I18nConfig, type RawTranslations, i18n } from '@astroscope/i18n';
 import { getBootContext } from '@astroscope/node/boot';
+import { registerHealthCheck } from '@astroscope/node/health';
 import type { ContelloClient, Schema, SourceDef } from '@contello/client';
 import { type MediaResolver, type MediaResolverOptions, createMediaResolver } from '@contello/media';
 import {
@@ -42,7 +43,12 @@ import {
 } from '@contello/store';
 import type { ReadonlyDeep } from '@entwico/dash';
 import { type ContelloAssetsMiddlewareOptions, createBoundAssetsMiddleware } from './assets-middleware';
-import { type ContelloRoutingMiddlewareOptions, createBoundRoutingMiddleware } from './routing-middleware';
+import {
+  type AnyRoutes,
+  type ContelloRoutingMiddlewareOptions,
+  type RoutePathResolver,
+  createBoundRoutingMiddleware,
+} from './routing-middleware';
 
 const DEFAULT_IMAGES_PREFIX = '/_contello/i/';
 const DEFAULT_FILES_PREFIX = '/_contello/f/';
@@ -54,21 +60,54 @@ export type ContelloRequestContext = {
   rewritten: boolean;
 };
 
+/** The Contello i18n message collection bridged to `@astroscope/i18n`; `init()` takes the runtime side. */
 export type ContelloI18nOptions = {
   collection: string;
-  languages: string[];
   cache?: SyncCacheOptions | undefined;
+};
+
+/**
+ * The `@astroscope/i18n` config `init()` passes to `i18n.configure()` before it pushes the
+ * collection's translations, plus what to do with the extracted keys.
+ */
+export type ContelloInitI18nOptions = I18nConfig & {
+  /**
+   * Register the extracted keys in the collection; defaults to `true`, except in dev mode (detected via the
+   * @astroscope/node boot context).
+   */
+  register?: boolean | undefined;
+  /** push the collection's translations and follow its refreshes; defaults to `true` */
+  load?: boolean | undefined;
+};
+
+export type ContelloRoutingOptions = {
+  resolveRoutePath?: RoutePathResolver | undefined;
+};
+
+/** The readiness check `init()` registers with `@astroscope/node/health`; `false` registers none. */
+export type ContelloHealthOptions = {
+  /** @default 'contello' */
+  name?: string | undefined;
+  optional?: boolean | undefined;
+  timeout?: number | undefined;
 };
 
 export type ContelloInitOptions = {
   load?: Loadable[] | undefined;
-  i18n?:
-    | {
-      /** defaults to `true`, except in dev mode (detected via the @astroscope/node boot context) */
-      register?: boolean | undefined;
-      load?: boolean | undefined;
-    }
-    | undefined;
+  /**
+   * Routes backing the routing middleware: `'sync'` creates and loads a `RoutesSync` (eager, synchronous
+   * lookups), `'lazy'` creates a `LazyRoutes` (fetched on demand), or an instance the project defined
+   * itself, loaded by `init()` when it is loadable. Reachable as `contello.routes` after `init()`.
+   * `false` for a project without Contello routes: the routing middleware passes through.
+   */
+  routes: 'sync' | 'lazy' | AnyRoutes | false;
+  /** required when `createContello` got an `i18n` collection */
+  i18n?: ContelloInitI18nOptions | undefined;
+  /** defaults for the routing middleware, used by the integration-injected one */
+  routing?: ContelloRoutingOptions | undefined;
+  /** defaults for the assets middleware, used by the integration-injected one; `false` makes it pass through */
+  assets?: ContelloAssetsMiddlewareOptions | false | undefined;
+  health?: ContelloHealthOptions | false | undefined;
 };
 
 export type ContelloMediaConfig = {
@@ -83,11 +122,15 @@ export type ContelloOptions<TSchema extends Schema | undefined = undefined> = Cr
   media?: Partial<ContelloMediaConfig> | undefined;
 };
 
+function isLoadable(value: object): value is Loadable {
+  return typeof (value as Partial<Loadable>).load === 'function';
+}
+
 type HasFallback<O> = O extends { fallback: infer F } ? ([F] extends [undefined] ? false : true) : false;
 
 export const runRequest = Symbol('@contello/astro/runRequest');
 
-function buildI18nRegistrations(): I18nMessageRegistrationDefinition[] {
+function createI18nRegistrations(): I18nMessageRegistrationDefinition[] {
   const manifest = i18n.getManifest();
   const defaultLanguage = i18n.getConfig().defaultLocale;
 
@@ -151,20 +194,28 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
   private _i18nUnsubscribe: (() => void) | undefined;
   private _initialized = false;
   private readonly _als = new AsyncLocalStorage<ContelloRequestContext>();
-  private _autoLazyRoutes?: LazyRoutes;
+  private _routes: AnyRoutes | undefined;
+  private _initOptions: ContelloInitOptions | undefined;
+  private _unregisterHealthCheck: (() => void) | undefined;
 
   readonly media: ContelloMediaConfig;
 
   // --- middleware factories (arrow fields so destructuring works) ---
 
   createRoutingMiddleware = (options?: ContelloRoutingMiddlewareOptions | undefined) => {
-    const routes = options?.routes ?? (this._autoLazyRoutes ??= this.defineLazyRoutes());
+    // resolved per request: the integration creates the middleware before init() brings the routes and options
+    const routes = () => options?.routes ?? (this._initOptions?.routes === false ? undefined : this.routes);
+    const resolveRoutePath: RoutePathResolver = (ctx) => {
+      const resolver = options?.resolveRoutePath ?? this._initOptions?.routing?.resolveRoutePath;
 
-    return createBoundRoutingMiddleware(this, routes, options?.exclude, options?.resolveRoutePath);
+      return resolver ? resolver(ctx) : ctx.url.pathname;
+    };
+
+    return createBoundRoutingMiddleware(this, routes, options?.exclude, resolveRoutePath);
   };
 
   createAssetsMiddleware = (options?: ContelloAssetsMiddlewareOptions | undefined) => {
-    return createBoundAssetsMiddleware(this, options);
+    return createBoundAssetsMiddleware(this, () => options ?? this._initOptions?.assets);
   };
 
   constructor(options: ContelloOptions<TSchema>) {
@@ -181,21 +232,65 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
 
   // --- lifecycle ---
 
-  async init(options?: ContelloInitOptions | undefined): Promise<void> {
+  private createRoutes(routes: ContelloInitOptions['routes']): AnyRoutes | undefined {
+    switch (routes) {
+      case false: {
+        return undefined;
+      }
+
+      case 'sync': {
+        return this.defineRoutesSync();
+      }
+
+      case 'lazy': {
+        return this.defineLazyRoutes();
+      }
+
+      default: {
+        return routes;
+      }
+    }
+  }
+
+  private registerHealthCheck(health: ContelloHealthOptions | false | undefined): void {
+    if (health === false) {
+      return;
+    }
+
+    this._unregisterHealthCheck?.();
+    this._unregisterHealthCheck = registerHealthCheck({
+      name: health?.name ?? 'contello',
+      check: () => this.ping(),
+      optional: health?.optional,
+      timeout: health?.timeout,
+    });
+  }
+
+  async init(options: ContelloInitOptions): Promise<void> {
     try {
+      this._initOptions = options;
+
+      this.registerHealthCheck(options.health);
+
       await this._store.init();
 
+      this._routes = this.createRoutes(options.routes);
+
       if (this._options.i18n) {
-        const { collection, languages, cache } = this._options.i18n;
+        if (!options.i18n) {
+          throw new Error('@contello/astro: init() needs the i18n option (locales, locale resolver) for the configured i18n collection');
+        }
+
+        const { collection, cache } = this._options.i18n;
         const dev = getBootContext()?.dev ?? false;
-        const { register = !dev, load = true } = options?.i18n ?? {};
+        const { register = !dev, load = true, ...i18nConfig } = options.i18n;
 
         this._i18nMessages = this._store.defineI18nMessages({ collection, cache });
 
-        await i18n.configure({ locales: languages });
+        await i18n.configure(i18nConfig);
 
         if (register) {
-          const registrations = buildI18nRegistrations();
+          const registrations = createI18nRegistrations();
 
           if (registrations.length > 0) {
             await this._i18nMessages.register(registrations);
@@ -223,7 +318,10 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
         }
       }
 
-      await Promise.all((options?.load ?? []).map((l) => l.load()));
+      const routes = this._routes;
+      const loadables = [...(options.load ?? []), ...(routes && isLoadable(routes) ? [routes] : [])];
+
+      await Promise.all(loadables.map((l) => l.load()));
 
       this._initialized = true;
     } catch (error) {
@@ -242,10 +340,14 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
 
     this._i18nUnsubscribe?.();
     this._i18nUnsubscribe = undefined;
+    this._unregisterHealthCheck?.();
+    this._unregisterHealthCheck = undefined;
 
     await this._store.destroy();
 
     this._i18nMessages = undefined;
+    this._routes = undefined;
+    this._initOptions = undefined;
   }
 
   ping(): Promise<void> {
@@ -258,6 +360,15 @@ export class Contello<TSchema extends Schema | undefined = undefined> {
 
   get client(): ContelloClient<TSchema> {
     return this._store.client;
+  }
+
+  /** the routes backing the routing middleware, created by `init()` from its `routes` option */
+  get routes(): AnyRoutes {
+    if (!this._routes) {
+      throw new Error('@contello/astro: .routes accessed before init() or with routes disabled');
+    }
+
+    return this._routes;
   }
 
   get i18nMessages(): I18nMessages {

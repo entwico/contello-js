@@ -72,7 +72,7 @@ function markRequestRoute(route: StoreRoute): void {
 
 export function createBoundRoutingMiddleware(
   contello: Contello<any>,
-  routes: AnyRoutes,
+  routes: () => AnyRoutes | undefined,
   exclude: ExcludePattern[] | undefined,
   resolveRoutePath: RoutePathResolver | undefined,
 ) {
@@ -87,6 +87,13 @@ export function createBoundRoutingMiddleware(
       return next();
     }
 
+    // undefined: the project disabled routing (`init({ routes: false })`)
+    const current = routes();
+
+    if (!current) {
+      return next();
+    }
+
     const { url } = ctx;
 
     if (url.pathname.startsWith('/contello/entities/')) {
@@ -94,7 +101,7 @@ export function createBoundRoutingMiddleware(
     }
 
     const path = resolveRoutePath ? resolveRoutePath(ctx) : url.pathname;
-    const lookup = routes.getByPath(path) as MaybePromise<StoreRoute | undefined>;
+    const lookup = current.getByPath(path) as MaybePromise<StoreRoute | undefined>;
 
     return maybeThen(lookup, (route) => {
       if (!route) {
