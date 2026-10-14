@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 5.0.0
+
+### Major Changes
+
+- 501b3f2: astro integration with auto-injected middlewares, i18n configured by the project
+
 ## 4.4.1
 
 ### Patch Changes

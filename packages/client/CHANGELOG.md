@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.3.0
+
+### Minor Changes
+
+- fe0c44e: support `retentionPolicy` in `upload()` metadata
+
 ## 3.2.2
 
 ### Patch Changes
