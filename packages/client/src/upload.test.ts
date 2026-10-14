@@ -88,6 +88,20 @@ describe('upload', () => {
     expect(ws.closed).toBe(true);
   });
 
+  test('passes the retention policy in the init frame', () => {
+    void upload('https://cms.example', 'proj', 'tok', new Uint8Array([1]), {
+      name: 'a.png',
+      retentionPolicy: 'deleteIfNotUsed',
+    }).catch(() => {});
+    const ws = only();
+
+    ws.emit('open', {});
+
+    const init = JSON.parse(String(ws.sent[0]));
+
+    expect(init.metadata.retentionPolicy).toBe('deleteIfNotUsed');
+  });
+
   test('sends buffered chunks then a done marker after ack', async () => {
     const promise = upload('https://cms.example', 'proj', 'tok', new Uint8Array([1, 2, 3, 4, 5]), { name: 'a' }, {
       chunkSize: 2,

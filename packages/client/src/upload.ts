@@ -6,6 +6,11 @@ export type UploadMetadata = {
   size?: number | undefined;
   annotations?: { key: string; value: string }[] | undefined;
   collectionRefs?: string[] | undefined;
+  /**
+   * `deleteIfNotUsed` lets the server delete the asset once nothing references it.
+   * @default 'retain'
+   */
+  retentionPolicy?: 'retain' | 'deleteIfNotUsed' | undefined;
 };
 
 export type UploadData = Uint8Array | NodeReadableStream<Uint8Array> | ReadableStream<Uint8Array>;
