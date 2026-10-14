@@ -321,18 +321,6 @@ importers:
 
   packages/rich-text: {}
 
-  packages/sdk-client:
-    devDependencies:
-      graphql:
-        specifier: ^17.0.2
-        version: 17.0.2
-      graphql-ws:
-        specifier: ^6.3.0
-        version: 6.3.0(crossws@0.3.5)(graphql@17.0.2)(ws@8.21.3)
-      rxjs:
-        specifier: ^7.8.2
-        version: 7.8.2
-
   packages/store:
     dependencies:
       '@contello/opentelemetry':
@@ -354,12 +342,6 @@ importers:
       '@contello/media':
         specifier: workspace:^
         version: link:../media
-
-  packages/uploader:
-    devDependencies:
-      rxjs:
-        specifier: ^7.8.2
-        version: 7.8.2
 
 packages:
 
@@ -3768,9 +3750,6 @@ packages:
     resolution: {integrity: sha512-/5apOkwWxtACcQtZ5WlrAsKS4JwXVThQPJZ3RqIruRY9UG9M8e0VlXN068xum/JRKA4aIUoJ13ghe/kGCvidiQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
-
-  rxjs@7.8.2:
-    resolution: {integrity: sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==}
 
   safe-stable-stringify@2.5.0:
     resolution: {integrity: sha512-b3rppTKm9T+PsVCBEOUR46GWI7fdOs00VKZ1+9c1EWDaDMvjQc6tUwuFyIprgGgTcWoVHSKrU8H31ZHA2e0RHA==}
@@ -7904,10 +7883,6 @@ snapshots:
       '@rolldown/binding-win32-arm64-msvc': 1.2.13
       '@rolldown/binding-win32-x64-msvc': 1.2.13
 
-  rxjs@7.8.2:
-    dependencies:
-      tslib: 2.8.1
-
   safe-stable-stringify@2.5.0: {}
 
   satteri@0.10.5:
@@ -8171,7 +8146,8 @@ snapshots:
       - oxc-resolver
       - vue-tsc
 
-  tslib@2.8.1: {}
+  tslib@2.8.1:
+    optional: true
 
   turbo@2.11.7:
     optionalDependencies:

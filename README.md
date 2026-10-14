@@ -11,8 +11,6 @@ A collection of shared JavaScript/TypeScript libraries for Contello projects.
 | [@contello/astro](./packages/astro) | Astro integration |
 | [@contello/media](./packages/media) | Asset primitives and rendering helpers, optional `/react` |
 | [@contello/rich-text](./packages/rich-text) | Rich text document types and helpers |
-| [@contello/uploader](./packages/uploader) | File uploader with WebSocket and HTTP transports |
-| [@contello/sdk-client](./packages/sdk-client) | Legacy GraphQL SDK client — use `@contello/client` for new code |
 | [@contello/extension](./packages/extension) | Client SDK for building Contello CMS extensions and custom properties |
 
 ## Development
