@@ -13,6 +13,7 @@ import {
   proxyHls,
   proxySitemap,
 } from './http';
+import { type TokenIntrospection, introspectToken } from './introspection';
 import { ping } from './ping';
 import { ConnectionPool } from './pool';
 import { buildRpc } from './rpc';
@@ -173,6 +174,20 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
   async ping(): Promise<void> {
     // excluded from telemetry to avoid noise
     return ping((query) => firstAsync(this.subscribe(query)));
+  }
+
+  /**
+   * What a temporary token the Contello ui handed to an extension page stands for in the project of
+   * this client: the user and the user's effective permissions, or inactive. The client's
+   * application needs read access to the project. See `createTokenIntrospector` for the caching
+   * wrapper a backend puts in front of its requests.
+   */
+  introspectToken(token: string): Promise<TokenIntrospection> {
+    // not execute(): its span records the variables, and the token must not end up in telemetry
+    return wrap(
+      '@contello/client:introspectToken',
+      () => introspectToken((query, variables) => firstAsync(this.subscribe(query, variables)), token),
+    );
   }
 
   /**

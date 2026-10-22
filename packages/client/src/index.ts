@@ -26,5 +26,14 @@ export {
   readSourceMutationId,
 } from './source-mutation';
 export { BUILT_IN_MUTATIONS } from './built-in-mutations';
+export { createTokenIntrospector } from './introspection';
+export type {
+  IntrospectedUser,
+  ResourceAction,
+  ResourcePermissions,
+  TokenIntrospection,
+  TokenIntrospector,
+  TokenIntrospectorOptions,
+} from './introspection';
 export type { DownloadResult, HttpAgentOptions, ProxyResult, SitemapProxyOptions } from './http';
 export type { UploadData, UploadMetadata, UploadOptions } from './upload';
