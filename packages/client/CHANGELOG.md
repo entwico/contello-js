@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.4.0
+
+### Minor Changes
+
+- 9b195ec: tokens introspection
+
 ## 3.3.0
 
 ### Minor Changes
