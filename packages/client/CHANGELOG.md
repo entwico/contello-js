@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.4.1
+
+### Patch Changes
+
+- b00ffde: answer a cached token introspection synchronously
+
 ## 3.4.0
 
 ### Minor Changes
