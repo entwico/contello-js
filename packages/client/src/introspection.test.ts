@@ -54,7 +54,7 @@ describe('createTokenIntrospector', () => {
       const introspector = createTokenIntrospector(introspect, { audiences: ['https://extension.example'], maxAgeMs: 1000 });
 
       await introspector.introspect('tmp-1');
-      await introspector.introspect('tmp-1');
+      expect(introspector.introspect('tmp-1')).toEqual(active(new Date(Date.now() + 3_600_000)));
       expect(introspect).toHaveBeenCalledTimes(1);
 
       vi.advanceTimersByTime(1001);

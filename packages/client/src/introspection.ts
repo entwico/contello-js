@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import type { MaybePromise } from '@entwico/dash';
+
 const INTROSPECT_QUERY = `query ContelloIntrospectToken($token: String!) {
   contelloIntrospectToken(token: $token) {
     active audience expiresAt user { id username firstName lastName email } permissions { resourceType scope actions }
@@ -79,7 +81,8 @@ export type TokenIntrospectorOptions = {
 };
 
 export type TokenIntrospector = {
-  introspect: (token: string) => Promise<TokenIntrospection>;
+  // a cached answer comes back synchronously
+  introspect: (token: string) => MaybePromise<TokenIntrospection>;
 };
 
 const DEFAULT_MAX_AGE_MS = 60_000;
@@ -118,26 +121,30 @@ export function createTokenIntrospector(
   };
 
   const lookup = async (token: string, key: string): Promise<TokenIntrospection> => {
-    let result = await introspect(token);
+    try {
+      let result = await introspect(token);
 
-    if (result.active && !audiences.has(result.audience)) {
-      result = { active: false };
+      if (result.active && !audiences.has(result.audience)) {
+        result = { active: false };
+      }
+
+      const now = Date.now();
+      const until = result.active ? Math.min(result.expiresAt.getTime(), now + maxAgeMs) : now + maxAgeMs;
+
+      if (cache.size >= maxEntries) {
+        evict(now);
+      }
+
+      cache.set(key, { result, until });
+
+      return result;
+    } finally {
+      pending.delete(key);
     }
-
-    const now = Date.now();
-    const until = result.active ? Math.min(result.expiresAt.getTime(), now + maxAgeMs) : now + maxAgeMs;
-
-    if (cache.size >= maxEntries) {
-      evict(now);
-    }
-
-    cache.set(key, { result, until });
-
-    return result;
   };
 
   return {
-    introspect: async (token) => {
+    introspect: (token) => {
       const key = createHash('sha256').update(token).digest('base64url');
       const cached = cache.get(key);
 
@@ -152,11 +159,7 @@ export function createTokenIntrospector(
         pending.set(key, running);
       }
 
-      try {
-        return await running;
-      } finally {
-        pending.delete(key);
-      }
+      return running;
     },
   };
 }
