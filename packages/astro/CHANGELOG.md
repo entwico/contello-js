@@ -1,5 +1,11 @@
 # @contello/astro
 
+## 6.0.0
+
+### Major Changes
+
+- 1ff9595: require @astroscope/node 5 and @astroscope/i18n 4
+
 ## 5.0.0
 
 ### Major Changes

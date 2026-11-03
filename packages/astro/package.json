@@ -1,6 +1,6 @@
 {
   "name": "@contello/astro",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "Astro integration for Contello CMS — assets and routing middlewares, i18n bridge",
   "keywords": [
     "astro",
