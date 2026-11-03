@@ -1,5 +1,11 @@
 # @contello/store
 
+## 4.5.0
+
+### Minor Changes
+
+- 14d3875: route lookups normalize the path the way they are stored
+
 ## 4.4.1
 
 ### Patch Changes
