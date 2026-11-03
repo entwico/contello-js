@@ -15,6 +15,7 @@ export type {
 
 export type { Routes, RoutesOptions, RoutesSync, RoutesSyncOptions } from './routes';
 export type { LazyRoutes, LazyRoutesOptions } from './lazy-routes';
+export { normalizeRoutePath } from './route-path';
 export type { StoreRoute, StoreRouteCustomHeader } from './routes-mapping';
 
 export type { MapperContext } from './dependency-collector';

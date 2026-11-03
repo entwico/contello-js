@@ -121,6 +121,31 @@ describe('eager routes', () => {
     destroy();
   });
 
+  test('a route is found by every spelling of its path', async () => {
+    const { client } = makeClient([[makeRoute('1', '/über-uns'), makeRoute('2', '/magazin/fu%cc%88r')]]);
+    const updates$ = createAsyncIterableSubject<UpdateBatch>();
+
+    const { instance, destroy } = createRoutesCollection(
+      { cache: { ttl: false } },
+      client,
+      updates$,
+      new ModelResolver(undefined),
+      createRefreshByTtlQueue(),
+    );
+
+    await instance.load();
+
+    for (const spelling of ['/über-uns', '/u\u{0308}ber-uns', '/%C3%BCber-uns', '/%c3%bcber-uns']) {
+      expect((instance.getByPath(spelling) as StoreRoute | undefined)?.id, spelling).toBe('1');
+    }
+
+    // a path a core stored before it normalized them is indexed under the normalized form
+    expect((instance.getByPath('/magazin/für') as StoreRoute | undefined)?.id).toBe('2');
+    expect((instance.getByPath(['/%C3%BCber-uns', '/magazin/f%C3%BCr']) as StoreRoute[]).map((r) => r.id)).toEqual(['1', '2']);
+
+    destroy();
+  });
+
   test('getByPath for unknown path returns undefined without hitting the server', async () => {
     const { client, callCount } = makeClient([[makeRoute('1', '/home')]]);
     const updates$ = createAsyncIterableSubject<UpdateBatch>();
@@ -276,6 +301,32 @@ describe('lazy routes', () => {
 
     expect(again).toBeUndefined();
     expect(callCount()).toBe(1);
+
+    destroy();
+  });
+
+  test('every spelling of a path shares one cache entry and one fetch', async () => {
+    const { client, calls, callCount } = makeClient([[makeRoute('1', '/über-uns')]]);
+    const updates$ = createAsyncIterableSubject<UpdateBatch>();
+
+    const { instance, destroy } = createLazyRoutesCollection(undefined, client, updates$, new ModelResolver(undefined));
+
+    const encoded = await Promise.resolve(instance.getByPath('/%C3%BCber-uns'));
+
+    expect((encoded as StoreRoute).id).toBe('1');
+    expect(callCount()).toBe(1);
+    // core is asked for the stored form
+    expect(calls[0]?.vars?.paths).toEqual(['/über-uns']);
+
+    expect((instance.getByPath('/über-uns') as unknown as StoreRoute | undefined)?.id).toBe('1');
+    expect((instance.getByPath('/u\u{0308}ber-uns') as unknown as StoreRoute | undefined)?.id).toBe('1');
+    expect(callCount()).toBe(1);
+
+    // a miss in one spelling is a miss in every spelling
+    expect(await Promise.resolve(instance.getByPath('/%C3%BCbersicht'))).toBeUndefined();
+    expect(callCount()).toBe(2);
+    expect(instance.getByPath('/übersicht')).toBeUndefined();
+    expect(callCount()).toBe(2);
 
     destroy();
   });

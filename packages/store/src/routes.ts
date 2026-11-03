@@ -12,6 +12,7 @@ import { ProjectedMap } from '@entwico/projected';
 
 import { type StoreRouteFragment, schema as storeSchema } from './generated/graphql';
 import type { ModelResolver } from './model-resolver';
+import { normalizeRoutePath } from './route-path';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import { wrap } from './telemetry';
 import type { CacheOptions, CollectionWrites, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
@@ -132,7 +133,7 @@ export function createRoutesCollection(
 
           for (const r of items) {
             pathById.set(r.id, r.path);
-            idByPath.set(r.path, r.id);
+            idByPath.set(normalizeRoutePath(r.path), r.id);
           }
 
           if (!loaded) {
@@ -155,7 +156,7 @@ export function createRoutesCollection(
               continue;
             }
 
-            idByPath.delete(oldPath);
+            idByPath.delete(normalizeRoutePath(oldPath));
             pathById.delete(id);
           }
 
@@ -163,11 +164,11 @@ export function createRoutesCollection(
             const oldPath = pathById.get(r.id);
 
             if (oldPath !== undefined && oldPath !== r.path) {
-              idByPath.delete(oldPath);
+              idByPath.delete(normalizeRoutePath(oldPath));
             }
 
             pathById.set(r.id, r.path);
-            idByPath.set(r.path, r.id);
+            idByPath.set(normalizeRoutePath(r.path), r.id);
           }
         }
 
@@ -242,7 +243,7 @@ export function createRoutesCollection(
         continue;
       }
 
-      idByPath.delete(oldPath);
+      idByPath.delete(normalizeRoutePath(oldPath));
       pathById.delete(id);
     }
 
@@ -263,7 +264,7 @@ export function createRoutesCollection(
 
   function lookupByPathSingle(path: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined> {
     return maybeThen(ensureLoaded(), () => {
-      const id = idByPath.get(path);
+      const id = idByPath.get(normalizeRoutePath(path));
 
       return id === undefined ? undefined : projected.get(id);
     });
@@ -274,7 +275,7 @@ export function createRoutesCollection(
       const ids: string[] = [];
 
       for (const p of paths) {
-        const id = idByPath.get(p);
+        const id = idByPath.get(normalizeRoutePath(p));
 
         if (id !== undefined) {
           ids.push(id);
@@ -355,7 +356,7 @@ export function createRoutesCollection(
       const oldPath = pathById.get(id);
 
       if (oldPath !== undefined) {
-        idByPath.delete(oldPath);
+        idByPath.delete(normalizeRoutePath(oldPath));
         pathById.delete(id);
       }
 

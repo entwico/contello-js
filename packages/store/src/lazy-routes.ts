@@ -5,6 +5,7 @@ import { ProjectedLazyMap } from '@entwico/projected';
 import { type StoreRouteFragment, schema as storeSchema } from './generated/graphql';
 import { type LruCache, createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
+import { normalizeRoutePath } from './route-path';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import { wrap } from './telemetry';
 import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
@@ -69,7 +70,7 @@ function createRoutesCache(max: number, ttl: number | undefined): LruCache<strin
     max,
     ttl,
     onEvict: (route) => {
-      pathToId.delete(route.path);
+      pathToId.delete(normalizeRoutePath(route.path));
       idToPath.delete(route.id);
     },
   });
@@ -98,10 +99,10 @@ function createRoutesCache(max: number, ttl: number | undefined): LruCache<strin
       const previousPath = idToPath.get(value.id);
 
       if (previousPath !== undefined && previousPath !== value.path) {
-        pathToId.delete(previousPath);
+        pathToId.delete(normalizeRoutePath(previousPath));
       }
 
-      pathToId.set(value.path, value.id);
+      pathToId.set(normalizeRoutePath(value.path), value.id);
       idToPath.set(value.id, value.path);
       lru.set(ID_PREFIX + value.id, value);
     },
@@ -111,7 +112,7 @@ function createRoutesCache(max: number, ttl: number | undefined): LruCache<strin
       const value = lru.get(resolved);
 
       if (value) {
-        pathToId.delete(value.path);
+        pathToId.delete(normalizeRoutePath(value.path));
         idToPath.delete(value.id);
       }
 
@@ -176,7 +177,7 @@ export function createLazyRoutesCollection(
         ]);
 
         const byIds = collectRoutes(rawByIds, (r) => ID_PREFIX + r.id, resolver);
-        const byPaths = collectRoutes(rawByPaths, (r) => PATH_PREFIX + r.path, resolver);
+        const byPaths = collectRoutes(rawByPaths, (r) => PATH_PREFIX + normalizeRoutePath(r.path), resolver);
         const found = [...byIds, ...byPaths];
         const foundKeys = new Set(found.map((route) => (route as Record<symbol, string>)[CACHE_KEY]));
 
@@ -231,7 +232,7 @@ export function createLazyRoutesCollection(
         evicted.push(event.id);
       } else {
         negatives.delete(idKey);
-        negatives.delete(PATH_PREFIX + event.after.path);
+        negatives.delete(PATH_PREFIX + normalizeRoutePath(event.after.path));
 
         if (cache.has(idKey)) {
           cache.set(idKey, event.after);
@@ -278,10 +279,10 @@ export function createLazyRoutesCollection(
 
       getByPath(pathOrPaths: string | readonly string[]): any {
         if (Array.isArray(pathOrPaths)) {
-          return lookupMany(pathOrPaths.map((p) => PATH_PREFIX + p));
+          return lookupMany(pathOrPaths.map((p) => PATH_PREFIX + normalizeRoutePath(p)));
         }
 
-        return lookupOne(PATH_PREFIX + pathOrPaths);
+        return lookupOne(PATH_PREFIX + normalizeRoutePath(pathOrPaths as string));
       },
 
       refresh() {
