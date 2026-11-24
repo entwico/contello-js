@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import { type AsyncIterableSubject, createAsyncIterableSubject, retryWithBackoff } from '@entwico/dash/async';
 
 /**
@@ -25,6 +27,37 @@ export function resolveTtl(ttl: number | false | undefined): number | undefined 
 }
 
 /**
+ * Retries the refreshes of one store until they succeed. A source that keeps failing would
+ * otherwise be retried for the life of the process, with the store it belonged to kept in memory:
+ * `stop()` on destroy ends every retry that is still running.
+ */
+export type RefreshRetry = {
+  /** Answers whether `fn` succeeded: `false` once the store was destroyed. */
+  run(fn: () => Promise<unknown>): Promise<boolean>;
+  stop(): void;
+};
+
+export function createRefreshRetry(): RefreshRetry {
+  const controller = new AbortController();
+
+  return {
+    async run(fn) {
+      try {
+        await retryWithBackoff(fn, { signal: controller.signal });
+
+        return true;
+      } catch {
+        // retryWithBackoff gives up only when the signal aborts
+        return false;
+      }
+    },
+    stop() {
+      controller.abort();
+    },
+  };
+}
+
+/**
  * creates a coalescing refresh scheduler with exponential-backoff retry on failure.
  *
  * at most one refresh runs at a time. if a new refresh is requested while one is in-flight,
@@ -32,14 +65,14 @@ export function resolveTtl(ttl: number | false | undefined): number | undefined 
  * scheduleRefresh. once the in-flight refresh completes, at most one queued refresh
  * starts, with that latest kind — collapsing any number of intermediate requests into one.
  *
- * on error, retries indefinitely with exponential backoff. the projected value keeps serving
+ * on error, retries with exponential backoff until `retry` is stopped. the projected value keeps serving
  * the stale cached value throughout (SWR). the `onRefreshed` callback receives the kind that
  * triggered the just-completed refresh.
  */
 export function createRefresher<K>(
   fn: () => Promise<unknown>,
   onRefreshed: (kind: K) => void,
-  onStart: () => void,
+  retry: RefreshRetry,
 ): (kind: K) => void {
   let refreshing = false;
   let inFlightKind: K | undefined;
@@ -54,9 +87,12 @@ export function createRefresher<K>(
 
     refreshing = true;
     inFlightKind = kind;
-    onStart?.();
 
-    void retryWithBackoff(fn).then(() => {
+    void retry.run(fn).then((refreshed) => {
+      if (!refreshed) {
+        return;
+      }
+
       const finished = inFlightKind as K;
 
       refreshing = false;
@@ -114,15 +150,25 @@ export function createRefreshChannel<TEvent>(
 export type TtlOrchestrator = {
   /** start (or restart) the timer. consumers call this on first successful full fetch and after every later one. */
   mark(): void;
-  /** cancel any pending timer; for destroy. */
+  /** cancel any pending timer for good; for destroy. */
   clear(): void;
 };
 
 export function createTtlOrchestrator(options: { ttl: number | undefined; run: () => void }): TtlOrchestrator {
+  // the timer is armed by whoever loads or refreshes the store, often a request. armed inside that
+  // request's async context it would keep the context for as long as the store lives, and run
+  // every later refresh in it
+  const runInOwnContext = AsyncLocalStorage.snapshot();
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let cleared = false;
 
   return {
     mark() {
+      // a refresh that was in flight when the store was destroyed must not arm the timer again
+      if (cleared) {
+        return;
+      }
+
       if (timer !== undefined) {
         clearTimeout(timer);
         timer = undefined;
@@ -132,9 +178,11 @@ export function createTtlOrchestrator(options: { ttl: number | undefined; run: (
         return;
       }
 
-      timer = setTimeout(options.run, options.ttl);
+      timer = runInOwnContext(() => setTimeout(options.run, options.ttl));
     },
     clear() {
+      cleared = true;
+
       if (timer === undefined) {
         return;
       }

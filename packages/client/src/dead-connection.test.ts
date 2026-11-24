@@ -1,9 +1,10 @@
+import { closeTestServers, startProxy } from '@entwico/dash/testing/node';
 import { afterEach, describe, expect, test } from 'vitest';
 
 import { ContelloClient } from './client';
-import { cleanup, connectTo, query, startContello, startProxy, startSilentServer, until } from './test-servers';
+import { connectTo, query, startContello, startSilentServer, until } from './test-servers';
 
-afterEach(cleanup);
+afterEach(closeTestServers);
 
 describe('a connection to a live server', () => {
   test('answers and stays on one socket while pings are answered', async () => {

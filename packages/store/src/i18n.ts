@@ -1,6 +1,6 @@
 import { type ContelloClient, createSourceSubscription } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
 import {
   type ContelloI18nMessageInput,
@@ -15,6 +15,7 @@ import type { RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
 import {
   type RefreshByTtlQueue,
   createRefreshChannel,
+  createRefreshRetry,
   createRefresher,
   createTtlOrchestrator,
   resolveTtl,
@@ -89,6 +90,7 @@ export function createI18nMessagesCollection(
   refreshByTtl: RefreshByTtlQueue,
 ): I18nMessages {
   const channel = createRefreshChannel<RefreshEvent>(def.onRefresh);
+  const retry = createRefreshRetry();
   const ttl = createTtlOrchestrator({ ttl: resolveTtl(def.cache?.ttl), run: () => runTtlRefresh() });
   let loaded = false;
 
@@ -138,7 +140,10 @@ export function createI18nMessagesCollection(
 
   function runTtlRefresh(): void {
     refreshByTtl.enqueue(async () => {
-      await retryWithBackoff(() => projected.refresh());
+      if (!(await retry.run(() => projected.refresh()))) {
+        return;
+      }
+
       emitWithCurrentIds('ttl');
       ttl.mark();
     });
@@ -150,7 +155,7 @@ export function createI18nMessagesCollection(
       emitWithCurrentIds(kind);
       ttl.mark();
     },
-    () => {},
+    retry,
   );
 
   function runPartialRefresh(upsertedIds: string[], deletedIds: string[]): void {
@@ -166,7 +171,7 @@ export function createI18nMessagesCollection(
       return;
     }
 
-    void retryWithBackoff(async () => {
+    void retry.run(async () => {
       await projected.refresh(upsertedIds);
       emit(changedIds, 'upstream-update');
     });
@@ -225,6 +230,7 @@ export function createI18nMessagesCollection(
 
     destroy() {
       unsubUpdates();
+      retry.stop();
       ttl.clear();
       channel.complete();
     },

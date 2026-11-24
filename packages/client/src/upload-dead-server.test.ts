@@ -1,11 +1,12 @@
+import { closeTestServers } from '@entwico/dash/testing/node';
 import { afterEach, describe, expect, test } from 'vitest';
 
-import { cleanup, startSilentServer, startUploadServer, until } from './test-servers';
+import { startSilentServer, startUploadServer, until } from './test-servers';
 import { type UploadData, upload } from './upload';
 
 const timings = { replyTimeout: 300, stallTimeout: 300, heartbeatTimeout: 300 };
 
-afterEach(cleanup);
+afterEach(closeTestServers);
 
 function uploadTo(url: string, data: UploadData, abort?: AbortSignal | undefined): Promise<string> {
   return upload(url, 'test', 'token', data, { name: 'file.bin' }, { chunkSize: 64 * 1024, abort }, timings);

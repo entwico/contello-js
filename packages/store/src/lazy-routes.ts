@@ -9,7 +9,7 @@ import { normalizeRoutePath } from './route-path';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import { wrap } from './telemetry';
 import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
-import { DEFAULT_LRU_MAX, createRefreshChannel, createRefresher, resolveTtl } from './utils';
+import { DEFAULT_LRU_MAX, createRefreshChannel, createRefreshRetry, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type LazyRoutesOptions = {
@@ -200,6 +200,7 @@ export function createLazyRoutesCollection(
 
   let lastRefreshKeys: string[] = [];
 
+  const retry = createRefreshRetry();
   const scheduleRefresh = createRefresher<RefreshKind>(
     async () => {
       lastRefreshKeys = cache.keys();
@@ -218,7 +219,7 @@ export function createLazyRoutesCollection(
         );
       }
     },
-    () => {},
+    retry,
   );
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -297,6 +298,7 @@ export function createLazyRoutesCollection(
     },
     destroy() {
       unsubUpdates();
+      retry.stop();
       channel.complete();
     },
   };

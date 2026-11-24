@@ -19,7 +19,7 @@ import type {
   RefreshEvent,
   RefreshKind,
 } from './types';
-import { DEFAULT_LRU_MAX, createRefresher, resolveTtl } from './utils';
+import { DEFAULT_LRU_MAX, createRefreshRetry, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export function createLazyCollection<
@@ -91,6 +91,7 @@ export function createLazyCollection<
     opts.onRefresh?.(event);
   }
 
+  const retry = createRefreshRetry();
   let lastRefreshKeys: string[] = [];
 
   const scheduleRefresh = createRefresher<RefreshKind>(
@@ -108,7 +109,7 @@ export function createLazyCollection<
         emit(lastRefreshKeys, kind);
       }
     },
-    () => {},
+    retry,
   );
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -159,6 +160,7 @@ export function createLazyCollection<
     },
     destroy() {
       unsubUpdates();
+      retry.stop();
       refresh$.complete();
     },
   };

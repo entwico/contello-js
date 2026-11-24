@@ -13,14 +13,14 @@ import {
   createSourceSubscription,
 } from '@contello/client';
 import type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
 
 import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
 import type { StoreAsset, StoreFile } from './lazy-assets';
 import { wrap } from './telemetry';
 import type { CacheOptions, CollectionWrites, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
-import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
+import { type RefreshByTtlQueue, createRefreshChannel, createRefreshRetry, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 import { createWriteBuffer } from './write-buffer';
 
@@ -92,6 +92,7 @@ export function createAssetsCollection(
   } as const;
 
   const channel = createRefreshChannel<RefreshEvent>(opts.onRefresh);
+  const retry = createRefreshRetry();
   const ttl = createTtlOrchestrator({ ttl: cache.ttl, run: () => runFullRefresh('ttl') });
   let loaded = false;
 
@@ -152,7 +153,7 @@ export function createAssetsCollection(
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(
-      () => retryWithBackoff(async () => {
+      () => retry.run(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -173,7 +174,7 @@ export function createAssetsCollection(
     // upstream is authoritative for these until the refetch lands — no local write may answer it
     const settled = writeBuffer.awaitingUpstream(refreshIds);
 
-    void retryWithBackoff(async () => {
+    void retry.run(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
     }).finally(settled);
@@ -302,6 +303,7 @@ export function createAssetsCollection(
     instance,
     destroy() {
       unsubUpdates();
+      retry.stop();
       ttl.clear();
       channel.complete();
     },

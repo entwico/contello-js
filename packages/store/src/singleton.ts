@@ -1,6 +1,6 @@
 import { type ContelloClient, type SourceDef, createSourceSubscription } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
-import { type AsyncIterableSubject, firstAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { type AsyncIterableSubject, firstAsync, mapAsync } from '@entwico/dash/async';
 import { ProjectedValue } from '@entwico/projected';
 import { DependencyCollector } from './dependency-collector';
 import type { ModelResolver } from './model-resolver';
@@ -18,6 +18,7 @@ import type {
 import {
   type RefreshByTtlQueue,
   createRefreshChannel,
+  createRefreshRetry,
   createRefresher,
   createTtlOrchestrator,
   resolveTtl,
@@ -50,6 +51,7 @@ export function createSingleton<
   const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
   const itemKey = `singleton:${_def.name}`;
   const channel = createRefreshChannel<SingletonRefreshEvent>(opts.onRefresh);
+  const retry = createRefreshRetry();
   const ttl = createTtlOrchestrator({ ttl: _def.cache.ttl, run: () => runTtlRefresh() });
   let loaded = false;
 
@@ -89,7 +91,10 @@ export function createSingleton<
 
   function runTtlRefresh(): void {
     refreshByTtl.enqueue(async () => {
-      await retryWithBackoff(() => projected.refresh());
+      if (!(await retry.run(() => projected.refresh()))) {
+        return;
+      }
+
       emit('ttl');
       ttl.mark();
     });
@@ -101,7 +106,7 @@ export function createSingleton<
       emit(kind);
       ttl.mark();
     },
-    () => {},
+    retry,
   );
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -147,6 +152,7 @@ export function createSingleton<
     },
     destroy() {
       unsubUpdates();
+      retry.stop();
       ttl.clear();
       channel.complete();
     },

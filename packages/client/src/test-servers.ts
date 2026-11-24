@@ -1,7 +1,14 @@
 import { createHash } from 'node:crypto';
 import { createServer as createHttpServer } from 'node:http';
-import { type AddressInfo, type Server, type Socket, connect, createServer } from 'node:net';
+import type { AddressInfo, Socket } from 'node:net';
 
+import {
+  type TrackedSockets,
+  listenLocally,
+  onCloseTestServers,
+  startSilentServer as startSilentTcpServer,
+  trackSockets,
+} from '@entwico/dash/testing/node';
 import type { Client } from 'graphql-ws';
 import { useServer as serveGraphql } from 'graphql-ws/use/ws';
 import { WebSocketServer } from 'ws';
@@ -9,21 +16,6 @@ import { WebSocketServer } from 'ws';
 import { createConnection } from './connection';
 
 // servers and network paths that stop answering, for the tests that need real sockets
-
-const cleanups: (() => unknown)[] = [];
-
-/** Ends everything the helpers of this module started; a test file registers it as its `afterEach`. */
-export async function cleanup(): Promise<void> {
-  const pending = cleanups.splice(0).toReversed();
-
-  for (const cleanup of pending) {
-    try {
-      await cleanup();
-    } catch {
-      // a connection attempt that was still pending fails once its server is gone
-    }
-  }
-}
 
 export async function until(condition: () => boolean, timeout = 5000): Promise<void> {
   const deadline = Date.now() + timeout;
@@ -35,37 +27,6 @@ export async function until(condition: () => boolean, timeout = 5000): Promise<v
 
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
-}
-
-function listen(server: Server): Promise<number> {
-  return new Promise((resolve) => {
-    server.listen(0, '127.0.0.1', () => resolve((server.address() as AddressInfo).port));
-  });
-}
-
-/** Counts the tcp connections a server holds, so a test can tell an abandoned socket from a closed one. */
-type Tracked = { open: () => number; accepted: () => number };
-
-function trackSockets(server: Server): Tracked {
-  const sockets = new Set<Socket>();
-  let accepted = 0;
-
-  server.on('connection', (socket) => {
-    accepted++;
-    sockets.add(socket);
-    socket.on('error', () => {});
-    socket.on('close', () => sockets.delete(socket));
-  });
-
-  cleanups.push(() => {
-    for (const socket of sockets) {
-      socket.destroy();
-    }
-
-    server.close();
-  });
-
-  return { open: () => sockets.size, accepted: () => accepted };
 }
 
 export type Contello = { port: number; slowCalls: () => number; releaseSlow: () => void };
@@ -106,98 +67,12 @@ export async function startContello(): Promise<Contello> {
 
   await new Promise((resolve) => wss.once('listening', resolve));
 
-  cleanups.push(async () => {
+  onCloseTestServers(async () => {
     releaseSlow();
     await server.dispose();
   });
 
   return { port: (wss.address() as AddressInfo).port, slowCalls: () => slowCalls, releaseSlow };
-}
-
-type Link = 'pass' | 'swallow' | 'stall';
-
-export type Proxy = {
-  port: number;
-  open: () => number;
-  accepted: () => number;
-  /** What happens to the connections that exist now; later ones pass again. */
-  kill(mode: Exclude<Link, 'pass'>): void;
-  /** Reads the stalled connections again, still carrying nothing: a socket that is not read cannot see its end. */
-  readStalled(): void;
-};
-
-/**
- * A tcp hop in front of a server that can stop carrying a connection without closing it, the way a
- * dead peer or a broken network path looks from the client: `swallow` reads and drops both
- * directions, `stall` stops reading, so the client's writes back up.
- */
-export async function startProxy(targetPort: number): Promise<Proxy> {
-  const links: { mode: Link; client: Socket; upstream: Socket }[] = [];
-
-  const server = createServer((client) => {
-    const upstream = connect(targetPort, '127.0.0.1');
-    const link = { mode: 'pass' as Link, client, upstream };
-
-    links.push(link);
-    upstream.on('error', () => {});
-    cleanups.push(() => upstream.destroy());
-
-    client.on('data', (chunk) => {
-      if (link.mode === 'pass') {
-        upstream.write(chunk);
-      }
-    });
-
-    upstream.on('data', (chunk) => {
-      if (link.mode === 'pass') {
-        client.write(chunk);
-      }
-    });
-
-    upstream.on('close', () => {
-      if (link.mode === 'pass') {
-        client.destroy();
-      }
-    });
-
-    client.on('close', () => upstream.destroy());
-  });
-
-  const tracked = trackSockets(server);
-
-  return {
-    port: await listen(server),
-    ...tracked,
-
-    kill(mode) {
-      for (const link of links) {
-        if (link.mode !== 'pass') {
-          continue;
-        }
-
-        link.mode = mode;
-
-        if (mode !== 'stall') {
-          continue;
-        }
-
-        link.client.pause();
-        link.upstream.pause();
-      }
-    },
-
-    readStalled() {
-      for (const link of links) {
-        if (link.mode !== 'stall') {
-          continue;
-        }
-
-        link.mode = 'swallow';
-        link.client.resume();
-        link.upstream.resume();
-      }
-    },
-  };
 }
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -211,16 +86,21 @@ function encodeTextFrame(text: string): Buffer {
 export type Silence = 'never upgrades' | 'never acknowledges' | 'never answers a ping';
 
 /** A server that takes the tcp connection and stops answering at the given step, without ever closing. */
-export async function startSilentServer(silence: Silence): Promise<Tracked & { port: number }> {
-  const server = createServer((socket) => {
-    socket.once('data', (request) => {
-      if (silence === 'never upgrades') {
-        return;
-      }
+export async function startSilentServer(silence: Silence): Promise<TrackedSockets & { port: number }> {
+  const steps = new WeakMap<Socket, 'upgraded' | 'acknowledged'>();
 
+  return await startSilentTcpServer((socket, request) => {
+    if (silence === 'never upgrades') {
+      return;
+    }
+
+    const step = steps.get(socket);
+
+    if (step === undefined) {
       const key = /sec-websocket-key: (.+)\r\n/i.exec(request.toString())?.[1]?.trim() ?? '';
       const accept = createHash('sha1').update(key + WEBSOCKET_GUID).digest('base64');
 
+      steps.set(socket, 'upgraded');
       socket.write(
         'HTTP/1.1 101 Switching Protocols\r\n' +
         'Upgrade: websocket\r\n' +
@@ -229,22 +109,16 @@ export async function startSilentServer(silence: Silence): Promise<Tracked & { p
         `Sec-WebSocket-Accept: ${accept}\r\n\r\n`,
       );
 
-      let acknowledged = false;
+      return;
+    }
 
-      socket.on('data', () => {
-        if (acknowledged || silence === 'never acknowledges') {
-          return;
-        }
+    if (step === 'acknowledged' || silence === 'never acknowledges') {
+      return;
+    }
 
-        acknowledged = true;
-        socket.write(encodeTextFrame(JSON.stringify({ type: 'connection_ack' })));
-      });
-    });
+    steps.set(socket, 'acknowledged');
+    socket.write(encodeTextFrame(JSON.stringify({ type: 'connection_ack' })));
   });
-
-  const tracked = trackSockets(server);
-
-  return { port: await listen(server), ...tracked };
 }
 
 export type Watched = { client: Client; events: string[]; count: (event: string) => number };
@@ -264,7 +138,7 @@ export function connectTo(port: number): Watched {
     onClosed: () => void events.push('closed'),
   });
 
-  cleanups.push(() => client.dispose());
+  onCloseTestServers(() => client.dispose());
 
   return { client, events, count: (event) => events.filter((it) => it === event).length };
 }
@@ -297,7 +171,7 @@ export type UploadBehaviour =
   | 'refuses the file'
   | 'answers no json';
 
-export type UploadServer = Tracked & {
+export type UploadServer = TrackedSockets & {
   url: string;
   bytesReceived: () => number;
   largestMessage: () => number;
@@ -328,7 +202,7 @@ export async function startUploadServer(
     pings.clear();
   };
 
-  cleanups.push(stopPinging);
+  onCloseTestServers(stopPinging);
 
   wss.on('connection', (socket, request) => {
     if (options?.pings !== false) {
@@ -416,7 +290,7 @@ export async function startUploadServer(
     });
   });
 
-  const port = await listen(server);
+  const port = await listenLocally(server);
 
   return {
     ...tracked,

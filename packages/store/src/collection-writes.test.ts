@@ -1,4 +1,5 @@
 import type { ContelloClient, SourceDef } from '@contello/client';
+import { createFakeContelloClient } from '@contello/client/testing';
 import { createAsyncIterableSubject } from '@entwico/dash/async';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -91,34 +92,29 @@ function makeClient(initial: Item[], options?: ClientOptions) {
     return { id };
   }
 
-  const client = {
-    subscribe<T>(_query: string, variables?: Record<string, unknown> | undefined): AsyncIterable<T> {
+  const { client } = createFakeContelloClient({
+    async subscribe(_query, variables) {
       const ids = variables?.['ids'] as string[] | undefined;
 
       fetched.push(ids);
+      await options?.holdFetch?.(ids);
 
-      return {
-        async* [Symbol.asyncIterator]() {
-          await options?.holdFetch?.(ids);
+      const items = ids
+        ? ids.flatMap((id) => (state.has(id) ? [state.get(id)!] : []))
+        : state.values().toArray();
 
-          const items = ids
-            ? ids.flatMap((id) => (state.has(id) ? [state.get(id)!] : []))
-            : state.values().toArray();
-
-          yield { source: items } as T;
-        },
-      };
+      return { source: items };
     },
 
-    async execute<T>(query: string, variables?: Record<string, unknown> | undefined): Promise<T> {
+    execute(query, variables) {
       const vars = variables ?? {};
       const field = /result: (\w+)\(/.exec(query)![1]!;
 
       mutations.push({ field, variables: vars });
 
-      return { result: applyMutation(query, vars) } as T;
+      return { result: applyMutation(query, vars) };
     },
-  } as unknown as ContelloClient<any>;
+  });
 
   return { client, mutations, fetched, state };
 }

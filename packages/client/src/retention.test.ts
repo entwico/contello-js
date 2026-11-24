@@ -1,68 +1,16 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-
+import { countAlive } from '@entwico/dash/testing';
+import { closeTestServers, runInContexts, startProxy } from '@entwico/dash/testing/node';
 import { afterEach, describe, expect, test } from 'vitest';
 
 import { ContelloClient } from './client';
 import { createConnection } from './connection';
-import {
-  cleanup,
-  connectTo,
-  query,
-  startContello,
-  startProxy,
-  startSilentServer,
-  startUploadServer,
-  until,
-} from './test-servers';
+import { connectTo, query, startContello, startSilentServer, startUploadServer, until } from './test-servers';
 import { upload } from './upload';
 
 // what must not stay in memory once it is done: a connection lives for the life of the process and
 // carries every operation, so whatever it keeps of one operation, it keeps of all of them
 
-function collectGarbage(): void {
-  const { gc } = globalThis;
-
-  // skipping would hide every leak these tests exist for
-  if (!gc) {
-    throw new Error('gc() is missing: the unit project of vitest.config.ts has to run with --expose-gc');
-  }
-
-  void gc();
-}
-
-/** How many of the referenced objects survive garbage collection. */
-async function countAlive(refs: readonly WeakRef<object>[]): Promise<number> {
-  let alive = refs.length;
-
-  for (let round = 0; round < 30 && alive > 0; round++) {
-    // lets finished promise chains and socket callbacks settle before the next collection
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    collectGarbage();
-    alive = refs.filter((ref) => ref.deref() !== undefined).length;
-  }
-
-  return alive;
-}
-
-type RequestContext = { id: number; payload: number[] };
-
-const requestContext = new AsyncLocalStorage<RequestContext>();
-
-/** Runs `operation` the way a request handler does: inside an async context of its own. */
-async function runInContexts(count: number, operation: () => Promise<unknown>): Promise<WeakRef<object>[]> {
-  const refs: WeakRef<object>[] = [];
-
-  for (let id = 0; id < count; id++) {
-    const context: RequestContext = { id, payload: Array.from({ length: 1000 }, () => id) };
-
-    refs.push(new WeakRef(context));
-    await requestContext.run(context, operation);
-  }
-
-  return refs;
-}
-
-afterEach(cleanup);
+afterEach(closeTestServers);
 
 describe('a connection that stays open', () => {
   test('keeps nothing of an operation that finished', async () => {

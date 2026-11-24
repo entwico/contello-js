@@ -1,4 +1,5 @@
 import type { ContelloClient, SourceDef } from '@contello/client';
+import { createFakeContelloClient } from '@contello/client/testing';
 import { createAsyncIterableSubject } from '@entwico/dash/async';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -24,34 +25,15 @@ function makeClient(itemsByCall: Item[][]): {
 } {
   let callIndex = 0;
 
-  const client = {
-    subscribe<T>(_query: string, _variables?: Record<string, unknown> | undefined): AsyncIterable<T> {
+  const { client } = createFakeContelloClient({
+    subscribe() {
       const items = itemsByCall[callIndex] ?? itemsByCall.at(-1)!;
 
       callIndex += 1;
 
-      return {
-        [Symbol.asyncIterator](): AsyncIterator<T> {
-          let yielded = false;
-
-          return {
-            async next(): Promise<IteratorResult<T>> {
-              if (yielded) {
-                return { value: undefined as unknown as T, done: true };
-              }
-
-              yielded = true;
-
-              return { value: { source: items } as unknown as T, done: false };
-            },
-            async return(): Promise<IteratorResult<T>> {
-              return { value: undefined as unknown as T, done: true };
-            },
-          };
-        },
-      };
+      return { source: items };
     },
-  } as unknown as ContelloClient<any>;
+  });
 
   return { client, callCount: () => callIndex };
 }

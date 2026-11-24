@@ -1,4 +1,5 @@
 import type { ContelloClient } from '@contello/client';
+import { createFakeContelloClient } from '@contello/client/testing';
 import { createAsyncIterableSubject } from '@entwico/dash/async';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -30,36 +31,15 @@ function makeClient(store: RawAsset[]): {
 } {
   const calls: SubscribeCall[] = [];
 
-  const client = {
-    subscribe<T>(_query: string, vars?: Record<string, unknown> | undefined): AsyncIterable<T> {
+  const { client } = createFakeContelloClient({
+    subscribe(_query, vars) {
       const ids = vars?.['ids'] as string[] | undefined;
 
       calls.push({ ids });
 
-      const filtered = ids ? store.filter((a) => ids.includes(a.id)) : store;
-
-      return {
-        [Symbol.asyncIterator](): AsyncIterator<T> {
-          let yielded = false;
-
-          return {
-            async next(): Promise<IteratorResult<T>> {
-              if (yielded) {
-                return { value: undefined as unknown as T, done: true };
-              }
-
-              yielded = true;
-
-              return { value: { source: filtered } as unknown as T, done: false };
-            },
-            async return(): Promise<IteratorResult<T>> {
-              return { value: undefined as unknown as T, done: true };
-            },
-          };
-        },
-      };
+      return { source: ids ? store.filter((a) => ids.includes(a.id)) : store };
     },
-  } as unknown as ContelloClient<any>;
+  });
 
   return { client, calls };
 }

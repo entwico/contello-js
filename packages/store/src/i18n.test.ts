@@ -1,4 +1,5 @@
 import type { ContelloClient } from '@contello/client';
+import { createFakeContelloClient } from '@contello/client/testing';
 import { createAsyncIterableSubject } from '@entwico/dash/async';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -14,34 +15,15 @@ function makeClient(messagesByCall: RawMessage[][]): {
 } {
   let callIndex = 0;
 
-  const client = {
-    subscribe<T>(_query: string, _variables?: Record<string, unknown> | undefined): AsyncIterable<T> {
+  const { client } = createFakeContelloClient({
+    subscribe() {
       const msgs = messagesByCall[callIndex] ?? messagesByCall.at(-1)!;
 
       callIndex += 1;
 
-      return {
-        [Symbol.asyncIterator](): AsyncIterator<T> {
-          let yielded = false;
-
-          return {
-            async next(): Promise<IteratorResult<T>> {
-              if (yielded) {
-                return { value: undefined as unknown as T, done: true };
-              }
-
-              yielded = true;
-
-              return { value: { source: msgs } as unknown as T, done: false };
-            },
-            async return(): Promise<IteratorResult<T>> {
-              return { value: undefined as unknown as T, done: true };
-            },
-          };
-        },
-      };
+      return { source: msgs };
     },
-  } as unknown as ContelloClient<any>;
+  });
 
   return { client, callCount: () => callIndex };
 }
@@ -125,8 +107,8 @@ describe('i18n refresh-by-ttl', () => {
 
     const calls: (string[] | undefined)[] = [];
 
-    const client = {
-      subscribe<T>(_query: string, vars?: Record<string, unknown> | undefined): AsyncIterable<T> {
+    const { client } = createFakeContelloClient({
+      subscribe(_query, vars) {
         const ids = vars?.['ids'] as string[] | undefined;
 
         calls.push(ids ? [...ids] : undefined);
@@ -135,25 +117,9 @@ describe('i18n refresh-by-ttl', () => {
           ? initialMsgs.filter((m) => ids.includes(m.id)).map((m) => (m.id === '1' ? updatedMsg1 : m))
           : initialMsgs;
 
-        return {
-          [Symbol.asyncIterator](): AsyncIterator<T> {
-            let yielded = false;
-
-            return {
-              async next(): Promise<IteratorResult<T>> {
-                if (yielded) return { value: undefined as unknown as T, done: true };
-                yielded = true;
-
-                return { value: { source: msgs } as unknown as T, done: false };
-              },
-              async return(): Promise<IteratorResult<T>> {
-                return { value: undefined as unknown as T, done: true };
-              },
-            };
-          },
-        };
+        return { source: msgs };
       },
-    } as unknown as ContelloClient<any>;
+    });
 
     const updates$ = createAsyncIterableSubject<UpdateBatch>();
     const onRefresh = vi.fn();

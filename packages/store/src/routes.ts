@@ -7,7 +7,7 @@ import {
   createSourceSubscription,
 } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
 
 import { type StoreRouteFragment, schema as storeSchema } from './generated/graphql';
@@ -16,7 +16,7 @@ import { normalizeRoutePath } from './route-path';
 import { type StoreRoute, mapRoute } from './routes-mapping';
 import { wrap } from './telemetry';
 import type { CacheOptions, CollectionWrites, Created, RefreshEvent, RefreshKind, SyncCacheOptions } from './types';
-import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
+import { type RefreshByTtlQueue, createRefreshChannel, createRefreshRetry, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 import { createWriteBuffer } from './write-buffer';
 
@@ -70,6 +70,7 @@ export function createRoutesCollection(
   } as const;
 
   const channel = createRefreshChannel<RefreshEvent>(opts.onRefresh);
+  const retry = createRefreshRetry();
   const ttl = createTtlOrchestrator({ ttl: cache.ttl, run: () => runFullRefresh('ttl') });
 
   // id ↔ path indexes — kept in sync with `projected` by the values callback.
@@ -182,7 +183,7 @@ export function createRoutesCollection(
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(
-      () => retryWithBackoff(async () => {
+      () => retry.run(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -203,7 +204,7 @@ export function createRoutesCollection(
     // upstream is authoritative for these until the refetch lands — no local write may answer it
     const settled = writeBuffer.awaitingUpstream(refreshIds);
 
-    void retryWithBackoff(async () => {
+    void retry.run(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
     }).finally(settled);
@@ -392,6 +393,7 @@ export function createRoutesCollection(
     instance,
     destroy() {
       unsubUpdates();
+      retry.stop();
       ttl.clear();
       channel.complete();
     },

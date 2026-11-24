@@ -14,7 +14,7 @@ import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema 
 import { createLruCache } from './lru';
 import { wrap } from './telemetry';
 import type { Created, LazyCacheOptions, RefreshEvent, RefreshKind } from './types';
-import { DEFAULT_LRU_MAX, createRefreshChannel, createRefresher, resolveTtl } from './utils';
+import { DEFAULT_LRU_MAX, createRefreshChannel, createRefreshRetry, createRefresher, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 
 export type StoreFileMetadata = {
@@ -105,6 +105,7 @@ export function createLazyAssetsCollection(
 
   let lastRefreshKeys: string[] = [];
 
+  const retry = createRefreshRetry();
   const scheduleRefresh = createRefresher<RefreshKind>(
     async () => {
       lastRefreshKeys = cache.keys();
@@ -120,7 +121,7 @@ export function createLazyAssetsCollection(
         emit(lastRefreshKeys, kind);
       }
     },
-    () => {},
+    retry,
   );
 
   const unsubUpdates = updates$.subscribe((batch) => {
@@ -166,6 +167,7 @@ export function createLazyAssetsCollection(
     },
     destroy() {
       unsubUpdates();
+      retry.stop();
       channel.complete();
     },
   };

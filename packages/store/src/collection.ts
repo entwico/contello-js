@@ -8,7 +8,7 @@ import {
   createSourceSubscription,
 } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeAll, maybeThen } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync, retryWithBackoff } from '@entwico/dash/async';
+import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
 import { DependencyCollector } from './dependency-collector';
 import type { ModelResolver } from './model-resolver';
@@ -25,7 +25,7 @@ import type {
   RefreshEvent,
   RefreshKind,
 } from './types';
-import { type RefreshByTtlQueue, createRefreshChannel, createTtlOrchestrator, resolveTtl } from './utils';
+import { type RefreshByTtlQueue, createRefreshChannel, createRefreshRetry, createTtlOrchestrator, resolveTtl } from './utils';
 import type { UpdateBatch } from './watcher';
 import { createWriteBuffer } from './write-buffer';
 
@@ -100,6 +100,7 @@ export function createCollection<
   };
   const dependencyCollector = new DependencyCollector<string, TModels>(_def.model, resolver);
   const channel = createRefreshChannel<RefreshEvent>(opts.onRefresh);
+  const retry = createRefreshRetry();
   const ttl = createTtlOrchestrator({ ttl: _def.cache.ttl, run: () => runFullRefresh('ttl') });
   let loaded = false;
 
@@ -175,7 +176,7 @@ export function createCollection<
 
   function runFullRefresh(kind: RefreshKind): void {
     refreshByTtl.enqueue(
-      () => retryWithBackoff(async () => {
+      () => retry.run(async () => {
         const map = await projected.refresh();
 
         emit(map.keys().toArray(), kind);
@@ -196,7 +197,7 @@ export function createCollection<
     // upstream is authoritative for these until the refetch lands — no local write may answer it
     const settled = writeBuffer.awaitingUpstream(refreshIds);
 
-    void retryWithBackoff(async () => {
+    void retry.run(async () => {
       await projected.refresh(refreshIds);
       emit(changedIds, 'upstream-update');
     }).finally(settled);
@@ -345,6 +346,7 @@ export function createCollection<
     instance,
     destroy() {
       unsubUpdates();
+      retry.stop();
       ttl.clear();
       channel.complete();
     },
