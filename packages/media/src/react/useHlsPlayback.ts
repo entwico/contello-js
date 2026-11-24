@@ -1,4 +1,12 @@
-import { type RefObject, useEffect } from 'react';
+import type { HlsConfig } from 'hls.js';
+import { type RefObject, useEffect, useRef } from 'react';
+
+/** hls.js settings, merged over the defaults of the hook */
+export type HlsPlaybackConfig = Partial<HlsConfig>;
+
+// the bandwidth test downloads the first fragment only to measure speed and discards it,
+// so a start on the lowest level requests the init segment and first fragment twice
+const DEFAULT_CONFIG: HlsPlaybackConfig = { capLevelToPlayerSize: true, testBandwidth: false };
 
 /**
  * attaches an HLS source (`.m3u8`) to a `<video>` element, preferring native
@@ -7,8 +15,22 @@ import { type RefObject, useEffect } from 'react';
  *
  * intended for building custom video UIs around contello's HLS delivery without
  * inheriting the `<Video>` component's layout opinions.
+ *
+ * `config` overrides the hls.js defaults of the hook (level capped to the player
+ * size, no start-up bandwidth test). it is read when the player is created — a
+ * later change does not recreate the player.
  */
-export function useHlsPlayback(ref: RefObject<HTMLVideoElement | null>, url: string): void {
+export function useHlsPlayback(
+  ref: RefObject<HTMLVideoElement | null>,
+  url: string,
+  config?: HlsPlaybackConfig | undefined,
+): void {
+  const configRef = useRef(config);
+
+  useEffect(() => {
+    configRef.current = config;
+  });
+
   useEffect(() => {
     let cancelled = false;
     let hlsInstance: { destroy(): void } | undefined;
@@ -32,7 +54,7 @@ export function useHlsPlayback(ref: RefObject<HTMLVideoElement | null>, url: str
         return;
       }
 
-      const hls = new Hls();
+      const hls = new Hls({ ...DEFAULT_CONFIG, ...configRef.current });
 
       hls.loadSource(url);
       hls.attachMedia(videoElement);

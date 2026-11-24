@@ -1,6 +1,6 @@
 import { type ComponentPropsWithRef, useCallback, useRef } from 'react';
 
-import { useHlsPlayback } from './useHlsPlayback';
+import { type HlsPlaybackConfig, useHlsPlayback } from './useHlsPlayback';
 
 type VideoSpread = Omit<ComponentPropsWithRef<'video'>, 'src' | 'poster'>;
 
@@ -9,6 +9,8 @@ export type VideoProps = {
   src: string;
   /** pre-resolved poster URL — obtain via `mediaResolver.image.url(source, 'videoPoster')` */
   poster: string;
+  /** hls.js settings merged over the defaults; read when the player is created */
+  hlsConfig?: HlsPlaybackConfig | undefined;
 } & VideoSpread;
 
 /**
@@ -23,11 +25,11 @@ export type VideoProps = {
  * mapping layer.
  */
 export function Video(props: VideoProps) {
-  const { src, poster, children, ref: forwardedRef, ...rest } = props;
+  const { src, poster, hlsConfig, children, ref: forwardedRef, ...rest } = props;
 
   const internalRef = useRef<HTMLVideoElement | null>(null);
 
-  useHlsPlayback(internalRef, src);
+  useHlsPlayback(internalRef, src, hlsConfig);
 
   const setRef = useCallback(
     (el: HTMLVideoElement | null) => {

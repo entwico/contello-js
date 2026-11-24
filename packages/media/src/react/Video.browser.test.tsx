@@ -4,9 +4,10 @@ import { type Root, createRoot } from 'react-dom/client';
 import { type MockInstance, afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { Video } from './Video';
-import { useHlsPlayback } from './useHlsPlayback';
+import { type HlsPlaybackConfig, useHlsPlayback } from './useHlsPlayback';
 
 const hls = vi.hoisted(() => ({
+  create: vi.fn(),
   loadSource: vi.fn(),
   attachMedia: vi.fn(),
   destroy: vi.fn(),
@@ -17,6 +18,10 @@ vi.mock('hls.js', () => {
   class Hls {
     static isSupported() {
       return hls.isSupported();
+    }
+
+    constructor(config?: Record<string, unknown>) {
+      hls.create(config);
     }
 
     loadSource(url: string) {
@@ -56,10 +61,10 @@ function mount(node: ReactNode) {
   return container;
 }
 
-function Harness({ url }: { url: string }) {
+function Harness({ url, config }: { url: string; config?: HlsPlaybackConfig | undefined }) {
   const ref = useRef<HTMLVideoElement | null>(null);
 
-  useHlsPlayback(ref, url);
+  useHlsPlayback(ref, url, config);
 
   // eslint-disable-next-line jsx-a11y/media-has-caption -- bare element under test, no captions needed
   return <video ref={ref} />;
@@ -67,6 +72,7 @@ function Harness({ url }: { url: string }) {
 
 beforeEach(() => {
   canPlayType = vi.spyOn(HTMLVideoElement.prototype, 'canPlayType');
+  hls.create.mockClear();
   hls.loadSource.mockClear();
   hls.attachMedia.mockClear();
   hls.destroy.mockClear();
@@ -96,6 +102,17 @@ describe('Video', () => {
     expect(hls.loadSource).toHaveBeenCalledWith(MANIFEST);
     expect(hls.attachMedia).toHaveBeenCalledWith(video);
     expect(video.poster).toContain('poster.jpg');
+  });
+
+  test('passes hlsConfig to hls.js and keeps it off the <video>', async () => {
+    canPlayType.mockReturnValue('');
+
+    const container = mount(<Video src={MANIFEST} poster={POSTER} hlsConfig={{ testBandwidth: true }} />);
+
+    await vi.waitFor(() => expect(hls.create).toHaveBeenCalledTimes(1));
+
+    expect(hls.create).toHaveBeenCalledWith({ capLevelToPlayerSize: true, testBandwidth: true });
+    expect(container.querySelector('video')!.getAttributeNames()).toEqual(['poster']);
   });
 
   test('destroys the hls.js instance on unmount', async () => {
@@ -179,5 +196,25 @@ describe('useHlsPlayback', () => {
     mount(<Harness url={MANIFEST} />);
 
     await vi.waitFor(() => expect(hls.loadSource).toHaveBeenCalledWith(MANIFEST));
+  });
+
+  test('caps the level to the player size and skips the bandwidth test', async () => {
+    canPlayType.mockReturnValue('');
+
+    mount(<Harness url={MANIFEST} />);
+
+    await vi.waitFor(() => expect(hls.create).toHaveBeenCalledTimes(1));
+
+    expect(hls.create).toHaveBeenCalledWith({ capLevelToPlayerSize: true, testBandwidth: false });
+  });
+
+  test('merges the given config over the defaults', async () => {
+    canPlayType.mockReturnValue('');
+
+    mount(<Harness url={MANIFEST} config={{ capLevelToPlayerSize: false, startLevel: 2 }} />);
+
+    await vi.waitFor(() => expect(hls.create).toHaveBeenCalledTimes(1));
+
+    expect(hls.create).toHaveBeenCalledWith({ capLevelToPlayerSize: false, testBandwidth: false, startLevel: 2 });
   });
 });
