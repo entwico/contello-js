@@ -1,5 +1,11 @@
 # @contello/extension
 
+## 8.22.1
+
+### Patch Changes
+
+- 5d9dd09: no changes, released to verify the publish workflow
+
 ## 8.22.0
 
 ### Minor Changes
