@@ -1,5 +1,11 @@
 # @contello/media
 
+## 2.3.0
+
+### Minor Changes
+
+- 36ee27f: cap hls.js quality to the player size, add `hlsConfig` overrides
+
 ## 2.2.3
 
 ### Patch Changes
