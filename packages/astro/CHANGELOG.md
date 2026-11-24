@@ -1,5 +1,13 @@
 # @contello/astro
 
+## 6.0.1
+
+### Patch Changes
+
+- 563929b: require @entwico/dash 1.4
+- Updated dependencies [563929b]
+  - @contello/opentelemetry@2.1.3
+
 ## 6.0.0
 
 ### Major Changes

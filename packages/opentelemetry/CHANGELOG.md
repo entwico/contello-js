@@ -1,5 +1,11 @@
 # @contello/opentelemetry
 
+## 2.1.3
+
+### Patch Changes
+
+- 563929b: require @entwico/dash 1.4
+
 ## 2.1.2
 
 ### Patch Changes

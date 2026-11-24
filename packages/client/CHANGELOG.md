@@ -1,5 +1,18 @@
 # @contello/client
 
+## 3.5.0
+
+### Minor Changes
+
+- 563929b: add `@contello/client/testing` with a fake client for tests
+
+### Patch Changes
+
+- 563929b: require @entwico/dash 1.4
+- 48f61a5: survive a server that stops answering
+- Updated dependencies [563929b]
+  - @contello/opentelemetry@2.1.3
+
 ## 3.4.1
 
 ### Patch Changes

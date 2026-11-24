@@ -1,5 +1,15 @@
 # @contello/store
 
+## 4.5.1
+
+### Patch Changes
+
+- 563929b: stop the ttl refresh timer from keeping the request that loaded the store
+- 563929b: require @entwico/dash 1.4
+- 563929b: stop retrying refreshes once the store is destroyed
+- Updated dependencies [563929b]
+  - @contello/opentelemetry@2.1.3
+
 ## 4.5.0
 
 ### Minor Changes
