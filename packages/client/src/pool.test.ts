@@ -132,6 +132,42 @@ describe('ConnectionPool', () => {
     expect(b.dispose as Mock).toHaveBeenCalledTimes(1);
   });
 
+  test('disconnect gives up a client that never connected instead of waiting for it', async () => {
+    const connected = createMockClient();
+    const pending = createMockClient();
+    const clients = [connected, pending];
+    let index = 0;
+    const pool = new ConnectionPool(() => clients[index++]!, 2, 10);
+
+    const connectPromise = pool.connect();
+
+    connected._emit('connected', null, undefined, false);
+
+    await connectPromise;
+    await pool.disconnect();
+
+    expect(connected.terminate as Mock).not.toHaveBeenCalled();
+    expect(pending.terminate as Mock).toHaveBeenCalledOnce();
+  });
+
+  test('disconnect survives a dispose that rejects', async () => {
+    const client = createMockClient();
+
+    (client.dispose as Mock).mockImplementation(() => {
+      queueMicrotask(() => client._emit('closed', null));
+
+      return Promise.reject(new Error('pending connection attempt failed'));
+    });
+
+    const pool = new ConnectionPool(() => client, 1);
+    const connectPromise = pool.connect();
+
+    client._emit('connected', null, undefined, false);
+
+    await connectPromise;
+    await expect(pool.disconnect()).resolves.toBeUndefined();
+  });
+
   test('throws after disconnect', async () => {
     const client = createMockClient();
     const pool = new ConnectionPool(() => client, 1);

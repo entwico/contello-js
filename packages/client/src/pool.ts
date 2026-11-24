@@ -87,14 +87,19 @@ export class ConnectionPool {
 
   async disconnect() {
     const closed = this._clients.map(
-      (client) =>
+      (client, index) =>
         new Promise<void>((resolve) => {
           const unsubscribe = client.on('closed', () => {
             unsubscribe();
             resolve();
           });
 
-          client.dispose();
+          void Promise.resolve(client.dispose()).catch(() => {});
+
+          // nothing to close gracefully: dispose would wait for the attempt that is still running
+          if (this._connected[index] !== true) {
+            client.terminate();
+          }
         }),
     );
 

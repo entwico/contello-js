@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { upload } from './upload';
 
@@ -30,6 +30,8 @@ class FakeWebSocket {
 
   removeEventListener(): void {}
 
+  on(): void {}
+
   send(data: unknown): void {
     this.sent.push(data);
   }
@@ -37,6 +39,10 @@ class FakeWebSocket {
   close(): void {
     this.closed = true;
     queueMicrotask(() => this.emit('close', {}));
+  }
+
+  terminate(): void {
+    this.close();
   }
 
   emit(type: string, event: { data?: unknown }): void {
@@ -48,13 +54,10 @@ class FakeWebSocket {
   }
 }
 
+vi.mock('./websocket', () => ({ createWebSocketClass: () => FakeWebSocket }));
+
 beforeEach(() => {
   FakeWebSocket.instances = [];
-  vi.stubGlobal('WebSocket', FakeWebSocket);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
 });
 
 function only(): FakeWebSocket {

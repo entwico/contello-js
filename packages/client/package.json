@@ -21,7 +21,8 @@
     "@entwico/dash": "^1.3.0",
     "graphql": "^17.0.2",
     "graphql-ws": "^6.4.1",
-    "undici": "^8.12.3"
+    "undici": "^8.12.3",
+    "ws": "^8.22.1"
   },
   "bin": {
     "contello-client": "./dist/cli.js"
@@ -42,5 +43,8 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2"
   }
 }

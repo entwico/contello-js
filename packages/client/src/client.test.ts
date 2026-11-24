@@ -24,6 +24,7 @@ vi.mock('graphql-ws', () => ({
       return () => {};
     },
     dispose: () => {},
+    terminate: () => {},
   }),
 }));
 

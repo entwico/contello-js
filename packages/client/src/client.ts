@@ -1,8 +1,8 @@
-import { graphqlOperationAttributes, injectTraceContext } from '@contello/opentelemetry';
-import { exponentialBackoff, firstAsync } from '@entwico/dash/async';
-import { createClient } from 'graphql-ws';
+import { graphqlOperationAttributes } from '@contello/opentelemetry';
+import { firstAsync } from '@entwico/dash/async';
 import type { Agent } from 'undici';
 
+import { createConnection } from './connection';
 import {
   type DownloadResult,
   type HttpAgentOptions,
@@ -98,42 +98,25 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
 
     this._pool = new ConnectionPool((id: string) => {
       const context: ConnectionContext = Object.freeze({ connectionId: id, websocketUrl });
-
-      return createClient({
+      return createConnection({
         url: websocketUrl,
-        connectionParams: { token },
-        lazy: false,
-        keepAlive: 30_000,
-        retryAttempts: Infinity,
-        retryWait: exponentialBackoff,
-        shouldRetry: () => true,
-        jsonMessageReplacer: (key, value) => {
-          if (!key) {
-            return injectTraceContext(value);
-          }
-
-          return value;
+        token,
+        onFatalError: options.onError,
+        onConnecting: () => connectionEvents?.onConnecting?.(context),
+        onConnected: () => {
+          onConnectionUp();
+          connectionEvents?.onConnected?.(context);
         },
-        ...(options.onError && { onNonLazyError: (e) => options.onError!(e) }),
-        on: {
-          connected: () => {
-            onConnectionUp();
-            connectionEvents?.onConnected?.(context);
-          },
-          connecting: () => {
-            connectionEvents?.onConnecting?.(context);
-          },
-          closed: () => {
-            onConnectionDown();
-            connectionEvents?.onClosed?.(context);
-          },
-          ...((options.onError || connectionEvents?.onError) && {
-            error: (e) => {
-              options.onError?.(e);
-              connectionEvents?.onError?.(context, e);
-            },
-          }),
+        onClosed: () => {
+          onConnectionDown();
+          connectionEvents?.onClosed?.(context);
         },
+        ...((options.onError || connectionEvents?.onError) && {
+          onError: (e: unknown) => {
+            options.onError?.(e);
+            connectionEvents?.onError?.(context, e);
+          },
+        }),
       });
     }, connections);
 

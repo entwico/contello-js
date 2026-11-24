@@ -22,6 +22,8 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
+          // gc() for the tests of what stays in memory
+          execArgv: ['--expose-gc'],
           include: ['packages/*/src/**/*.test.{ts,tsx}'],
           exclude: [...configDefaults.exclude, '**/*.browser.test.*'],
         },
