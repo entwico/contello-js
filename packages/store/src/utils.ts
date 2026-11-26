@@ -15,10 +15,6 @@ export const DEFAULT_TTL_MS = 3 * 60 * 60 * 1000;
  */
 export const DEFAULT_LRU_MAX = 1000;
 
-/**
- * resolves the consumer-supplied `ttl` (number | false | undefined) into a runtime
- * value: undefined → default, false or 0 → disabled (undefined), positive → as-is.
- */
 export function resolveTtl(ttl: number | false | undefined): number | undefined {
   if (ttl === undefined) return DEFAULT_TTL_MS;
   if (ttl === false || ttl <= 0) return undefined;

@@ -11,7 +11,7 @@ function decodeRun(run: string): string {
   try {
     decoded = decodeURIComponent(run);
   } catch {
-    // a broken sequence is kept as it is
+    // a broken sequence is kept, only its hex digits upper-cased
     return run.toUpperCase();
   }
 

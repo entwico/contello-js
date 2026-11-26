@@ -17,19 +17,12 @@ const FLAT_PREFIX = '_flat_';
 const FLAT_COMPONENT_TYPE = 'ContelloFlatComponent';
 const COMPONENT_UNION = 'ContelloComponent';
 
-/**
- * checks if a schema type (unwrapped from list/non-null) is the ContelloComponent union.
- */
 function isComponentUnion(schema: GraphQLSchema, typeName: string): boolean {
   const type = schema.getType(typeName);
 
   return !!type && isUnionType(type) && type.name === COMPONENT_UNION;
 }
 
-/**
- * checks if a named object type is a member of the ContelloComponent union
- * (i.e. a concrete component type like `TextComponent`, `SectionComponent`, `ContelloFlatComponent`).
- */
 function isComponentSubtype(schema: GraphQLSchema, typeName: string): boolean {
   const union = schema.getType(COMPONENT_UNION);
 
@@ -40,9 +33,6 @@ function isComponentSubtype(schema: GraphQLSchema, typeName: string): boolean {
   return union.getTypes().some((t) => t.name === typeName);
 }
 
-/**
- * unwraps NonNull and List wrappers to get the named type.
- */
 function getNamedTypeName(type: any): string | undefined {
   let current = type;
 
@@ -71,20 +61,12 @@ const FLAT_REF_ONLY_SELECTIONS: SelectionSetNode = parse(
   `{ ... on ${FLAT_COMPONENT_TYPE} { _flatId } }`,
 ).definitions.flatMap((d) => ('selectionSet' in d ? [d.selectionSet] : []))[0]!;
 
-/**
- * checks if a fragment on ContelloComponent already has the FlatComponent pattern
- * (i.e. already has `... on ContelloFlatComponent { _flatId }`)
- */
 function hasExistingFlatSpread(selectionSet: SelectionSetNode): boolean {
   return selectionSet.selections.some(
     (s) => s.kind === Kind.INLINE_FRAGMENT && s.typeCondition?.name.value === FLAT_COMPONENT_TYPE,
   );
 }
 
-/**
- * adds flat ref selections (__typename + ... on ContelloFlatComponent { _flatId })
- * to a selection set, if not already present.
- */
 function addFlatRefSelections(selectionSet: SelectionSetNode): SelectionSetNode {
   if (hasExistingFlatSpread(selectionSet)) {
     return selectionSet;

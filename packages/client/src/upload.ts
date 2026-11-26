@@ -76,10 +76,10 @@ export function upload(
   token: string,
   data: UploadData,
   meta: UploadMetadata,
-  options?: UploadOptions | undefined,
-  { replyTimeout, stallTimeout, heartbeatTimeout }: UploadTimings = DEFAULT_TIMINGS,
+  { timings = DEFAULT_TIMINGS, ...options }: UploadOptions & { timings?: UploadTimings | undefined } = {},
 ): Promise<string> {
-  const chunkSize = options?.chunkSize ?? DEFAULT_CHUNK_SIZE;
+  const { replyTimeout, stallTimeout, heartbeatTimeout } = timings;
+  const chunkSize = options.chunkSize ?? DEFAULT_CHUNK_SIZE;
   const wsUrl = `${url.replace(/^http/i, 'ws')}/api/v1/assets/ws`;
 
   const size = isUint8Array(data) ? data.length : meta.size;
@@ -122,7 +122,7 @@ export function upload(
 
     const cleanup = () => {
       clearInterval(stallCheck);
-      options?.abort?.removeEventListener('abort', abortHandler);
+      options.abort?.removeEventListener('abort', abortHandler);
     };
 
     // an upload that is given up has nobody left to wait for a close handshake
@@ -140,7 +140,7 @@ export function upload(
 
     const abortHandler = () => fail(new Error('upload aborted'));
 
-    options?.abort?.addEventListener('abort', abortHandler);
+    options.abort?.addEventListener('abort', abortHandler);
 
     function send(chunk: Uint8Array) {
       if (bytesAcknowledged === bytesSent) {

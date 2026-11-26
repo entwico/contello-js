@@ -52,7 +52,7 @@ function createBackend(cardinality: 'entity' | 'singleton' = 'entity') {
   function fetch(id: string): Item {
     const item: Item = { id, payload: Array.from({ length: 1000 }, () => 0) };
 
-    fetched.set(id, [...fetched.get(id) ?? [], new WeakRef(item)]);
+    fetched.set(id, [...(fetched.get(id) ?? []), new WeakRef(item)]);
 
     return item;
   }

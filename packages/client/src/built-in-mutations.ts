@@ -9,8 +9,6 @@ import type { SourceCardinality, SourceMutations } from './types';
  * Routes are the odd ones: `updateContelloRoute` is keyed by the `path` inside its input rather
  * than by an id, and it replaces the route rather than patching it. `deleteContelloRoute` takes a
  * bare `id` and answers with a bare id string.
- *
- * Assets have no `create` — an asset comes into being through `client.upload()`, not a mutation.
  */
 export const BUILT_IN_MUTATIONS: Partial<Record<SourceCardinality, SourceMutations>> = {
   route: {

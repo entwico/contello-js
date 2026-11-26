@@ -79,7 +79,6 @@ function transformNode(
 
   const obj = value as Record<string, unknown>;
 
-  // inject __model from __typename
   const typename = obj['__typename'];
 
   if (typeof typename === 'string') {

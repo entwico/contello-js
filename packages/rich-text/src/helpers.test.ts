@@ -10,11 +10,11 @@ import {
 import type { RichTextDocument, RichTextNode } from './types';
 
 describe('richTextNodeToString', () => {
-  test('text node', () => {
+  test('returns the text of a text node', () => {
     expect(richTextNodeToString({ type: 'text', text: 'hello' })).toBe('hello');
   });
 
-  test('paragraph with text', () => {
+  test('returns the text of a paragraph', () => {
     const node: RichTextNode = {
       type: 'paragraph',
       content: [{ type: 'text', text: 'hello world' }],
@@ -23,7 +23,7 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('hello world');
   });
 
-  test('heading with text', () => {
+  test('returns the text of a heading', () => {
     const node: RichTextNode = {
       type: 'heading',
       attrs: { level: 1 },
@@ -33,11 +33,11 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('title');
   });
 
-  test('paragraph with no content', () => {
+  test('returns an empty string for a paragraph without content', () => {
     expect(richTextNodeToString({ type: 'paragraph' })).toBe('');
   });
 
-  test('bullet list', () => {
+  test('concatenates the items of a bullet list', () => {
     const node: RichTextNode = {
       type: 'bulletList',
       content: [
@@ -49,7 +49,7 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('ab');
   });
 
-  test('ordered list', () => {
+  test('concatenates the items of an ordered list', () => {
     const node: RichTextNode = {
       type: 'orderedList',
       content: [
@@ -61,15 +61,15 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('firstsecond');
   });
 
-  test('horizontal rule', () => {
+  test('renders a horizontal rule as ---', () => {
     expect(richTextNodeToString({ type: 'horizontalRule' })).toBe('---');
   });
 
-  test('hard break', () => {
+  test('renders a hard break as a newline', () => {
     expect(richTextNodeToString({ type: 'hardBreak' })).toBe('\n');
   });
 
-  test('code block', () => {
+  test('returns the text of a code block', () => {
     const node: RichTextNode = {
       type: 'codeBlock',
       content: [{ type: 'text', text: 'const x = 1;' }],
@@ -78,7 +78,7 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('const x = 1;');
   });
 
-  test('blockquote', () => {
+  test('returns the text of a blockquote', () => {
     const node: RichTextNode = {
       type: 'blockquote',
       content: [{ type: 'text', text: 'quoted' }],
@@ -87,7 +87,7 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('quoted');
   });
 
-  test('list item passed directly', () => {
+  test('returns the text of a list item passed directly', () => {
     const node: RichTextNode = {
       type: 'listItem',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'item' }] }],
@@ -96,7 +96,7 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('item');
   });
 
-  test('table row passed directly', () => {
+  test('joins the cells of a table row with " | "', () => {
     const node: RichTextNode = {
       type: 'tableRow',
       content: [
@@ -108,7 +108,7 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('1 | 2');
   });
 
-  test('table cell passed directly', () => {
+  test('returns the text of a table cell passed directly', () => {
     const node: RichTextNode = {
       type: 'tableCell',
       content: [{ type: 'text', text: 'cell' }],
@@ -117,7 +117,7 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString(node)).toBe('cell');
   });
 
-  test('table header passed directly', () => {
+  test('returns the text of a table header passed directly', () => {
     const node: RichTextNode = {
       type: 'tableHeader',
       content: [{ type: 'text', text: 'head' }],
@@ -130,7 +130,7 @@ describe('richTextNodeToString', () => {
     expect(richTextNodeToString({ type: 'unknownThing' } as unknown as RichTextNode)).toBeUndefined();
   });
 
-  test('table', () => {
+  test('renders a table as one " | "-joined line per row', () => {
     const node: RichTextNode = {
       type: 'table',
       content: [
@@ -165,7 +165,7 @@ describe('richTextNodesToString', () => {
     expect(richTextNodesToString(nodes)).toBe('line 1\nline 2');
   });
 
-  test('empty array', () => {
+  test('returns an empty string for no nodes', () => {
     expect(richTextNodesToString([])).toBe('');
   });
 });
@@ -183,21 +183,21 @@ describe('richTextDocumentToString', () => {
     expect(richTextDocumentToString(doc)).toBe('Title\nBody text');
   });
 
-  test('empty document', () => {
+  test('returns an empty string for a document without content', () => {
     expect(richTextDocumentToString({ type: 'doc' })).toBe('');
   });
 });
 
 describe('isRichTextDocumentEmpty', () => {
-  test('empty content array', () => {
+  test('is true for an empty content array', () => {
     expect(isRichTextDocumentEmpty({ type: 'doc', content: [] })).toBe(true);
   });
 
-  test('no content property', () => {
+  test('is true without a content property', () => {
     expect(isRichTextDocumentEmpty({ type: 'doc' })).toBe(true);
   });
 
-  test('only whitespace', () => {
+  test('is true for whitespace-only text', () => {
     const doc: RichTextDocument = {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: ' '.repeat(3) }] }],
@@ -206,7 +206,7 @@ describe('isRichTextDocumentEmpty', () => {
     expect(isRichTextDocumentEmpty(doc)).toBe(true);
   });
 
-  test('empty paragraph', () => {
+  test('is true for an empty paragraph', () => {
     const doc: RichTextDocument = {
       type: 'doc',
       content: [{ type: 'paragraph' }],
@@ -215,7 +215,7 @@ describe('isRichTextDocumentEmpty', () => {
     expect(isRichTextDocumentEmpty(doc)).toBe(true);
   });
 
-  test('non-empty document', () => {
+  test('is false for a document with text', () => {
     const doc: RichTextDocument = {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hello' }] }],

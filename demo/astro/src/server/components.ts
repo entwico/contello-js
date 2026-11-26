@@ -21,7 +21,7 @@ function mapComponent(c: ComponentFragment): Component | undefined {
     }
 
     default: {
-      log.warn({ model: (c as { __model: string }).__model }, 'unhandled component');
+      log.error({ model: (c as { __model: string }).__model }, 'unhandled component');
 
       return undefined;
     }

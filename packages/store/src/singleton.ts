@@ -55,7 +55,6 @@ export function createSingleton<
   const ttl = createTtlOrchestrator({ ttl: _def.cache.ttl, run: () => runTtlRefresh() });
   let loaded = false;
 
-  // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
   const projected = new ProjectedValue<TMapped>({
     value: () =>
       wrap(

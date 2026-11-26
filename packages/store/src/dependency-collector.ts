@@ -98,11 +98,6 @@ export class DependencyCollector<TKey, TModels extends string = string> {
     }
   }
 
-  /**
-   * removes all index entries for one item key.
-   * cleans up the forward entry and removes the item from every reverse set it appeared in.
-   * if a reverse set becomes empty after removal, it is deleted to avoid memory leaks.
-   */
   private clearItem(key: TKey): void {
     const existingDeps = this.forwardIndex.get(key);
 

@@ -122,7 +122,7 @@ describe('transformOperation', () => {
     expect(result).toContain('__typename');
 
     // content should only have flat refs
-    const contentMatch = result.match(/content \{([^}]+)\}/);
+    const contentMatch = /content \{([^}]+)\}/.exec(result);
 
     expect(contentMatch).toBeTruthy();
     // the inline ref carries only _flatId — __typename lives on the _flat_ companion
@@ -245,7 +245,7 @@ describe('transformFragment', () => {
     expect(result).toContain('_flat_content');
 
     // content itself should only have flat refs
-    const contentMatch = result.match(/content \{([^}]+)\}/);
+    const contentMatch = /content \{([^}]+)\}/.exec(result);
 
     expect(contentMatch).toBeTruthy();
     expect(contentMatch![1]).toContain('_flatId');
@@ -271,7 +271,7 @@ describe('transformFragment', () => {
     expect(printed).toContain('...Component');
 
     // content should be flat refs only; the spread belongs inside _flat_content
-    const contentMatch = printed.match(/(?<!_flat_)content \{([^}]+)\}/);
+    const contentMatch = /(?<!_flat_)content \{([^}]+)\}/.exec(printed);
 
     expect(contentMatch).toBeTruthy();
     expect(contentMatch![1]).toContain('_flatId');
@@ -317,7 +317,7 @@ describe('transformOperation with fragment spreads', () => {
     expect(result).toContain('...Component');
 
     // content should be flat refs only
-    const contentMatch = result.match(/content \{([^}]+)\}/);
+    const contentMatch = /content \{([^}]+)\}/.exec(result);
 
     expect(contentMatch![1]).toContain('_flatId');
     expect(contentMatch![1]).not.toContain('...Component');
@@ -414,7 +414,7 @@ describe('transformOperation with fragment spreads', () => {
     expect(result).toContain('subscription');
     expect(result).toContain('_flat_content');
 
-    const contentMatch = result.match(/(?<!_flat_)content \{([^}]+)\}/);
+    const contentMatch = /(?<!_flat_)content \{([^}]+)\}/.exec(result);
 
     expect(contentMatch).toBeTruthy();
     expect(contentMatch![1]).toContain('_flatId');

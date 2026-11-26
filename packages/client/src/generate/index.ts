@@ -184,7 +184,6 @@ export async function run(): Promise<void> {
     const fragments = collectFragments(documents);
     const operations = collectOperations(documents);
 
-    // validate user documents against the schema before transforming
     validateDocuments(schema, fragments, operations);
 
     // transform component fields (auto-inject _flat_ pattern)
@@ -274,7 +273,6 @@ export async function run(): Promise<void> {
       parts.push(sourcesConstSrc, '');
     }
 
-    // models const — entity-model reference name to typename mapping
     if (entityModels.size > 0) {
       const sorted = entityModels.entries().toArray().toSorted(([a], [b]) => a.localeCompare(b));
 

@@ -164,8 +164,8 @@ describe('an upload', () => {
 
     files.push(new WeakRef(file));
 
-    const options = { chunkSize: 64 * 1024, abort: controller.signal };
-    const result = upload(url, 'test', 'token', file, { name: 'file.bin' }, options, timings);
+    const options = { chunkSize: 64 * 1024, abort: controller.signal, timings };
+    const result = upload(url, 'test', 'token', file, { name: 'file.bin' }, options);
 
     try {
       if (abortWhen) {

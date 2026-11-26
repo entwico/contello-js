@@ -132,7 +132,6 @@ export function createCollection<
       wrap(
         `collection:${_def.name}`,
         () => maybeThen(fetchOrTakeWritten(ids), async (rawItems) => {
-          // eslint-disable-next-line @eslint-react/naming-convention-context-name -- `createContext` here is DependencyCollector's method, not React's; this is a non-React module
           const items = await maybeAll(
             rawItems.map(
               (item) => dependencyCollector.createContext(

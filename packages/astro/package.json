@@ -40,13 +40,13 @@
     }
   },
   "devDependencies": {
-    "@astroscope/i18n": "^4.0.0",
-    "@astroscope/node": "^5.0.0",
+    "@astroscope/i18n": "^4.0.1",
+    "@astroscope/node": "^5.0.1",
     "@contello/client": "workspace:^",
     "@contello/media": "workspace:^",
     "@contello/store": "workspace:^",
-    "astro": "^7.4.5",
-    "vite": "^8.3.5"
+    "astro": "^7.4.13",
+    "vite": "^8.3.8"
   },
   "files": [
     "dist"

@@ -238,7 +238,6 @@ describe('generateOperationTypes', () => {
       `,
     );
 
-    // operation result references MediaAssetFragment
     expect(result).toMatch(/GetAssetQuery = \{[\s\S]*?MediaAssetFragment/);
     // the file shape is not inlined three times (once per occurrence of MediaFile)
     const uidOccurrences = (result.match(/uid: string/g) ?? []).length;
@@ -267,7 +266,6 @@ describe('generateOperationTypes', () => {
       `,
     );
 
-    // user branch carries __typename discriminant intersected with the fragment ref
     expect(result).toContain('__typename: \'User\'');
     expect(result).toContain('& UserFieldsFragment');
   });

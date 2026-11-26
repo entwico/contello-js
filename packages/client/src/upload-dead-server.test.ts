@@ -9,7 +9,7 @@ const timings = { replyTimeout: 300, stallTimeout: 300, heartbeatTimeout: 300 };
 afterEach(closeTestServers);
 
 function uploadTo(url: string, data: UploadData, abort?: AbortSignal | undefined): Promise<string> {
-  return upload(url, 'test', 'token', data, { name: 'file.bin' }, { chunkSize: 64 * 1024, abort }, timings);
+  return upload(url, 'test', 'token', data, { name: 'file.bin' }, { chunkSize: 64 * 1024, abort, timings });
 }
 
 function streamOf(
@@ -229,7 +229,7 @@ describe('the chunks of an upload', () => {
   test('are a quarter megabyte unless the caller says otherwise', async () => {
     const server = await startUploadServer('works');
 
-    await upload(server.url, 'test', 'token', new Uint8Array(1024 * 1024), { name: 'file.bin' }, undefined, timings);
+    await upload(server.url, 'test', 'token', new Uint8Array(1024 * 1024), { name: 'file.bin' }, { timings });
 
     expect(server.largestMessage()).toBe(256 * 1024);
   });

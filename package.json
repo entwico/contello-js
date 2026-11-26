@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/entwico/contello-js"
   },
-  "packageManager": "pnpm@12.17.0",
+  "packageManager": "pnpm@12.23.0",
   "scripts": {
     "build": "turbo run build",
     "lint": "turbo run lint",
@@ -21,15 +21,15 @@
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
-    "@entwico/eslint-config": "^7.0.0",
-    "@types/node": "^26.6.6",
-    "@vitest/browser-playwright": "^5.0.5",
-    "@vitest/coverage-v8": "^5.0.5",
-    "eslint": "^10.14.0",
-    "playwright": "^1.64.1",
-    "tsdown": "^0.23.4",
-    "turbo": "^2.11.10",
+    "@entwico/eslint-config": "^8.0.0",
+    "@types/node": "^26.6.10",
+    "@vitest/browser-playwright": "^5.1.1",
+    "@vitest/coverage-v8": "^5.1.1",
+    "eslint": "^10.15.0",
+    "playwright": "^1.65.1",
+    "tsdown": "^0.23.7",
+    "turbo": "^2.11.13",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.1"
   }
 }

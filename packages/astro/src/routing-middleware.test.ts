@@ -75,10 +75,10 @@ function fakeRoutes(byPath: Record<string, MaybePromise<StoreRoute | undefined>>
   } as unknown as AnyRoutes;
 }
 
-function fakeCtx(pathname: string, method = 'GET', headers?: Record<string, string>): APIContext {
+function fakeCtx(pathname: string, { headers }: { headers?: Record<string, string> } = {}): APIContext {
   return {
     url: new URL(`https://example.com${pathname}`),
-    request: { method, signal: new AbortController().signal, headers: new Headers(headers) },
+    request: { method: 'GET', signal: new AbortController().signal, headers: new Headers(headers) },
   } as unknown as APIContext;
 }
 
@@ -289,7 +289,7 @@ describe('createBoundRoutingMiddleware', () => {
       }),
     });
     const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
-    const ctx = fakeCtx('/sitemap.xml', 'GET', { 'accept-encoding': 'gzip', 'if-none-match': '"old"' });
+    const ctx = fakeCtx('/sitemap.xml', { headers: { 'accept-encoding': 'gzip', 'if-none-match': '"old"' } });
 
     const response = (await mw(ctx, fakeNext())) as Response;
 
@@ -354,7 +354,7 @@ describe('createBoundRoutingMiddleware', () => {
     });
     const mw = createBoundRoutingMiddleware(instance, () => fakeRoutes({ '/sitemap.xml': sitemapRoute }), undefined, undefined);
 
-    const response = (await mw(fakeCtx('/sitemap.xml', 'GET', { 'if-none-match': '"gen-1"' }), fakeNext())) as Response;
+    const response = (await mw(fakeCtx('/sitemap.xml', { headers: { 'if-none-match': '"gen-1"' } }), fakeNext())) as Response;
 
     expect(response.status).toBe(304);
     expect(response.body).toBeNull();

@@ -156,7 +156,6 @@ export function generateSchemaTypes(schema: GraphQLSchema): string {
     lines.push(generateInputType(input), '');
   }
 
-  // build model name map from ContelloEntity and ContelloComponent unions
   const modelNames = new Map<string, string>();
   const entityModelNames = new Map<string, string>();
 

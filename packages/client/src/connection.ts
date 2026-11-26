@@ -30,6 +30,8 @@ export function createConnection(options: ConnectionOptions): Client {
   const replyTimeout = options.replyTimeout ?? REPLY_TIMEOUT;
   const watchdog = createReplyWatchdog(() => client.terminate(), replyTimeout);
 
+  // no `connectionAckWaitTimeout`: it gives up with a plain close(), which leaves the socket of a silent peer
+  // in CLOSING; the watchdog terminates instead
   const client = createClient({
     url: options.url,
     webSocketImpl: createWebSocketClass(replyTimeout),

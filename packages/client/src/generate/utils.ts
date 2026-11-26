@@ -1,4 +1,3 @@
-/** standard sorting stub */
 export function compareCodeUnits(a: string, b: string): number {
   if (a < b) {
     return -1;
