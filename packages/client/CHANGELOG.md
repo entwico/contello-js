@@ -1,5 +1,11 @@
 # @contello/client
 
+## 3.5.1
+
+### Patch Changes
+
+- 6e1f58a: update graphql, graphql-ws, undici and ws
+
 ## 3.5.0
 
 ### Minor Changes
