@@ -1,5 +1,5 @@
 import { type ContelloClient, createSourceSubscription } from '@contello/client';
-import type { ReadonlyDeep } from '@entwico/dash';
+import type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
 import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedLazyMap } from '@entwico/projected';
 import { collectSource } from './collect-source';
@@ -20,10 +20,10 @@ export type LazyRoutesOptions = {
 
 export type LazyRoutes = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
-  get(id: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
-  get(ids: readonly string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
-  getByPath(path: string): Promise<ReadonlyDeep<StoreRoute> | undefined>;
-  getByPath(paths: readonly string[]): Promise<ReadonlyDeep<StoreRoute[]>>;
+  get(id: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined>;
+  get(ids: readonly string[]): MaybePromise<ReadonlyDeep<StoreRoute[]>>;
+  getByPath(path: string): MaybePromise<ReadonlyDeep<StoreRoute> | undefined>;
+  getByPath(paths: readonly string[]): MaybePromise<ReadonlyDeep<StoreRoute[]>>;
   refresh(): void;
   clear(): void;
 };
@@ -32,20 +32,22 @@ export type LazyRoutes = {
 const ID_PREFIX = '1\0';
 const PATH_PREFIX = '2\0';
 
-// private symbol used to tag each route with the projected cache key it was requested under,
-// so the key() function can return the right prefixed key for projected to match results back
-const CACHE_KEY = Symbol('cacheKey');
+// the projected cache key each fetched route was requested under, so the key() function can
+// return the right prefixed key for projected to match results back; kept beside the routes,
+// which are handed out as they are
+type CacheKeys = WeakMap<StoreRoute, string>;
 
 function collectRoutes(
   rawItems: StoreRouteFragment[],
   keyFn: (route: StoreRoute) => string,
   resolver: ModelResolver,
+  cacheKeys: CacheKeys,
 ): StoreRoute[] {
   return rawItems.reduce<StoreRoute[]>((acc, raw) => {
     const mapped = mapRoute(raw, resolver);
 
     if (mapped) {
-      (mapped as Record<symbol, string>)[CACHE_KEY] = keyFn(mapped);
+      cacheKeys.set(mapped, keyFn(mapped));
       acc.push(mapped);
     }
 
@@ -103,9 +105,11 @@ function createRoutesCache(max: number, ttl: number | undefined): LruCache<strin
         pathToId.delete(normalizeRoutePath(previousPath));
       }
 
+      // the lru evicts the value it replaces, which clears the index entries of
+      // that route: they are written after it, or a route set twice loses its path
+      lru.set(ID_PREFIX + value.id, value);
       pathToId.set(normalizeRoutePath(value.path), value.id);
       idToPath.set(value.id, value.path);
-      lru.set(ID_PREFIX + value.id, value);
     },
 
     delete: (key) => {
@@ -153,8 +157,10 @@ export function createLazyRoutesCollection(
     return collectSource(client, routesSourceDoc, vars);
   }
 
+  const cacheKeys: CacheKeys = new WeakMap();
+
   const projected = new ProjectedLazyMap<string, StoreRoute>({
-    key: (route) => (route as Record<symbol, string>)[CACHE_KEY] ?? ID_PREFIX + route.id,
+    key: (route) => cacheKeys.get(route) ?? ID_PREFIX + route.id,
     values: (prefixedKeys) =>
       wrap('routes', async () => {
         const ids: string[] = [];
@@ -175,10 +181,10 @@ export function createLazyRoutesCollection(
           paths.length > 0 ? fetchRoutes({ paths }) : Promise.resolve<StoreRouteFragment[]>([]),
         ]);
 
-        const byIds = collectRoutes(rawByIds, (r) => ID_PREFIX + r.id, resolver);
-        const byPaths = collectRoutes(rawByPaths, (r) => PATH_PREFIX + normalizeRoutePath(r.path), resolver);
+        const byIds = collectRoutes(rawByIds, (r) => ID_PREFIX + r.id, resolver, cacheKeys);
+        const byPaths = collectRoutes(rawByPaths, (r) => PATH_PREFIX + normalizeRoutePath(r.path), resolver, cacheKeys);
         const found = [...byIds, ...byPaths];
-        const foundKeys = new Set(found.map((route) => (route as Record<symbol, string>)[CACHE_KEY]));
+        const foundKeys = new Set(found.map((route) => cacheKeys.get(route)));
 
         for (const key of prefixedKeys) {
           if (!foundKeys.has(key)) {
@@ -229,7 +235,6 @@ export function createLazyRoutesCollection(
 
       if (event.mutation === 'delete') {
         cache.delete(idKey);
-        evicted.push(event.id);
       } else {
         negatives.delete(idKey);
         negatives.delete(PATH_PREFIX + normalizeRoutePath(event.after.path));
@@ -237,9 +242,8 @@ export function createLazyRoutesCollection(
         if (cache.has(idKey)) {
           cache.set(idKey, event.after);
         }
-
-        evicted.push(event.after.path);
       }
+      evicted.push(event.id);
     }
 
     if (evicted.length > 0) {

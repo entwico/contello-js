@@ -1,3 +1,5 @@
+import { PassThrough } from 'node:stream';
+
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { createHttpAgent, downloadFile, proxyHls, proxySitemap } from './http';
@@ -252,5 +254,86 @@ describe('proxySitemap', () => {
     expect(result.headers.get('etag')).toBe('"gen-1"');
     expect(body.destroy).toHaveBeenCalled();
     await expect(new Response(result.stream()).arrayBuffer()).resolves.toHaveProperty('byteLength', 0);
+  });
+});
+
+describe('proxied body stream', () => {
+  async function proxied(signal?: AbortSignal | undefined) {
+    const body = new PassThrough();
+
+    request.mockResolvedValue({ statusCode: 200, headers: {}, body });
+
+    const result = await proxyHls(agent, 'http://host', 'tok', 'video/segment.ts', signal);
+
+    return { body, stream: result.stream() };
+  }
+
+  test('passes the chunks of the upstream body on and ends with it', async () => {
+    const { body, stream } = await proxied();
+
+    body.write(new Uint8Array([1, 2]));
+    body.end(new Uint8Array([3]));
+
+    const chunks = await Array.fromAsync(stream);
+
+    expect(Buffer.concat(chunks)).toEqual(Buffer.from([1, 2, 3]));
+  });
+
+  test('a reader that cancels releases the upstream body', async () => {
+    const { body, stream } = await proxied();
+
+    await stream.cancel();
+
+    expect(body.destroyed).toBe(true);
+  });
+
+  test('an abort releases the upstream body and drops what arrives after it', async () => {
+    const controller = new AbortController();
+    const { body, stream } = await proxied(controller.signal);
+    const reader = stream.getReader();
+
+    body.write(new Uint8Array([1]));
+
+    const first = await reader.read();
+
+    expect(first.value).toEqual(Buffer.from([1]));
+
+    controller.abort();
+
+    expect(body.destroyed).toBe(true);
+  });
+
+  test('an upstream that was aborted ends the stream without an error', async () => {
+    const { body, stream } = await proxied();
+    const reader = stream.getReader();
+    const read = reader.read();
+
+    body.destroy(new DOMException('aborted', 'AbortError'));
+
+    await expect(read).resolves.toEqual({ value: undefined, done: true });
+  });
+
+  test('an upstream failure fails the stream', async () => {
+    const { body, stream } = await proxied();
+    const reader = stream.getReader();
+    const read = reader.read();
+    const failure = new Error('socket hang up');
+
+    body.destroy(failure);
+
+    await expect(read).rejects.toBe(failure);
+  });
+
+  test('a downloaded file streams the same way', async () => {
+    const body = new PassThrough();
+
+    request.mockResolvedValue({ statusCode: 200, headers: {}, body });
+
+    const result = await downloadFile(agent, 'http://host', 'tok', 'file1');
+    const stream = result.stream();
+
+    body.end(new Uint8Array([7, 8]));
+
+    expect(Buffer.concat(await Array.fromAsync(stream))).toEqual(Buffer.from([7, 8]));
   });
 });

@@ -7,7 +7,7 @@ import {
   type UploadOptions,
   createSourceSubscription,
 } from '@contello/client';
-import type { ReadonlyDeep } from '@entwico/dash';
+import type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
 import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedLazyMap } from '@entwico/projected';
 import { collectSource } from './collect-source';
@@ -43,8 +43,8 @@ export type LazyAssetsOptions = {
 
 export type LazyAssets = {
   readonly refresh$: AsyncIterable<RefreshEvent>;
-  get(id: string): Promise<ReadonlyDeep<StoreAsset> | undefined>;
-  get(ids: readonly string[]): Promise<ReadonlyDeep<StoreAsset[]>>;
+  get(id: string): MaybePromise<ReadonlyDeep<StoreAsset> | undefined>;
+  get(ids: readonly string[]): MaybePromise<ReadonlyDeep<StoreAsset[]>>;
   upload(data: UploadData, meta: UploadMetadata, options?: UploadOptions | undefined): Promise<string>;
   download(fileId: string): Promise<DownloadResult>;
   proxyHls(path: string, signal?: AbortSignal | undefined): Promise<ProxyResult>;

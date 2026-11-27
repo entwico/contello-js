@@ -258,3 +258,113 @@ describe('i18n refresh-by-ttl', () => {
     i18n.destroy();
   });
 });
+
+describe('i18n lookups and registration', () => {
+  function createMessages(messages: RawMessage[]) {
+    const registered: Record<string, unknown>[] = [];
+    const { client } = createFakeContelloClient({
+      subscribe: () => ({ source: messages }),
+      execute(_query, variables) {
+        registered.push(variables ?? {});
+
+        return {};
+      },
+    });
+
+    const i18n = createI18nMessagesCollection(
+      { collection: 'site', cache: { ttl: false } },
+      client,
+      createAsyncIterableSubject<UpdateBatch>(),
+      createRefreshByTtlQueue(),
+    );
+
+    return { i18n, registered };
+  }
+
+  test('a message is found by its id, with its translations by language', async () => {
+    const { i18n } = createMessages([
+      {
+        id: '1',
+        token: 'hello',
+        translations: [
+          { language: 'en', value: 'Hello' },
+          { language: 'de', value: 'Hallo' },
+        ],
+      },
+      { id: '2', token: 'bye', translations: [] },
+    ]);
+
+    const message = await i18n.get('1');
+
+    expect(message!.token).toBe('hello');
+    expect([...message!.translations]).toEqual([
+      ['en', 'Hello'],
+      ['de', 'Hallo'],
+    ]);
+
+    const several = await i18n.get(['2', 'missing']);
+
+    expect(several.map((found) => found.token)).toEqual(['bye']);
+    expect(await i18n.get('missing')).toBeUndefined();
+
+    i18n.destroy();
+  });
+
+  test('register() sends the messages to the collection', async () => {
+    const { i18n, registered } = createMessages([]);
+
+    await i18n.register([
+      {
+        token: 'cart.items',
+        example: '3 items',
+        description: 'cart size',
+        variables: [{ name: 'count', description: 'number of items', example: '3' }],
+        translations: [{ language: 'de', message: '{$count} Artikel' }],
+        initialTranslations: [{ language: 'en', message: '{$count} items' }],
+      },
+      { token: 'home.title' },
+    ]);
+
+    expect(registered).toEqual([
+      {
+        collection: 'site',
+        messages: [
+          {
+            token: 'cart.items',
+            example: '3 items',
+            description: 'cart size',
+            variables: [{ name: 'count', description: 'number of items', example: '3' }],
+            translations: [{ language: 'de', message: '{$count} Artikel' }],
+            initialTranslations: [{ language: 'en', message: '{$count} items' }],
+          },
+          {
+            token: 'home.title',
+            example: undefined,
+            description: undefined,
+            variables: undefined,
+            translations: undefined,
+            initialTranslations: undefined,
+          },
+        ],
+      },
+    ]);
+
+    i18n.destroy();
+  });
+
+  test('register() rejects when the server refuses', async () => {
+    const { client } = createFakeContelloClient({
+      execute: () => Promise.reject(new Error('not allowed')),
+    });
+    const i18n = createI18nMessagesCollection(
+      { collection: 'site', cache: { ttl: false } },
+      client,
+      createAsyncIterableSubject<UpdateBatch>(),
+      createRefreshByTtlQueue(),
+    );
+
+    await expect(i18n.register([{ token: 'home.title' }])).rejects.toThrow('not allowed');
+
+    i18n.destroy();
+  });
+});

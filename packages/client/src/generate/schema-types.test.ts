@@ -1,7 +1,7 @@
 import { buildSchema } from 'graphql';
 import { describe, expect, test } from 'vitest';
 
-import { generateSchemaTypes } from './schema-types';
+import { extractEntityModels, generateSchemaTypes } from './schema-types';
 
 describe('generateSchemaTypes', () => {
   test('generates enum types', () => {
@@ -183,5 +183,30 @@ describe('generateSchemaTypes', () => {
 
     expect(result).toContain('startedAt: string;');
     expect(result).toContain('createdAt?: string | undefined;');
+  });
+});
+
+describe('extractEntityModels', () => {
+  test('maps the model of every entity type to its typename', () => {
+    const schema = buildSchema(`
+      type Query { dummy: String }
+      type ArticleEntity { id: ID! }
+      type BlogPostEntity { id: ID! }
+      type Unrelated { id: ID! }
+      union ContelloEntity = ArticleEntity | BlogPostEntity | Unrelated
+    `);
+
+    expect([...extractEntityModels(schema)]).toEqual([
+      ['article', 'ArticleEntity'],
+      ['blogPost', 'BlogPostEntity'],
+    ]);
+  });
+
+  test('is empty for a schema without entities', () => {
+    const none = buildSchema(`type Query { dummy: String }`);
+    const notAUnion = buildSchema(`type Query { dummy: String } type ContelloEntity { id: ID! }`);
+
+    expect(extractEntityModels(none).size).toBe(0);
+    expect(extractEntityModels(notAUnion).size).toBe(0);
   });
 });

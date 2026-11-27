@@ -502,3 +502,57 @@ describe('generateFragmentTypes', () => {
     expect(result).toBe('');
   });
 });
+
+describe('generateOperationTypes edge cases', () => {
+  const sdl = `
+    type Query {
+      user(id: ID!): User
+      users(ids: [ID!]!, status: Status, filters: [[String!]]): [User!]!
+    }
+    interface Node { id: ID! }
+    enum Status { ACTIVE INACTIVE }
+    type User implements Node {
+      id: ID!
+      name: String!
+    }
+  `;
+
+  test('refuses a field the type does not have', () => {
+    expect(() => generate(sdl, `query GetUser { user(id: "1") { nope } }`)).toThrow(
+      'field "nope" does not exist on type "User"',
+    );
+  });
+
+  test('refuses an inline fragment on a type the schema does not have', () => {
+    expect(() => generate(sdl, `query GetUser { user(id: "1") { ... on Ghost { id } } }`)).toThrow(
+      'unknown type "Ghost" in inline fragment',
+    );
+  });
+
+  test('refuses a variable of a type the schema does not have', () => {
+    expect(() => generate(sdl, `query GetUser($id: Ghost) { user(id: $id) { id } }`)).toThrow(
+      'cannot resolve type for variable "$id"',
+    );
+  });
+
+  test('merges the fields of an inline fragment on an interface into the object', () => {
+    const result = generate(sdl, `query GetUser { user(id: "1") { ... on Node { id } name } }`);
+
+    expect(result).toContain('id: string;');
+    expect(result).toContain('name: string;');
+    expect(result).not.toContain('__typename');
+  });
+
+  test('types list and enum variables', () => {
+    const result = generate(
+      sdl,
+      `query GetUsers($ids: [ID!]!, $status: Status, $filters: [[String!]]) {
+        users(ids: $ids, status: $status, filters: $filters) { id }
+      }`,
+    );
+
+    expect(result).toContain('ids: string[];');
+    expect(result).toContain('status?: Status | undefined;');
+    expect(result).toMatch(/filters\?: .*string\[\].*\[\] \| undefined;/);
+  });
+});

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { pascalCase, uncapitalize } from './utils';
+import { compareCodeUnits, deriveModelName, pascalCase, uncapitalize } from './utils';
 
 describe('uncapitalize', () => {
   test('lowercases first character', () => {
@@ -30,5 +30,21 @@ describe('pascalCase', () => {
 
   test('handles single character', () => {
     expect(pascalCase('q')).toBe('Q');
+  });
+});
+
+describe('codegen naming helpers', () => {
+  test('compareCodeUnits orders by code unit and reports equal strings', () => {
+    expect(compareCodeUnits('a', 'b')).toBe(-1);
+    expect(compareCodeUnits('b', 'a')).toBe(1);
+    expect(compareCodeUnits('a', 'a')).toBe(0);
+    // unlike localeCompare, uppercase sorts before lowercase
+    expect(['b', 'B', 'a'].toSorted(compareCodeUnits)).toEqual(['B', 'a', 'b']);
+  });
+
+  test('deriveModelName knows entity and component types only', () => {
+    expect(deriveModelName('BlogPostEntity')).toBe('blogPost');
+    expect(deriveModelName('TextComponent')).toBe('text');
+    expect(deriveModelName('ContelloRoute')).toBeUndefined();
   });
 });

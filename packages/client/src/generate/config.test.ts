@@ -89,3 +89,24 @@ describe('loadConfig', () => {
     await expect(loadConfig(dir)).rejects.toThrow(/no config file found/);
   });
 });
+
+describe('loadConfig project validation', () => {
+  test.each(['url', 'project', 'token', 'documents'])('refuses a project without %s', async (field) => {
+    const fields: Record<string, string> = {
+      url: 'http://localhost',
+      project: 'p',
+      token: 't',
+      documents: 'src/**/*.gql',
+      output: 'src/gen.ts',
+    };
+
+    delete fields[field];
+
+    const dir = await makeConfigDir(
+      'contello.config.mjs',
+      `export default { projects: [${validProject}, ${JSON.stringify(fields)}] };`,
+    );
+
+    await expect(loadConfig(dir)).rejects.toThrow(`projects[1].${field} is required`);
+  });
+});

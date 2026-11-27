@@ -79,6 +79,8 @@ export function createRoutesCollection(
   const pathById = new Map<string, string>();
   const idByPath = new Map<string, string>();
   let loaded = false;
+  // false while the path index is empty because the cache was cleared: a lookup by path reads the routes again
+  let indexed = false;
 
   // the built-in route source plus its fixed write bindings — `mutations` is constant for every
   // Contello schema, so the store carries it rather than depending on a regenerated bundle
@@ -132,6 +134,8 @@ export function createRoutesCollection(
             pathById.set(r.id, r.path);
             idByPath.set(normalizeRoutePath(r.path), r.id);
           }
+
+          indexed = true;
 
           if (!loaded) {
             loaded = true;
@@ -225,6 +229,7 @@ export function createRoutesCollection(
     if (cache.eviction === 'clear') {
       pathById.clear();
       idByPath.clear();
+      indexed = false;
       writeBuffer.clear();
       projected.clear();
 
@@ -284,7 +289,7 @@ export function createRoutesCollection(
   }
 
   function ensureLoaded(): MaybePromise<void> {
-    if (loaded) {
+    if (loaded && indexed) {
       return undefined;
     }
 
