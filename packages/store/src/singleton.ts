@@ -1,7 +1,8 @@
 import { type ContelloClient, type SourceDef, createSourceSubscription } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
-import { type AsyncIterableSubject, firstAsync, mapAsync } from '@entwico/dash/async';
+import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedValue } from '@entwico/projected';
+import { readSingleton } from './collect-source';
 import { DependencyCollector } from './dependency-collector';
 import type { ModelResolver } from './model-resolver';
 import { wrap } from './telemetry';
@@ -60,12 +61,7 @@ export function createSingleton<
       wrap(
         `singleton:${_def.name}`,
         () => maybeThen(
-          firstAsync(
-            mapAsync(
-              client.subscribeWithRetry<{ source: ExtractSourceResult<TSource> }>(createSourceSubscription(source)),
-              (r) => r.source,
-            ),
-          ),
+          readSingleton<ExtractSourceResult<TSource>>(client, createSourceSubscription(source)),
           (raw) => dependencyCollector.createContext(
             (ref, register) => maybeThen(mapFn(raw, ref), (mapped) => {
               register(itemKey);

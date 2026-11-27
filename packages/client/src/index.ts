@@ -1,6 +1,8 @@
 export { ContelloClient, createContelloClient } from './client';
 export { ContelloConnectionLostError } from './connection';
-export type { ConnectionContext, ConnectionEvents, ContelloClientOptions } from './client';
+export { ContelloTimeoutError } from './deadline';
+export type { OperationOptions } from './deadline';
+export type { ConnectionContext, ConnectionEvents, ContelloClientOptions, ExecuteOptions } from './client';
 export type { LocalDate, LocalDateTime } from './scalars';
 export type {
   OperationDef,
@@ -26,6 +28,7 @@ export {
   createSourceMutationVariables,
   readSourceMutationId,
 } from './source-mutation';
+export { orderLikeInputs } from './sources';
 export { BUILT_IN_MUTATIONS } from './built-in-mutations';
 export { createTokenIntrospector } from './introspection';
 export type {

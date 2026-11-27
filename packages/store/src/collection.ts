@@ -1,11 +1,13 @@
 import {
   type ContelloClient,
+  type OperationOptions,
   type SourceDef,
   type SourceMutationKind,
   type SourceMutationValues,
   createSourceMutation,
   createSourceMutationVariables,
   createSourceSubscription,
+  orderLikeInputs,
 } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeAll, maybeThen } from '@entwico/dash';
 import type { AsyncIterableSubject } from '@entwico/dash/async';
@@ -41,15 +43,16 @@ function fetchCollection<S extends SourceDef<string, 'entity'>>(
 /**
  * Runs one write mutation of the source. A create/update selects the source's fragment, so the
  * answer is a raw entity in exactly the shape the source subscription yields — the cache takes it
- * from there. A delete only carries an id.
+ * from there. A delete only carries an id. A batch write answers with a list of them.
  */
-async function runMutation<TRaw extends { id: string }>(
+async function runMutation<TResult>(
   source: SourceDef<string, 'entity'>,
   client: ContelloClient<any>,
   name: string,
   kind: SourceMutationKind,
   values: SourceMutationValues,
-): Promise<TRaw> {
+  options: OperationOptions | undefined,
+): Promise<TResult> {
   const binding = source.mutations?.[kind];
 
   if (!binding) {
@@ -60,9 +63,10 @@ async function runMutation<TRaw extends { id: string }>(
   }
 
   const document = createSourceMutation(source, kind);
-  const response = await client.execute<{ result: TRaw | undefined }>(
+  const response = await client.execute<{ result: TResult | undefined }>(
     document,
     createSourceMutationVariables(binding, values),
+    options,
   );
 
   if (!response?.result) {
@@ -70,6 +74,16 @@ async function runMutation<TRaw extends { id: string }>(
   }
 
   return response.result;
+}
+
+/** The options of the call, apart from what the rest of a delete's options sends to the server. */
+function splitOptions(options: (Record<string, unknown> & OperationOptions) | undefined): {
+  call: OperationOptions | undefined;
+  input: Record<string, unknown>;
+} {
+  const { signal, ...input } = options ?? {};
+
+  return { call: signal ? { signal } : undefined, input };
 }
 
 export function createCollection<
@@ -254,30 +268,49 @@ export function createCollection<
     runPartialRefresh([...refreshIds], deleted);
   });
 
-  /** Puts a written entity into the cache through the normal refresh path and returns it mapped. */
-  async function takeIntoCache(entity: ExtractSourceResult<TSource> & { id: string }): Promise<ReadonlyDeep<TMapped>> {
-    writeBuffer.park(entity.id, entity);
+  type Raw = ExtractSourceResult<TSource> & { id: string };
+
+  /** Puts written entities into the cache through the normal refresh path and returns them mapped. */
+  async function takeIntoCache(entities: readonly Raw[]): Promise<ReadonlyDeep<TMapped>[]> {
+    const ids = entities.map((entity) => entity.id);
+
+    for (const entity of entities) {
+      writeBuffer.park(entity.id, entity);
+    }
 
     let map;
 
     try {
-      map = await projected.refresh([entity.id]);
+      map = await projected.refresh(ids);
     } finally {
-      writeBuffer.release([entity.id]);
+      writeBuffer.release(ids);
     }
 
-    emit([entity.id], 'write');
+    emit(ids, 'write');
 
-    const item = map.get(entity.id);
+    return ids.map((id) => {
+      const item = map.get(id);
 
-    if (!item) {
-      throw new Error(
-        `@contello/store: collection "${_def.name}" wrote entity "${entity.id}" but it is not in the cache — ` +
-        `a concurrent full refresh did not return it`,
-      );
+      if (!item) {
+        throw new Error(
+          `@contello/store: collection "${_def.name}" wrote entity "${id}" but it is not in the cache — ` +
+          `a concurrent full refresh did not return it`,
+        );
+      }
+
+      return item;
+    });
+  }
+
+  function forget(ids: readonly string[]): void {
+    writeBuffer.release(ids);
+
+    for (const id of ids) {
+      dependencyCollector.removeItem(id);
     }
 
-    return item;
+    projected.delete([...ids]);
+    emit([...ids], 'write');
   }
 
   /**
@@ -287,25 +320,58 @@ export function createCollection<
    */
   function createWrites(): CollectionWrites<TMapped, ExtractSourceWrites<TSource>> {
     const out: Record<string, unknown> = {};
+    const run = <TResult>(kind: SourceMutationKind, values: SourceMutationValues, options?: OperationOptions) =>
+      runMutation<TResult>(source, client, _def.name, kind, values, options);
 
-    if (source.mutations?.create) {
-      out['create'] = async (input: unknown) =>
-        takeIntoCache(await runMutation(source, client, _def.name, 'create', { input }));
+    for (const kind of ['create', 'update'] as const) {
+      const binding = source.mutations?.[kind];
+
+      if (!binding) {
+        continue;
+      }
+
+      out[kind] = async (input: unknown, options?: OperationOptions) => {
+        const [item] = await takeIntoCache([await run<Raw>(kind, { input }, options)]);
+
+        return item;
+      };
     }
 
-    if (source.mutations?.update) {
-      out['update'] = async (input: unknown) =>
-        takeIntoCache(await runMutation(source, client, _def.name, 'update', { input }));
+    for (const kind of ['createMany', 'updateMany'] as const) {
+      const binding = source.mutations?.[kind];
+
+      if (!binding) {
+        continue;
+      }
+
+      out[kind] = async (inputs: readonly unknown[], options?: OperationOptions) => {
+        if (inputs.length === 0) {
+          return [];
+        }
+
+        return takeIntoCache(orderLikeInputs(inputs, await run<Raw[]>(kind, { input: inputs }, options)));
+      };
     }
 
     if (source.mutations?.delete) {
-      out['delete'] = async (id: string, options?: Record<string, unknown> | undefined) => {
-        await runMutation(source, client, _def.name, 'delete', { input: { ...options, id }, id });
+      out['delete'] = async (id: string, options?: Record<string, unknown> & OperationOptions) => {
+        const { call, input } = splitOptions(options);
 
-        writeBuffer.release([id]);
-        dependencyCollector.removeItem(id);
-        projected.delete([id]);
-        emit([id], 'write');
+        await run('delete', { input: { ...input, id }, id }, call);
+        forget([id]);
+      };
+    }
+
+    if (source.mutations?.deleteMany) {
+      out['deleteMany'] = async (ids: readonly string[], options?: Record<string, unknown> & OperationOptions) => {
+        if (ids.length === 0) {
+          return;
+        }
+
+        const { call, input } = splitOptions(options);
+
+        await run('deleteMany', { input: { ...input, ids } }, call);
+        forget(ids);
       };
     }
 

@@ -1,3 +1,5 @@
+import type { OperationOptions } from './deadline';
+
 export type OperationKind = 'query' | 'mutation' | 'subscription';
 
 export type OperationDef<
@@ -18,13 +20,19 @@ export type OperationMap = Record<string, OperationDef>;
 export type InferResult<T extends OperationDef> = NonNullable<T['__result']>;
 export type InferVariables<T extends OperationDef> = NonNullable<T['__variables']>;
 
+type RpcOptions = OperationOptions | undefined;
+
+/**
+ * Variables first, then the options every operation takes. An operation without variables is
+ * called with none, or with `undefined` in their place when it passes options.
+ */
 export type RpcMethod<T extends OperationDef> = T['kind'] extends 'subscription'
   ? InferVariables<T> extends Record<string, never>
-    ? () => AsyncIterable<InferResult<T>>
-    : (variables: InferVariables<T>) => AsyncIterable<InferResult<T>>
+    ? { (): AsyncIterable<InferResult<T>>; (variables: undefined, options: RpcOptions): AsyncIterable<InferResult<T>> }
+    : (variables: InferVariables<T>, options?: RpcOptions) => AsyncIterable<InferResult<T>>
   : InferVariables<T> extends Record<string, never>
-    ? () => Promise<InferResult<T>>
-    : (variables: InferVariables<T>) => Promise<InferResult<T>>;
+    ? { (): Promise<InferResult<T>>; (variables: undefined, options: RpcOptions): Promise<InferResult<T>> }
+    : (variables: InferVariables<T>, options?: RpcOptions) => Promise<InferResult<T>>;
 
 /**
  * One method per operation. A subscription has a second one, `<name>WithRetry`: the plain method
@@ -58,6 +66,8 @@ export type SourceMutationArgument = {
   type: string;
   /** `input` takes the caller's input, `id` the id passed to a delete */
   from: 'input' | 'id';
+  /** the argument is a list with one item per input of a batch write; an envelope wraps each of them */
+  each?: boolean | undefined;
   /**
    * the single field of a one-field envelope argument (`CreateCategoryRequestInput { entity }`).
    * When set, the accessor takes the inner input and the runtime nests it under this key.
@@ -84,22 +94,31 @@ export type SourceMutationBinding = {
   result: SourceMutationResult;
 };
 
-/** Mutation bindings of a source. Absent operations are simply missing (singletons have no `create`). */
+/**
+ * Mutation bindings of a source. Absent operations are simply missing (singletons have no
+ * `create`, and no batch writes). The `*Many` kinds write a list of entities in one mutation.
+ */
 export type SourceMutations = {
   create?: SourceMutationBinding | undefined;
   update?: SourceMutationBinding | undefined;
   delete?: SourceMutationBinding | undefined;
+  createMany?: SourceMutationBinding | undefined;
+  updateMany?: SourceMutationBinding | undefined;
+  deleteMany?: SourceMutationBinding | undefined;
 };
 
 /**
  * Phantom shape carrying the input types of a source's write operations. A key is present
  * only when the schema exposes the matching mutation, so `client.sources.x.create` exists
- * exactly when `createX` does.
+ * exactly when `createX` does. `createMany` and `updateMany` carry the type of one input.
  */
 export type SourceWrites = {
   create?: unknown;
   update?: unknown;
   delete?: unknown;
+  createMany?: unknown;
+  updateMany?: unknown;
+  deleteMany?: unknown;
 };
 
 export type SourceDef<
@@ -142,17 +161,24 @@ export type Schema<
   models: Record<TModels, string>;
 };
 
+type FetchOptions = OperationOptions | undefined;
+
+/** What a list read is narrowed to, and the options of the call next to it. */
+type Fetch<TFilter> = TFilter & OperationOptions;
+
 type SourceFetcherFor<S> =
   S extends SourceDef<string, 'singleton', infer R>
-    ? () => Promise<R>
+    ? (options?: FetchOptions) => Promise<R>
     : S extends SourceDef<string, 'entity', infer R>
-      ? (vars?: { ids?: string[] }) => Promise<R[]>
+      ? (request?: Fetch<{ ids?: string[] | undefined }> | undefined) => Promise<R[]>
       : S extends SourceDef<string, 'route', infer R>
-        ? (vars?: { ids?: string[] | undefined; paths?: string[] | undefined } | undefined) => Promise<R[]>
+        ? (
+            request?: Fetch<{ ids?: string[] | undefined; paths?: string[] | undefined }> | undefined,
+          ) => Promise<R[]>
         : S extends SourceDef<string, 'asset', infer R>
-          ? (vars?: { ids?: string[] | undefined } | undefined) => Promise<R[]>
+          ? (request?: Fetch<{ ids?: string[] | undefined }> | undefined) => Promise<R[]>
           : S extends SourceDef<string, 'i18nMessage', infer R>
-            ? (vars: { collection: string; ids?: string[] | undefined }) => Promise<R[]>
+            ? (request: Fetch<{ collection: string; ids?: string[] | undefined }>) => Promise<R[]>
             : never;
 
 /** Extracts the phantom write-input shape of a SourceDef. */
@@ -166,15 +192,28 @@ type ResultOf<S> = S extends SourceDef<string, SourceCardinality, infer R, any> 
  * mutation. A `create`/`update` selects the source's own fragment, so it answers with the entity
  * in exactly the shape `fetch` yields; a `delete` answers with the id it removed. Nothing is
  * cached here — that is the job of the collection that owns the source in `@contello/store`.
+ *
+ * The `*Many` methods write a list in one mutation, which is rejected as a whole when it fails.
+ * `updateMany` answers in the order of its inputs, and so does `createMany` when every input
+ * carries an id; `deleteMany` answers with the ids it removed.
  */
 type SourceWritersFor<S> = (WritesOf<S> extends { create: infer TCreate }
-  ? { create: (input: TCreate) => Promise<ResultOf<S>> }
+  ? { create: (input: TCreate, options?: FetchOptions) => Promise<ResultOf<S>> }
   : Record<never, never>)
 & (WritesOf<S> extends { update: infer TUpdate }
-  ? { update: (input: TUpdate) => Promise<ResultOf<S>> }
+  ? { update: (input: TUpdate, options?: FetchOptions) => Promise<ResultOf<S>> }
   : Record<never, never>)
 & (WritesOf<S> extends { delete: infer TDelete }
-  ? { delete: (input: TDelete) => Promise<string> }
+  ? { delete: (input: TDelete, options?: FetchOptions) => Promise<string> }
+  : Record<never, never>)
+& (WritesOf<S> extends { createMany: infer TCreate }
+  ? { createMany: (inputs: readonly TCreate[], options?: FetchOptions) => Promise<ResultOf<S>[]> }
+  : Record<never, never>)
+& (WritesOf<S> extends { updateMany: infer TUpdate }
+  ? { updateMany: (inputs: readonly TUpdate[], options?: FetchOptions) => Promise<ResultOf<S>[]> }
+  : Record<never, never>)
+& (WritesOf<S> extends { deleteMany: infer TDelete }
+  ? { deleteMany: (input: TDelete, options?: FetchOptions) => Promise<string[]> }
   : Record<never, never>);
 
 /** Per-source runtime accessor: `client.sources.category.fetch()` → `Promise<CategoryFragment[]>` etc. */

@@ -44,6 +44,8 @@ export type Contello = {
 export type ContelloOptions = {
   /** How long a pong takes, the way it does on a slow path where it waits behind the data sent before it. */
   pongDelay?: number | undefined;
+  /** The stream of `entities` sends this many batches and then nothing more, without ending. */
+  stallAfterBatches?: number | undefined;
 };
 
 export const ENTITY_BATCHES = 40;
@@ -60,6 +62,7 @@ export async function startContello(options?: ContelloOptions | undefined): Prom
   const wss = new WebSocketServer({ port: 0, host: '127.0.0.1' });
   const { promise: gate, resolve: releaseSlow } = Promise.withResolvers<void>();
   const pongDelay = options?.pongDelay;
+  const { promise: stalled, resolve: endStall } = Promise.withResolvers<void>();
   let slowCalls = 0;
   let batchesSent = 0;
   let streamsStarted = 0;
@@ -69,6 +72,10 @@ export async function startContello(options?: ContelloOptions | undefined): Prom
 
     for (let batch = 0; batch < ENTITY_BATCHES; batch++) {
       await new Promise((resolve) => setTimeout(resolve, ENTITY_BATCH_INTERVAL));
+
+      if (batch === options?.stallAfterBatches) {
+        await stalled;
+      }
 
       const first = batch * ENTITY_BATCH_SIZE;
       const entities = Array.from({ length: ENTITY_BATCH_SIZE }, (_, i) => ({ id: String(first + i) }));
@@ -113,6 +120,7 @@ export async function startContello(options?: ContelloOptions | undefined): Prom
 
   onCloseTestServers(async () => {
     releaseSlow();
+    endStall();
     await server.dispose();
   });
 

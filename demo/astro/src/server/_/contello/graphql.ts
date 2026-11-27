@@ -5,18 +5,21 @@
 import type { LocalDate, LocalDateTime, SourceDef } from '@contello/client';
 
 export type ContelloAssetKind = 'AUDIO' | 'DOCUMENT' | 'IMAGE' | 'OTHER' | 'VIDEO';
+export type ContelloAssetProcessingFailureReason = 'INTERNAL' | 'INVALID_SOURCE' | 'NO_RESULT' | 'UNSUPPORTED';
+export type ContelloAssetProcessingState = 'FAILED' | 'PROCESSING' | 'READY' | 'UNKNOWN';
 export type ContelloAssetRetentionPolicy = 'deleteIfNotUsed' | 'retain';
 export type ContelloBatchOperationStatus = 'error' | 'success';
 export type ContelloContentDispositionEnum = 'ATTACHMENT' | 'AUTOMATIC' | 'INLINE';
 export type ContelloDictionaryType = 'ENTITY' | 'STATIC';
 export type ContelloMutationType = 'CREATE' | 'DELETE' | 'UPDATE';
+export type ContelloResourceAction = 'CREATE' | 'DELETE' | 'READ' | 'UPDATE';
 export type ContelloRouteTargetTypeEnum = 'ENTITY' | 'FILE' | 'REDIRECT' | 'SITEMAP' | 'TEXT_RESPONSE';
 export type SectionAppearanceStaticDictionary = 'dark' | 'light';
 export type ShippingOptionsStaticDictionary = 'delivery' | 'selfPickup';
 
 export type CategoriesFilterInput = {
   created?: DateTimeFilterInput | undefined;
-  ids?: (string | undefined)[] | undefined;
+  ids?: string[] | undefined;
   name?: StringFilterInput | undefined;
   route?: StringFilterInput | undefined;
   updated?: DateTimeFilterInput | undefined;
@@ -54,10 +57,10 @@ export type ContelloAssetRequestInput = {
 };
 
 export type ContelloAssetsFilterInput = {
-  annotations?: (ContelloAnnotationFilterInput | undefined)[] | undefined;
-  collectionReferences?: (string | undefined)[] | undefined;
-  ids?: (string | undefined)[] | undefined;
-  kinds?: (ContelloAssetKind | undefined)[] | undefined;
+  annotations?: ContelloAnnotationFilterInput[] | undefined;
+  collectionReferences?: string[] | undefined;
+  ids?: string[] | undefined;
+  kinds?: ContelloAssetKind[] | undefined;
 };
 
 export type ContelloAssetsPaginationInput = {
@@ -116,7 +119,7 @@ export type ContelloRouteHeaderInput = {
 };
 
 export type ContelloRouteInput = {
-  customHeaders?: (ContelloRouteHeaderInput | undefined)[] | undefined;
+  customHeaders?: ContelloRouteHeaderInput[] | undefined;
   path: string;
   targetEntityConfig?: TargetEntityConfigInput | undefined;
   targetFileConfig?: TargetFileConfig | undefined;
@@ -132,8 +135,8 @@ export type ContelloRouteRequestInput = {
 };
 
 export type ContelloRoutesRequestInput = {
-  ids?: (string | undefined)[] | undefined;
-  paths?: (string | undefined)[] | undefined;
+  ids?: string[] | undefined;
+  paths?: string[] | undefined;
   targetType?: ContelloRouteTargetTypeEnum | undefined;
 };
 
@@ -220,7 +223,7 @@ export type NoteAttributesInput = {
 };
 
 export type NotesFilterInput = {
-  ids?: (string | undefined)[] | undefined;
+  ids?: string[] | undefined;
   title?: StringFilterInput | undefined;
 };
 
@@ -241,17 +244,17 @@ export type ProductAttributesInput = {
   description?: ContelloRichTextInput | undefined;
   image?: ContelloAssetInput | undefined;
   name?: string | undefined;
-  shipping?: (ShippingOptionsStaticDictionary | undefined)[] | undefined;
+  shipping?: ShippingOptionsStaticDictionary[] | undefined;
 };
 
 export type ProductListComponentInput = {
   headline?: string | undefined;
-  products?: (string | undefined)[] | undefined;
+  products?: string[] | undefined;
 };
 
 export type ProductsFilterInput = {
   created?: DateTimeFilterInput | undefined;
-  ids?: (string | undefined)[] | undefined;
+  ids?: string[] | undefined;
   name?: StringFilterInput | undefined;
   route?: StringFilterInput | undefined;
   updated?: DateTimeFilterInput | undefined;
@@ -264,7 +267,7 @@ export type ProductsRequestInput = {
 
 export type SectionComponentInput = {
   appearance?: SectionAppearanceStaticDictionary | undefined;
-  content?: (SectionContentMixedComponentArrayItemInput | undefined)[] | undefined;
+  content?: SectionContentMixedComponentArrayItemInput[] | undefined;
   headline?: string | undefined;
 };
 
@@ -273,7 +276,7 @@ export type SectionContentMixedComponentArrayItemInput = {
 };
 
 export type StaticPageAttributesInput = {
-  content?: (StaticPageContentMixedComponentArrayItemInput | undefined)[] | undefined;
+  content?: StaticPageContentMixedComponentArrayItemInput[] | undefined;
   name?: string | undefined;
 };
 
@@ -285,7 +288,7 @@ export type StaticPageContentMixedComponentArrayItemInput = {
 
 export type StaticPagesFilterInput = {
   created?: DateTimeFilterInput | undefined;
-  ids?: (string | undefined)[] | undefined;
+  ids?: string[] | undefined;
   name?: StringFilterInput | undefined;
   route?: StringFilterInput | undefined;
   updated?: DateTimeFilterInput | undefined;
@@ -451,6 +454,8 @@ export type ContelloAsset = {
   optimized: ContelloOptimizedFile[];
   original: ContelloFile;
   preview?: ContelloFile | undefined;
+  previewVideo?: ContelloFile | undefined;
+  processing: ContelloAssetProcessing;
   updatedAt: string;
 };
 
@@ -466,6 +471,12 @@ export type ContelloAssetDeleteResponse = {
   status: ContelloBatchOperationStatus;
 };
 
+export type ContelloAssetProcessing = {
+  __typename?: 'ContelloAssetProcessing' | undefined;
+  failureReason?: ContelloAssetProcessingFailureReason | undefined;
+  state: ContelloAssetProcessingState;
+};
+
 export type ContelloBatchOperationResponse = {
   __typename?: 'ContelloBatchOperationResponse' | undefined;
   status: ContelloBatchOperationStatus;
@@ -476,7 +487,7 @@ export type ContelloDictionary = {
   createdAt: string;
   description?: string | undefined;
   id: string;
-  items?: (string | undefined)[] | undefined;
+  items?: string[] | undefined;
   name: string;
   referenceName: string;
   type: ContelloDictionaryType;
@@ -486,6 +497,7 @@ export type ContelloDictionary = {
 export type ContelloEntityDeleteResponse = {
   __typename?: 'ContelloEntityDeleteResponse' | undefined;
   id: string;
+  reason?: string | undefined;
   status: ContelloBatchOperationStatus;
 };
 
@@ -582,6 +594,13 @@ export type ContelloProject = {
   referenceName: string;
 };
 
+export type ContelloResourcePermissions = {
+  __typename?: 'ContelloResourcePermissions' | undefined;
+  actions: ContelloResourceAction[];
+  resourceType: string;
+  scope?: string | undefined;
+};
+
 export type ContelloRichText = {
   __typename?: 'ContelloRichText' | undefined;
   markdownData?: string | undefined;
@@ -637,6 +656,24 @@ export type ContelloRouteUpdate = {
   __typename?: 'ContelloRouteUpdate' | undefined;
   mutation: ContelloMutation;
   route: ContelloRoute;
+};
+
+export type ContelloTokenIntrospection = {
+  __typename?: 'ContelloTokenIntrospection' | undefined;
+  active: boolean;
+  audience?: string | undefined;
+  expiresAt?: string | undefined;
+  permissions?: ContelloResourcePermissions[] | undefined;
+  user?: ContelloTokenIntrospectionUser | undefined;
+};
+
+export type ContelloTokenIntrospectionUser = {
+  __typename?: 'ContelloTokenIntrospectionUser' | undefined;
+  email: string;
+  firstName: string;
+  id: string;
+  lastName: string;
+  username: string;
 };
 
 export type ContelloUpdateBatch = {
@@ -736,6 +773,7 @@ export type ProductEntityUpdate = {
 export type ProductListComponent = {
   __typename?: 'ProductListComponent' | undefined;
   __model?: 'productList' | undefined;
+  _displayed?: boolean | undefined;
   _flatId?: string | undefined;
   headline?: string | undefined;
   products?: ProductEntity[] | undefined;
@@ -795,14 +833,15 @@ export type RootQuery = {
   category?: CategoryEntity | undefined;
   config?: ConfigEntity | undefined;
   contelloAsset?: ContelloAsset | undefined;
-  contelloAssets?: (ContelloAsset | undefined)[] | undefined;
-  contelloDictionaries?: (ContelloDictionary | undefined)[] | undefined;
-  contelloEntityModels?: (ContelloEntityModel | undefined)[] | undefined;
+  contelloAssets?: ContelloAsset[] | undefined;
+  contelloDictionaries?: ContelloDictionary[] | undefined;
+  contelloEntityModels?: ContelloEntityModel[] | undefined;
   contelloI18nMessages?: ContelloI18nMessagesResponse | undefined;
+  contelloIntrospectToken: ContelloTokenIntrospection;
   contelloPing: PingResult;
   contelloProject?: ContelloProject | undefined;
   contelloRoute?: ContelloRoute | undefined;
-  contelloRoutes?: (ContelloRoute | undefined)[] | undefined;
+  contelloRoutes?: ContelloRoute[] | undefined;
   note?: NoteEntity | undefined;
   notes: NotesResponseCollection;
   product?: ProductEntity | undefined;
@@ -842,6 +881,7 @@ export type RootSubscription = {
 export type SectionComponent = {
   __typename?: 'SectionComponent' | undefined;
   __model?: 'section' | undefined;
+  _displayed?: boolean | undefined;
   _flatId?: string | undefined;
   appearance?: SectionAppearanceStaticDictionary | undefined;
   content?: ContelloComponent[] | undefined;
@@ -881,6 +921,7 @@ export type StaticPagesResponseCollection = {
 export type TextComponent = {
   __typename?: 'TextComponent' | undefined;
   __model?: 'text' | undefined;
+  _displayed?: boolean | undefined;
   _flatId?: string | undefined;
   text?: ContelloRichText | undefined;
 };
@@ -1248,11 +1289,11 @@ export type Operations = {
 };
 
 export type Sources = {
-  category: SourceDef<'category', 'entity', CategoryFragment, { create: CreateCategoryEntityInput; update: UpdateCategoryEntityInput; delete: DeleteEntityByIdInput }>;
+  category: SourceDef<'category', 'entity', CategoryFragment, { create: CreateCategoryEntityInput; update: UpdateCategoryEntityInput; delete: DeleteEntityByIdInput; createMany: CreateCategoryEntityInput; updateMany: UpdateCategoryEntityInput; deleteMany: DeleteEntityByIdsInput }>;
   config: SourceDef<'config', 'singleton', ConfigFragment, { update: UpdateConfigEntityInput; delete: DeleteEntityByIdInput }>;
-  note: SourceDef<'note', 'entity', NoteFragment, { create: CreateNoteEntityInput; update: UpdateNoteEntityInput; delete: DeleteEntityByIdInput }>;
-  product: SourceDef<'product', 'entity', ProductFragment, { create: CreateProductEntityInput; update: UpdateProductEntityInput; delete: DeleteEntityByIdInput }>;
-  staticPage: SourceDef<'staticPage', 'entity', StaticPageFragment, { create: CreateStaticPageEntityInput; update: UpdateStaticPageEntityInput; delete: DeleteEntityByIdInput }>;
+  note: SourceDef<'note', 'entity', NoteFragment, { create: CreateNoteEntityInput; update: UpdateNoteEntityInput; delete: DeleteEntityByIdInput; createMany: CreateNoteEntityInput; updateMany: UpdateNoteEntityInput; deleteMany: DeleteEntityByIdsInput }>;
+  product: SourceDef<'product', 'entity', ProductFragment, { create: CreateProductEntityInput; update: UpdateProductEntityInput; delete: DeleteEntityByIdInput; createMany: CreateProductEntityInput; updateMany: UpdateProductEntityInput; deleteMany: DeleteEntityByIdsInput }>;
+  staticPage: SourceDef<'staticPage', 'entity', StaticPageFragment, { create: CreateStaticPageEntityInput; update: UpdateStaticPageEntityInput; delete: DeleteEntityByIdInput; createMany: CreateStaticPageEntityInput; updateMany: UpdateStaticPageEntityInput; deleteMany: DeleteEntityByIdsInput }>;
   storeAsset: SourceDef<'storeAsset', 'asset', StoreAssetFragment, { update: ContelloAssetUpdateInput; delete: { id: string } }>;
   storeI18nMessage: SourceDef<'storeI18nMessage', 'i18nMessage', StoreI18nMessageFragment>;
   storeRoute: SourceDef<'storeRoute', 'route', StoreRouteFragment, { create: ContelloRouteInput; update: ContelloRouteInput; delete: { id: string } }>;
@@ -1270,6 +1311,9 @@ const sources: Sources = {
       create: { field: 'createCategory', arguments: [{ name: 'request', type: 'CreateCategoryRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
       update: { field: 'updateCategory', arguments: [{ name: 'request', type: 'UpdateCategoryRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
       delete: { field: 'deleteCategory', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+      createMany: { field: 'createCategories', arguments: [{ name: 'requests', type: '[CreateCategoryRequestInput!]', from: 'input', envelope: 'entity', each: true }], result: 'entity' },
+      updateMany: { field: 'updateCategories', arguments: [{ name: 'requests', type: '[UpdateCategoryRequestInput!]', from: 'input', envelope: 'entity', each: true }], result: 'entity' },
+      deleteMany: { field: 'deleteCategories', arguments: [{ name: 'request', type: 'DeleteEntityByIdsInput!', from: 'input' }], result: 'idObject' },
     },
     __model: 'category',
     __cardinality: 'entity',
@@ -1293,6 +1337,9 @@ const sources: Sources = {
       create: { field: 'createNote', arguments: [{ name: 'request', type: 'CreateNoteRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
       update: { field: 'updateNote', arguments: [{ name: 'request', type: 'UpdateNoteRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
       delete: { field: 'deleteNote', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+      createMany: { field: 'createNotes', arguments: [{ name: 'requests', type: '[CreateNoteRequestInput!]', from: 'input', envelope: 'entity', each: true }], result: 'entity' },
+      updateMany: { field: 'updateNotes', arguments: [{ name: 'requests', type: '[UpdateNoteRequestInput!]', from: 'input', envelope: 'entity', each: true }], result: 'entity' },
+      deleteMany: { field: 'deleteNotes', arguments: [{ name: 'request', type: 'DeleteEntityByIdsInput!', from: 'input' }], result: 'idObject' },
     },
     __model: 'note',
     __cardinality: 'entity',
@@ -1305,6 +1352,9 @@ const sources: Sources = {
       create: { field: 'createProduct', arguments: [{ name: 'request', type: 'CreateProductRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
       update: { field: 'updateProduct', arguments: [{ name: 'request', type: 'UpdateProductRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
       delete: { field: 'deleteProduct', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+      createMany: { field: 'createProducts', arguments: [{ name: 'requests', type: '[CreateProductRequestInput!]', from: 'input', envelope: 'entity', each: true }], result: 'entity' },
+      updateMany: { field: 'updateProducts', arguments: [{ name: 'requests', type: '[UpdateProductRequestInput!]', from: 'input', envelope: 'entity', each: true }], result: 'entity' },
+      deleteMany: { field: 'deleteProducts', arguments: [{ name: 'request', type: 'DeleteEntityByIdsInput!', from: 'input' }], result: 'idObject' },
     },
     __model: 'product',
     __cardinality: 'entity',
@@ -1317,6 +1367,9 @@ const sources: Sources = {
       create: { field: 'createStaticPage', arguments: [{ name: 'request', type: 'CreateStaticPageRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
       update: { field: 'updateStaticPage', arguments: [{ name: 'request', type: 'UpdateStaticPageRequestInput!', from: 'input', envelope: 'entity' }], result: 'entity' },
       delete: { field: 'deleteStaticPage', arguments: [{ name: 'request', type: 'DeleteEntityByIdInput!', from: 'input' }], result: 'idObject' },
+      createMany: { field: 'createStaticPages', arguments: [{ name: 'requests', type: '[CreateStaticPageRequestInput!]', from: 'input', envelope: 'entity', each: true }], result: 'entity' },
+      updateMany: { field: 'updateStaticPages', arguments: [{ name: 'requests', type: '[UpdateStaticPageRequestInput!]', from: 'input', envelope: 'entity', each: true }], result: 'entity' },
+      deleteMany: { field: 'deleteStaticPages', arguments: [{ name: 'request', type: 'DeleteEntityByIdsInput!', from: 'input' }], result: 'idObject' },
     },
     __model: 'staticPage',
     __cardinality: 'entity',

@@ -125,7 +125,7 @@ export function indexBuiltInSources(
   return result;
 }
 
-export type MutationKind = 'create' | 'update' | 'delete';
+export type MutationKind = 'create' | 'update' | 'delete' | 'createMany' | 'updateMany' | 'deleteMany';
 
 /** A runtime binding plus the TS type the generated accessor takes for it. */
 export type MutationBinding = SourceMutationBinding & {
@@ -135,7 +135,8 @@ export type MutationBinding = SourceMutationBinding & {
 
 export type MutationBindings = Partial<Record<MutationKind, MutationBinding>>;
 
-const MUTATION_KINDS: MutationKind[] = ['create', 'update', 'delete'];
+const SINGLE_KINDS = ['create', 'update', 'delete'] as const;
+const MUTATION_KINDS: MutationKind[] = [...SINGLE_KINDS, 'createMany', 'updateMany', 'deleteMany'];
 
 /**
  * A create/update mutation answers with the entity itself; a delete answers with a response
@@ -173,6 +174,101 @@ function resolveArgumentInput(type: GraphQLInputObjectType): { envelope: string 
   return { envelope: undefined, inputTypeName: type.name };
 }
 
+const BATCH_SUFFIX = 'Batch';
+
+/** The named type of a `[T!]` or `[T!]!`, and nothing for a type that is no list. */
+function unwrapList(type: GraphQLType): GraphQLType | undefined {
+  const list = isNonNullType(type) ? type.ofType : type;
+
+  if (!isListType(list)) {
+    return undefined;
+  }
+
+  return isNonNullType(list.ofType) ? list.ofType.ofType : list.ofType;
+}
+
+function returnsEntityIdList(type: GraphQLType, entityTypeName: string | undefined): boolean {
+  const item = unwrapList(type);
+
+  return item !== undefined && returnsEntityId(item, entityTypeName);
+}
+
+/**
+ * The batch mutations of a model, which write a list in one call. The server names them after the
+ * plural of the model, the name its batch subscription carries too, so that is where the plural
+ * is read from. Each one is taken only when its shape is the list form of the single mutation:
+ * a create/update takes a list of the very request type the single one takes and answers with a
+ * list of the entity, a delete takes one request object with `ids`.
+ */
+function indexBatchMutationsForModel(
+  mutationType: GraphQLObjectType,
+  subscriptionField: string,
+  entityTypeName: string,
+  single: MutationBindings,
+): MutationBindings {
+  const result: MutationBindings = {};
+
+  if (!subscriptionField.endsWith(BATCH_SUFFIX)) {
+    return result;
+  }
+
+  const fields = mutationType.getFields();
+  const plural = pascalCase(subscriptionField.slice(0, -BATCH_SUFFIX.length));
+
+  for (const kind of ['create', 'update'] as const) {
+    const field = fields[`${kind}${plural}`];
+    const one = single[kind];
+    const argument = field?.args.length === 1 ? field.args[0] : undefined;
+    const item = argument ? unwrapList(argument.type) : undefined;
+
+    if (!field || !one || !argument || !item || !returnsEntityIdList(field.type, entityTypeName)) {
+      continue;
+    }
+
+    // the same request type as the single mutation: the same input, the same envelope
+    if (item.toString() !== one.arguments[0]?.type.replace(/!$/, '')) {
+      continue;
+    }
+
+    result[`${kind}Many`] = {
+      field: field.name,
+      arguments: [
+        {
+          name: argument.name,
+          type: argument.type.toString(),
+          from: 'input',
+          each: true,
+          ...(one.arguments[0]?.envelope !== undefined && { envelope: one.arguments[0].envelope }),
+        },
+      ],
+      result: 'entity',
+      inputType: one.inputType,
+    };
+  }
+
+  const removal = fields[`delete${plural}`];
+  const removalArgument = removal?.args.length === 1 ? removal.args[0] : undefined;
+  const removalInput =
+    removalArgument && isNonNullType(removalArgument.type) ? removalArgument.type.ofType : removalArgument?.type;
+
+  if (
+    removal &&
+    removalArgument &&
+    isInputObjectType(removalInput) &&
+    Object.hasOwn(removalInput.getFields(), 'ids') &&
+    returnsEntityIdList(removal.type, undefined)
+  ) {
+    result.deleteMany = {
+      field: removal.name,
+      arguments: [{ name: removalArgument.name, type: removalArgument.type.toString(), from: 'input' }],
+      result: 'idObject',
+      inputType: removalInput.name,
+    };
+  }
+
+  return result;
+}
+
 function indexMutationsForModel(
   mutationType: GraphQLObjectType,
   model: string,
@@ -181,7 +277,7 @@ function indexMutationsForModel(
   const fields = mutationType.getFields();
   const result: MutationBindings = {};
 
-  for (const kind of MUTATION_KINDS) {
+  for (const kind of SINGLE_KINDS) {
     // the server derives these names the same way — `create` + the capitalized model reference name
     const field = fields[`${kind}${pascalCase(model)}`];
 
@@ -352,7 +448,12 @@ export function indexEntityMutations(
   }
 
   for (const [entityTypeName, binding] of entityBindings) {
-    const bindings = indexMutationsForModel(mutationType, binding.model, entityTypeName);
+    const single = indexMutationsForModel(mutationType, binding.model, entityTypeName);
+    const batch =
+      binding.cardinality === 'entity'
+        ? indexBatchMutationsForModel(mutationType, binding.fieldName, entityTypeName, single)
+        : {};
+    const bindings = { ...single, ...batch };
 
     if (Object.keys(bindings).length > 0) {
       result.set(binding.model, bindings);
@@ -494,6 +595,10 @@ function generateMutationsConst(mutations: MutationBindings | undefined): string
 
         if (argument.envelope) {
           parts.push(`envelope: '${argument.envelope}'`);
+        }
+
+        if (argument.each === true) {
+          parts.push('each: true');
         }
 
         return `{ ${parts.join(', ')} }`;

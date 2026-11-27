@@ -13,3 +13,13 @@ export async function collectSource<T>(
 
   return batches.flatMap((batch) => batch.source);
 }
+
+/**
+ * Reads the one entity a singleton subscription answers with. Like the list reads it is sent again
+ * when its connection is lost, and it ends with the `operationTimeoutMs` of the client.
+ */
+export async function readSingleton<T>(client: ContelloClient<any>, document: string): Promise<T> {
+  const response = await client.execute<{ source: T }>(document, undefined, { retry: true });
+
+  return response.source;
+}

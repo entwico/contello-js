@@ -1,6 +1,7 @@
 import type { MaybePromise } from '@entwico/dash';
 
 import type { ContelloClient } from './client';
+import type { OperationOptions } from './deadline';
 
 export type FakeCall = {
   kind: 'subscribe' | 'execute';
@@ -25,7 +26,8 @@ export type FakeContelloHandlers = {
 export type FakeContelloClient = {
   /**
    * Stands in for a `ContelloClient`: `subscribe`, `subscribeWithRetry`, `collect`, `execute`, `init`,
-   * `destroy` and `ping` work, nothing else is there.
+   * `destroy` and `ping` work, nothing else is there. A call ends with the reason of its signal;
+   * there is no `operationTimeoutMs`.
    */
   client: ContelloClient<any>;
   /** Every subscription that was iterated or collected and every `execute`, in order. */
@@ -33,6 +35,30 @@ export type FakeContelloClient = {
   /** The subscriptions that are open right now: iterated, and neither finished nor closed. */
   open(): number;
 };
+
+type CallArguments = [variables?: Record<string, unknown> | undefined, options?: OperationOptions | undefined];
+
+/** The answer, or the reason of the signal when that comes first: an aborted call does not wait for its handler. */
+async function untilAborted<T>(answer: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) {
+    return await answer;
+  }
+
+  const { promise: aborted, reject } = Promise.withResolvers<never>();
+  const onAbort = () => reject(signal.reason);
+
+  if (signal.aborted) {
+    onAbort();
+  } else {
+    signal.addEventListener('abort', onAbort, { once: true });
+  }
+
+  try {
+    return await Promise.race([answer, aborted]);
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+  }
+}
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
   return typeof (value as AsyncIterable<unknown> | undefined)?.[Symbol.asyncIterator] === 'function';
@@ -52,7 +78,9 @@ export function createFakeContelloClient(handlers?: FakeContelloHandlers | undef
   const calls: FakeCall[] = [];
   let open = 0;
 
-  function subscribe<TData>(query: string, variables?: Record<string, unknown> | undefined): AsyncIterable<TData> {
+  function subscribe<TData>(query: string, ...[variables, options]: CallArguments): AsyncIterable<TData> {
+    const signal = options?.signal;
+
     return {
       // like the real client, every iteration is a subscription of its own
       [Symbol.asyncIterator](): AsyncIterator<TData> {
@@ -102,7 +130,7 @@ export function createFakeContelloClient(handlers?: FakeContelloHandlers | undef
             }
 
             try {
-              const result = await nextMessage();
+              const result = await untilAborted(nextMessage(), signal);
 
               if (result.done === true) {
                 close();
@@ -126,14 +154,14 @@ export function createFakeContelloClient(handlers?: FakeContelloHandlers | undef
     };
   }
 
-  async function execute<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData> {
+  async function execute<TData>(query: string, ...[variables, options]: CallArguments): Promise<TData> {
     if (handlers?.execute) {
       calls.push({ kind: 'execute', query, variables });
 
-      return (await handlers.execute(query, variables)) as TData;
+      return (await untilAborted(Promise.resolve(handlers.execute(query, variables)), options?.signal)) as TData;
     }
 
-    const iterator = subscribe<TData>(query, variables)[Symbol.asyncIterator]();
+    const iterator = subscribe<TData>(query, variables, options)[Symbol.asyncIterator]();
 
     // the subscription it runs on is recorded as what the caller asked for
     calls.at(-1)!.kind = 'execute';
@@ -151,8 +179,8 @@ export function createFakeContelloClient(handlers?: FakeContelloHandlers | undef
     }
   }
 
-  async function collect<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData[]> {
-    const messages: TData[] = await Array.fromAsync(subscribe<TData>(query, variables));
+  async function collect<TData>(query: string, ...[variables, options]: CallArguments): Promise<TData[]> {
+    const messages: TData[] = await Array.fromAsync(subscribe<TData>(query, variables, options));
 
     return messages;
   }

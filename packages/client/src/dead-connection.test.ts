@@ -202,6 +202,19 @@ describe('a ContelloClient whose connection is lost', () => {
     expect(contello.slowCalls()).toBe(1);
   });
 
+  test('sends an execute with retry again, and answers it', async () => {
+    const contello = await startContello();
+    const client = await connectClient(contello.port);
+
+    const answer = client.execute('{ slow }', undefined, { retry: true });
+
+    await until(() => contello.slowCalls() === 1);
+    contello.dropConnections();
+    contello.releaseSlow();
+
+    await expect(answer).resolves.toEqual({ slow: 'answer 2' });
+  });
+
   test('answers an execute that was sent while no connection was up', async () => {
     const contello = await startContello();
     let reconnecting = false;

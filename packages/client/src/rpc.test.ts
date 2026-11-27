@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, test, vi } from 'vitest';
 
+import type { OperationOptions } from './deadline';
 import { type RpcTransport, buildRpc } from './rpc';
 import type { OperationDef, OperationMap, Rpc } from './types';
 
@@ -14,7 +15,15 @@ async function* toAsync<T>(values: T[]): AsyncIterable<T> {
 }
 
 function transportOf(subscribe: any, subscribeWithRetry: any = subscribe): RpcTransport {
-  return { subscribe, subscribeWithRetry };
+  return {
+    subscribe,
+    subscribeWithRetry,
+    first: (async (query: string, variables: unknown, options: unknown) => {
+      const messages = await Array.fromAsync(subscribe(query, variables, options));
+
+      return messages[0];
+    }) as RpcTransport['first'],
+  };
 }
 
 describe('buildRpc', () => {
@@ -26,7 +35,7 @@ describe('buildRpc', () => {
     const result = await (rpc.getUser as () => Promise<unknown>)();
 
     expect(result).toEqual({ user: { id: '1' } });
-    expect(subscribe).toHaveBeenCalledWith('query GetUser { user { id } }', undefined);
+    expect(subscribe).toHaveBeenCalledWith('query GetUser { user { id } }', undefined, undefined);
   });
 
   test('mutation methods resolve to the first emitted value', async () => {
@@ -60,7 +69,7 @@ describe('buildRpc', () => {
       day: { year: 2026, month: 5, day: 26 },
     });
 
-    expect(subscribe).toHaveBeenCalledWith('query GetUser { user { id } }', { day: '2026-05-26T00:00:00Z' });
+    expect(subscribe).toHaveBeenCalledWith('query GetUser { user { id } }', { day: '2026-05-26T00:00:00Z' }, undefined);
   });
 
   test('passes transformed variables through for subscriptions too', async () => {
@@ -74,7 +83,7 @@ describe('buildRpc', () => {
       break;
     }
 
-    expect(subscribe).toHaveBeenCalledWith('subscription Watch { tick }', { ids: ['a'] });
+    expect(subscribe).toHaveBeenCalledWith('subscription Watch { tick }', { ids: ['a'] }, undefined);
   });
 
   test('builds a method for every operation in the map, and a retrying one for a subscription', () => {
@@ -102,7 +111,7 @@ describe('buildRpc', () => {
 
     await expect(Array.fromAsync(rpc['watch']!())).resolves.toEqual([{ tick: 'plain' }]);
     await expect(Array.fromAsync(rpc['watchWithRetry']!())).resolves.toEqual([{ tick: 'retried' }]);
-    expect(subscribeWithRetry).toHaveBeenCalledWith('subscription Watch { tick }', undefined);
+    expect(subscribeWithRetry).toHaveBeenCalledWith('subscription Watch { tick }', undefined, undefined);
   });
 
   test('types the retrying method for subscriptions only', () => {
@@ -112,8 +121,10 @@ describe('buildRpc', () => {
     };
 
     expectTypeOf<Rpc<Operations>['watchWithRetry']>().toEqualTypeOf<
-      (variables: { from: number }) => AsyncIterable<{ tick: number }>
+      (variables: { from: number }, options?: OperationOptions | undefined) => AsyncIterable<{ tick: number }>
     >();
+    expectTypeOf<Rpc<Operations>['getUser']>().toBeCallableWith();
+    expectTypeOf<Rpc<Operations>['getUser']>().toBeCallableWith(undefined, { signal: new AbortController().signal });
     expectTypeOf<Rpc<Operations>>().not.toHaveProperty('getUserWithRetry');
   });
 
@@ -133,5 +144,22 @@ describe('buildRpc', () => {
     } satisfies OperationMap;
 
     expect(() => buildRpc(operations, transportOf(() => toAsync([])))).toThrow('collides');
+  });
+
+  test('passes the options of a call on to the transport', async () => {
+    const operations = {
+      getUser: op('query', 'query GetUser { user { id } }'),
+      watch: op('subscription', 'subscription Watch { tick }'),
+    } satisfies OperationMap;
+    const subscribe = vi.fn(() => toAsync([{ user: { id: '1' } }]));
+    const { signal } = new AbortController();
+
+    const rpc = buildRpc(operations, transportOf(subscribe)) as unknown as Record<string, (...args: any[]) => any>;
+
+    await rpc['getUser']!(undefined, { signal });
+    await Array.fromAsync(rpc['watch']!(undefined, { signal }));
+
+    expect(subscribe).toHaveBeenNthCalledWith(1, 'query GetUser { user { id } }', undefined, { signal });
+    expect(subscribe).toHaveBeenNthCalledWith(2, 'subscription Watch { tick }', undefined, { signal });
   });
 });

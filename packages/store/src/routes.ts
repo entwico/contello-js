@@ -1,6 +1,7 @@
 import {
   BUILT_IN_MUTATIONS,
   type ContelloClient,
+  type OperationOptions,
   type SourceMutationKind,
   createSourceMutation,
   createSourceMutationVariables,
@@ -296,7 +297,11 @@ export function createRoutesCollection(
     return maybeThen(projected.getAllAsMap(), () => {});
   }
 
-  async function runMutation(kind: SourceMutationKind, values: { input?: unknown; id?: string }): Promise<unknown> {
+  async function runMutation(
+    kind: SourceMutationKind,
+    values: { input?: unknown; id?: string },
+    options: OperationOptions | undefined,
+  ): Promise<unknown> {
     const binding = routeSource.mutations?.[kind];
 
     if (!binding) {
@@ -306,6 +311,7 @@ export function createRoutesCollection(
     const response = await client.execute<{ result: unknown }>(
       createSourceMutation(routeSource, kind),
       createSourceMutationVariables(binding, values),
+      options,
     );
 
     if (response?.result === undefined || response.result === null) {
@@ -342,16 +348,16 @@ export function createRoutesCollection(
   }
 
   const writes = {
-    async create(input: unknown): Promise<ReadonlyDeep<StoreRoute>> {
-      return takeIntoCache((await runMutation('create', { input })) as StoreRouteFragment);
+    async create(input: unknown, options?: OperationOptions | undefined): Promise<ReadonlyDeep<StoreRoute>> {
+      return takeIntoCache((await runMutation('create', { input }, options)) as StoreRouteFragment);
     },
 
-    async update(input: unknown): Promise<ReadonlyDeep<StoreRoute>> {
-      return takeIntoCache((await runMutation('update', { input })) as StoreRouteFragment);
+    async update(input: unknown, options?: OperationOptions | undefined): Promise<ReadonlyDeep<StoreRoute>> {
+      return takeIntoCache((await runMutation('update', { input }, options)) as StoreRouteFragment);
     },
 
-    async delete(id: string): Promise<void> {
-      await runMutation('delete', { input: { id }, id });
+    async delete(id: string, options?: OperationOptions | undefined): Promise<void> {
+      await runMutation('delete', { input: { id }, id }, options);
 
       writeBuffer.release([id]);
 

@@ -3,6 +3,7 @@ import { firstAsync } from '@entwico/dash/async';
 import type { Agent } from 'undici';
 
 import { ContelloConnectionLostError, createConnection } from './connection';
+import { type OperationOptions, createDeadline } from './deadline';
 import {
   type DownloadResult,
   type HttpAgentOptions,
@@ -46,6 +47,27 @@ export type ContelloClientOptions<TSchema extends Schema | undefined = undefined
   onReconnecting?: (() => void) | undefined;
   onError?: ((error: unknown) => void) | undefined;
   connectionEvents?: ConnectionEvents | undefined;
+  /**
+   * How long an operation may take when its call passes no signal; without it an operation waits
+   * for as long as its connection lives, and for a connection for as long as there is none. It is
+   * rejected with a `ContelloTimeoutError`. A read of many messages (`collect()`, the list reads of
+   * `sources`) is given this time for each message, not for all of them; a subscription has no
+   * deadline.
+   */
+  operationTimeoutMs?: number | undefined;
+};
+
+type Variables = Record<string, unknown> | undefined;
+
+// the options come after the variables: a call that passes them names its variables, if only as undefined
+type CallArguments<TOptions> = [variables?: Variables, options?: TOptions | undefined];
+
+export type ExecuteOptions = OperationOptions & {
+  /**
+   * Sends the operation again when its connection is lost. For a read only: a mutation that is
+   * sent again may run twice.
+   */
+  retry?: boolean | undefined;
 };
 
 type PoolState = 'disconnected' | 'connected' | 'reconnecting';
@@ -59,6 +81,7 @@ function openSubscription<TData>(
   query: string,
   variables: Record<string, unknown> | undefined,
   onConnectionLoss: 'abort' | 'retry',
+  signal?: AbortSignal | undefined,
 ): AsyncIterable<TData> {
   return {
     [Symbol.asyncIterator](): AsyncIterator<TData> {
@@ -147,6 +170,30 @@ function openSubscription<TData>(
         },
       );
 
+      if (signal) {
+        const watchingConnection = stopWatching;
+
+        const onAbort = () => {
+          if (done) {
+            return;
+          }
+
+          fail(signal.reason);
+          unsubscribe();
+        };
+
+        stopWatching = () => {
+          watchingConnection();
+          signal.removeEventListener('abort', onAbort);
+        };
+
+        if (signal.aborted) {
+          onAbort();
+        } else {
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      }
+
       return {
         next(): Promise<IteratorResult<TData>> {
           if (queue.length > 0) {
@@ -182,6 +229,24 @@ function openSubscription<TData>(
   };
 }
 
+/** The first message of an operation, within the deadline of the call. */
+async function firstMessage<TData>(
+  pool: ConnectionPool,
+  timeoutMs: number | undefined,
+  query: string,
+  variables: Record<string, unknown> | undefined,
+  options: ExecuteOptions | undefined,
+): Promise<TData> {
+  const deadline = createDeadline(options?.signal, timeoutMs);
+  const onConnectionLoss = options?.retry === true ? 'retry' : 'abort';
+
+  try {
+    return await firstAsync(openSubscription<TData>(pool, query, variables, onConnectionLoss, deadline.signal));
+  } finally {
+    deadline.clear();
+  }
+}
+
 export class ContelloClient<TSchema extends Schema | undefined = undefined> {
   private _pool: ConnectionPool;
   private _rpc: TSchema extends Schema<infer TOps, any, any> ? Rpc<TOps> : undefined;
@@ -190,6 +255,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
   private _project: string;
   private _token: string;
   private _agent: Agent;
+  private _operationTimeoutMs: number | undefined;
 
   constructor(options: ContelloClientOptions<TSchema>) {
     const { url, project, token, schema, connections = 1, connectionEvents } = options;
@@ -198,6 +264,7 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     this._project = project;
     this._token = token;
     this._agent = createHttpAgent(options.http);
+    this._operationTimeoutMs = options.operationTimeoutMs;
 
     const websocketUrl = `${url}/graphql/projects/${project}`.replace(/^http/i, 'ws');
 
@@ -255,8 +322,9 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     this._rpc = (
       schema?.operations
         ? buildRpc(schema.operations, {
-            subscribe: (q, v) => this.subscribe(q, v),
-            subscribeWithRetry: (q, v) => this.subscribeWithRetry(q, v),
+            subscribe: (q, v, o) => this.subscribe(q, v, o),
+            subscribeWithRetry: (q, v, o) => this.subscribeWithRetry(q, v, o),
+            first: (q, v, o) => firstMessage(this._pool, this._operationTimeoutMs, q, v, o),
           })
         : undefined
     ) as typeof this._rpc;
@@ -264,9 +332,9 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     this._sources = (
       schema?.sources
         ? createSources(schema.sources, {
-            write: (q, v) => this.subscribe(q, v),
-            readOne: (q, v) => this.subscribeWithRetry(q, v),
-            readAll: (q, v) => this.collect(q, v),
+            write: (q, v, o) => firstMessage(this._pool, this._operationTimeoutMs, q, v, o),
+            readOne: (q, v, o) => firstMessage(this._pool, this._operationTimeoutMs, q, v, { ...o, retry: true }),
+            readAll: (q, v, o) => this.collect(q, v, o),
           })
         : undefined
     ) as typeof this._sources;
@@ -297,9 +365,9 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     await this._agent.close();
   }
 
-  async ping(): Promise<void> {
+  async ping(options?: OperationOptions | undefined): Promise<void> {
     // excluded from telemetry to avoid noise
-    return ping((query) => firstAsync(this.subscribe(query)));
+    return ping((query) => firstMessage(this._pool, this._operationTimeoutMs, query, undefined, options));
   }
 
   /**
@@ -308,11 +376,14 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
    * application needs read access to the project. See `createTokenIntrospector` for the caching
    * wrapper a backend puts in front of its requests.
    */
-  introspectToken(token: string): Promise<TokenIntrospection> {
+  introspectToken(token: string, options?: OperationOptions | undefined): Promise<TokenIntrospection> {
     // not execute(): its span records the variables, and the token must not end up in telemetry
     return wrap(
       '@contello/client:introspectToken',
-      () => introspectToken((query, variables) => firstAsync(this.subscribe(query, variables)), token),
+      () => introspectToken(
+        (query, variables) => firstMessage(this._pool, this._operationTimeoutMs, query, variables, options),
+        token,
+      ),
     );
   }
 
@@ -325,8 +396,10 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
    * is not sent again: what it delivered so far cannot be taken back, and the server would start
    * it over. One that is opened while no connection is up waits for the next one.
    */
-  subscribe<TData>(query: string, variables?: Record<string, unknown> | undefined): AsyncIterable<TData> {
-    return openSubscription(this._pool, query, variables, 'abort');
+  subscribe<TData>(query: string, variables?: Variables): AsyncIterable<TData>;
+  subscribe<TData>(query: string, variables: Variables, options: OperationOptions | undefined): AsyncIterable<TData>;
+  subscribe<TData>(query: string, ...[variables, options]: CallArguments<OperationOptions>): AsyncIterable<TData> {
+    return openSubscription(this._pool, query, variables, 'abort', options?.signal);
   }
 
   /**
@@ -335,8 +408,18 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
    * is sent again from its beginning, so a stream that ends, such as the batches of a source,
    * repeats what it delivered before: read that one with `collect()`.
    */
-  subscribeWithRetry<TData>(query: string, variables?: Record<string, unknown> | undefined): AsyncIterable<TData> {
-    return openSubscription(this._pool, query, variables, 'retry');
+  subscribeWithRetry<TData>(query: string, variables?: Variables): AsyncIterable<TData>;
+  subscribeWithRetry<TData>(
+    query: string,
+    variables: Variables,
+    options: OperationOptions | undefined,
+  ): AsyncIterable<TData>;
+
+  subscribeWithRetry<TData>(
+    query: string,
+    ...[variables, options]: CallArguments<OperationOptions>
+  ): AsyncIterable<TData> {
+    return openSubscription(this._pool, query, variables, 'retry', options?.signal);
   }
 
   /**
@@ -345,12 +428,17 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
    * and so does the answer: it never holds messages of an attempt that did not finish. A read that
    * the end of the client cuts off is rejected.
    */
-  collect<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData[]> {
+  collect<TData>(query: string, variables?: Variables): Promise<TData[]>;
+  collect<TData>(query: string, variables: Variables, options: OperationOptions | undefined): Promise<TData[]>;
+  collect<TData>(query: string, ...[variables, options]: CallArguments<OperationOptions>): Promise<TData[]> {
     const wsClient = this._pool.get();
+    const deadline = createDeadline(options?.signal, this._operationTimeoutMs);
+    const { signal } = deadline;
 
     return new Promise((resolve, reject) => {
       let messages: TData[] = [];
       let interrupted = false;
+      let settled = false;
 
       const offClosed = wsClient.on('closed', () => {
         messages = [];
@@ -361,27 +449,50 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
         interrupted = false;
       });
 
-      const off = () => {
-        offClosed();
-        offConnected();
+      const onAbort = () => {
+        if (settled) {
+          return;
+        }
+
+        settle();
+        unsubscribe();
+        reject(signal?.reason);
       };
 
-      wsClient.subscribe<TData>(
+      const settle = () => {
+        settled = true;
+        offClosed();
+        offConnected();
+        deadline.clear();
+        signal?.removeEventListener('abort', onAbort);
+      };
+
+      const unsubscribe = wsClient.subscribe<TData>(
         { query, variables },
         {
           next(msg) {
             const value = transformResponse(msg.data);
+
+            deadline.restart();
 
             if (value !== undefined && value !== null) {
               messages.push(value as TData);
             }
           },
           error(err) {
-            off();
+            if (settled) {
+              return;
+            }
+
+            settle();
             reject(err);
           },
           complete() {
-            off();
+            if (settled) {
+              return;
+            }
+
+            settle();
 
             // the server ends a subscription on a connection that is up; without one the client was destroyed
             if (interrupted) {
@@ -394,6 +505,12 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
           },
         },
       );
+
+      if (signal?.aborted) {
+        onAbort();
+      } else {
+        signal?.addEventListener('abort', onAbort, { once: true });
+      }
     });
   }
 
@@ -423,10 +540,16 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     );
   }
 
-  execute<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData> {
+  /**
+   * Runs one query or mutation. It is rejected, and not sent again, when its connection is lost:
+   * a mutation may have arrived. `retry` sends a read again instead.
+   */
+  execute<TData>(query: string, variables?: Variables): Promise<TData>;
+  execute<TData>(query: string, variables: Variables, options: ExecuteOptions | undefined): Promise<TData>;
+  execute<TData>(query: string, ...[variables, options]: CallArguments<ExecuteOptions>): Promise<TData> {
     return wrap(
       '@contello/client:execute',
-      () => firstAsync(this.subscribe<TData>(query, variables)),
+      () => firstMessage<TData>(this._pool, this._operationTimeoutMs, query, variables, options),
       graphqlOperationAttributes(query, variables),
     );
   }

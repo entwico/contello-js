@@ -5,11 +5,14 @@
 import type { SourceDef } from '@contello/client';
 
 export type ContelloAssetKind = 'AUDIO' | 'DOCUMENT' | 'IMAGE' | 'OTHER' | 'VIDEO';
+export type ContelloAssetProcessingFailureReason = 'INTERNAL' | 'INVALID_SOURCE' | 'NO_RESULT' | 'UNSUPPORTED';
+export type ContelloAssetProcessingState = 'FAILED' | 'PROCESSING' | 'READY' | 'UNKNOWN';
 export type ContelloAssetRetentionPolicy = 'deleteIfNotUsed' | 'retain';
 export type ContelloBatchOperationStatus = 'error' | 'success';
 export type ContelloContentDispositionEnum = 'ATTACHMENT' | 'AUTOMATIC' | 'INLINE';
 export type ContelloDictionaryType = 'ENTITY' | 'STATIC';
 export type ContelloMutationType = 'CREATE' | 'DELETE' | 'UPDATE';
+export type ContelloResourceAction = 'CREATE' | 'DELETE' | 'READ' | 'UPDATE';
 export type ContelloRouteTargetTypeEnum = 'ENTITY' | 'FILE' | 'REDIRECT' | 'SITEMAP' | 'TEXT_RESPONSE';
 
 export type ContelloAnnotationFilterInput = {
@@ -27,10 +30,10 @@ export type ContelloAssetRequestInput = {
 };
 
 export type ContelloAssetsFilterInput = {
-  annotations?: (ContelloAnnotationFilterInput | undefined)[] | undefined;
-  collectionReferences?: (string | undefined)[] | undefined;
-  ids?: (string | undefined)[] | undefined;
-  kinds?: (ContelloAssetKind | undefined)[] | undefined;
+  annotations?: ContelloAnnotationFilterInput[] | undefined;
+  collectionReferences?: string[] | undefined;
+  ids?: string[] | undefined;
+  kinds?: ContelloAssetKind[] | undefined;
 };
 
 export type ContelloAssetsPaginationInput = {
@@ -83,7 +86,7 @@ export type ContelloRouteHeaderInput = {
 };
 
 export type ContelloRouteInput = {
-  customHeaders?: (ContelloRouteHeaderInput | undefined)[] | undefined;
+  customHeaders?: ContelloRouteHeaderInput[] | undefined;
   path: string;
   targetEntityConfig?: TargetEntityConfigInput | undefined;
   targetFileConfig?: TargetFileConfig | undefined;
@@ -99,8 +102,8 @@ export type ContelloRouteRequestInput = {
 };
 
 export type ContelloRoutesRequestInput = {
-  ids?: (string | undefined)[] | undefined;
-  paths?: (string | undefined)[] | undefined;
+  ids?: string[] | undefined;
+  paths?: string[] | undefined;
   targetType?: ContelloRouteTargetTypeEnum | undefined;
 };
 
@@ -143,7 +146,7 @@ export type DeleteEntityByIdsInput = {
 
 export type DummiesFilterInput = {
   created?: DateTimeFilterInput | undefined;
-  ids?: (string | undefined)[] | undefined;
+  ids?: string[] | undefined;
   name?: StringFilterInput | undefined;
   route?: StringFilterInput | undefined;
   updated?: DateTimeFilterInput | undefined;
@@ -222,6 +225,8 @@ export type ContelloAsset = {
   optimized: ContelloOptimizedFile[];
   original: ContelloFile;
   preview?: ContelloFile | undefined;
+  previewVideo?: ContelloFile | undefined;
+  processing: ContelloAssetProcessing;
   updatedAt: string;
 };
 
@@ -237,6 +242,12 @@ export type ContelloAssetDeleteResponse = {
   status: ContelloBatchOperationStatus;
 };
 
+export type ContelloAssetProcessing = {
+  __typename?: 'ContelloAssetProcessing' | undefined;
+  failureReason?: ContelloAssetProcessingFailureReason | undefined;
+  state: ContelloAssetProcessingState;
+};
+
 export type ContelloBatchOperationResponse = {
   __typename?: 'ContelloBatchOperationResponse' | undefined;
   status: ContelloBatchOperationStatus;
@@ -247,7 +258,7 @@ export type ContelloDictionary = {
   createdAt: string;
   description?: string | undefined;
   id: string;
-  items?: (string | undefined)[] | undefined;
+  items?: string[] | undefined;
   name: string;
   referenceName: string;
   type: ContelloDictionaryType;
@@ -257,6 +268,7 @@ export type ContelloDictionary = {
 export type ContelloEntityDeleteResponse = {
   __typename?: 'ContelloEntityDeleteResponse' | undefined;
   id: string;
+  reason?: string | undefined;
   status: ContelloBatchOperationStatus;
 };
 
@@ -353,6 +365,13 @@ export type ContelloProject = {
   referenceName: string;
 };
 
+export type ContelloResourcePermissions = {
+  __typename?: 'ContelloResourcePermissions' | undefined;
+  actions: ContelloResourceAction[];
+  resourceType: string;
+  scope?: string | undefined;
+};
+
 export type ContelloRoute = {
   __typename?: 'ContelloRoute' | undefined;
   createdAt: string;
@@ -402,6 +421,24 @@ export type ContelloRouteUpdate = {
   __typename?: 'ContelloRouteUpdate' | undefined;
   mutation: ContelloMutation;
   route: ContelloRoute;
+};
+
+export type ContelloTokenIntrospection = {
+  __typename?: 'ContelloTokenIntrospection' | undefined;
+  active: boolean;
+  audience?: string | undefined;
+  expiresAt?: string | undefined;
+  permissions?: ContelloResourcePermissions[] | undefined;
+  user?: ContelloTokenIntrospectionUser | undefined;
+};
+
+export type ContelloTokenIntrospectionUser = {
+  __typename?: 'ContelloTokenIntrospectionUser' | undefined;
+  email: string;
+  firstName: string;
+  id: string;
+  lastName: string;
+  username: string;
 };
 
 export type ContelloUpdateBatch = {
@@ -490,14 +527,15 @@ export type RootMutation = {
 export type RootQuery = {
   __typename?: 'RootQuery' | undefined;
   contelloAsset?: ContelloAsset | undefined;
-  contelloAssets?: (ContelloAsset | undefined)[] | undefined;
-  contelloDictionaries?: (ContelloDictionary | undefined)[] | undefined;
-  contelloEntityModels?: (ContelloEntityModel | undefined)[] | undefined;
+  contelloAssets?: ContelloAsset[] | undefined;
+  contelloDictionaries?: ContelloDictionary[] | undefined;
+  contelloEntityModels?: ContelloEntityModel[] | undefined;
   contelloI18nMessages?: ContelloI18nMessagesResponse | undefined;
+  contelloIntrospectToken: ContelloTokenIntrospection;
   contelloPing: PingResult;
   contelloProject?: ContelloProject | undefined;
   contelloRoute?: ContelloRoute | undefined;
-  contelloRoutes?: (ContelloRoute | undefined)[] | undefined;
+  contelloRoutes?: ContelloRoute[] | undefined;
   dummies: DummiesResponseCollection;
   dummy?: DummyEntity | undefined;
 };

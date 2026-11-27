@@ -2,6 +2,7 @@ import {
   BUILT_IN_MUTATIONS,
   type ContelloClient,
   type DownloadResult,
+  type OperationOptions,
   type ProxyResult,
   type SourceMutationKind,
   type SourceMutationValues,
@@ -208,7 +209,11 @@ export function createAssetsCollection(
     runPartialRefresh([...upserted], deleted);
   });
 
-  async function runMutation(kind: SourceMutationKind, values: SourceMutationValues): Promise<unknown> {
+  async function runMutation(
+    kind: SourceMutationKind,
+    values: SourceMutationValues,
+    options: OperationOptions | undefined,
+  ): Promise<unknown> {
     const binding = assetSource.mutations?.[kind];
 
     if (!binding) {
@@ -218,6 +223,7 @@ export function createAssetsCollection(
     const response = await client.execute<{ result: unknown }>(
       createSourceMutation(assetSource, kind),
       createSourceMutationVariables(binding, values),
+      options,
     );
 
     if (response?.result === undefined || response.result === null) {
@@ -228,8 +234,8 @@ export function createAssetsCollection(
   }
 
   const writes = {
-    async update(input: unknown): Promise<ReadonlyDeep<StoreAsset>> {
-      const raw = (await runMutation('update', { input })) as StoreAssetFragment;
+    async update(input: unknown, options?: OperationOptions | undefined): Promise<ReadonlyDeep<StoreAsset>> {
+      const raw = (await runMutation('update', { input }, options)) as StoreAssetFragment;
 
       writeBuffer.park(raw.id, raw);
 
@@ -255,8 +261,8 @@ export function createAssetsCollection(
       return asset;
     },
 
-    async delete(id: string): Promise<void> {
-      await runMutation('delete', { input: { id }, id });
+    async delete(id: string, options?: OperationOptions | undefined): Promise<void> {
+      await runMutation('delete', { input: { id }, id }, options);
 
       writeBuffer.release([id]);
       projected.delete([id]);

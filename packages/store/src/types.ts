@@ -1,4 +1,4 @@
-import type { ConnectionEvents, Schema, SourceCardinality, SourceDef } from '@contello/client';
+import type { ConnectionEvents, OperationOptions, Schema, SourceCardinality, SourceDef } from '@contello/client';
 import type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
 import type { MapperContext } from './dependency-collector';
 
@@ -211,8 +211,11 @@ export type ExtractSourceWrites<S> = S extends SourceDef<string, SourceCardinali
   ? TWrites
   : unknown;
 
-/** Everything the model's delete mutation accepts besides the id (e.g. `force`). */
-export type DeleteOptions<TDelete> = Omit<TDelete, 'id'>;
+/** Everything the model's delete mutation accepts besides the id (e.g. `force`), and the options of the call. */
+export type DeleteOptions<TDelete> = Omit<TDelete, 'id'> & OperationOptions;
+
+/** Everything the model's batch delete mutation accepts besides the ids, and the options of the call. */
+export type DeleteManyOptions<TDelete> = Omit<TDelete, 'ids'> & OperationOptions;
 
 /**
  * The write-input shape of the schema's built-in source of a given cardinality — `unknown` when
@@ -237,15 +240,41 @@ export type BuiltInWrites<TSchema, TCardinality extends SourceCardinality> = [
  *
  * `update` is a patch: attributes left out keep their stored value, per property and, for
  * translatable ones, per locale.
+ *
+ * `createMany`, `updateMany` and `deleteMany` write a list in one mutation, for the models the
+ * schema has one for (no singletons, no routes, no assets). It is rejected as a whole when it
+ * fails. `updateMany` answers in the order of its inputs, and so does `createMany` when every
+ * input carries an id.
+ *
+ * Every write takes the options of a client call last: a `signal` ends it.
  */
 export type CollectionWrites<TMapped, TWrites> = (TWrites extends { create: infer TCreate }
-  ? { create(input: TCreate): Promise<ReadonlyDeep<TMapped>> }
+  ? { create(input: TCreate, options?: OperationOptions | undefined): Promise<ReadonlyDeep<TMapped>> }
   : Record<never, never>)
 & (TWrites extends { update: infer TUpdate }
-  ? { update(input: TUpdate): Promise<ReadonlyDeep<TMapped>> }
+  ? { update(input: TUpdate, options?: OperationOptions | undefined): Promise<ReadonlyDeep<TMapped>> }
   : Record<never, never>)
 & (TWrites extends { delete: infer TDelete }
   ? { delete(id: string, options?: DeleteOptions<TDelete> | undefined): Promise<void> }
+  : Record<never, never>)
+& (TWrites extends { createMany: infer TCreate }
+  ? {
+      createMany(
+        inputs: readonly TCreate[],
+        options?: OperationOptions | undefined,
+      ): Promise<ReadonlyDeep<TMapped>[]>;
+    }
+  : Record<never, never>)
+& (TWrites extends { updateMany: infer TUpdate }
+  ? {
+      updateMany(
+        inputs: readonly TUpdate[],
+        options?: OperationOptions | undefined,
+      ): Promise<ReadonlyDeep<TMapped>[]>;
+    }
+  : Record<never, never>)
+& (TWrites extends { deleteMany: infer TDelete }
+  ? { deleteMany(ids: readonly string[], options?: DeleteManyOptions<TDelete> | undefined): Promise<void> }
   : Record<never, never>);
 
 // ---------------------------------------------------------------------------

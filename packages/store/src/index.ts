@@ -31,6 +31,7 @@ export type {
   CollectionSyncOptions,
   CollectionWrites,
   CreateStoreOptions,
+  DeleteManyOptions,
   DeleteOptions,
   ExtractSourceResult,
   ExtractSourceWrites,

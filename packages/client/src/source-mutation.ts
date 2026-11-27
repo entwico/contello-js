@@ -57,9 +57,9 @@ export function createSourceMutation(source: SourceDef, kind: SourceMutationKind
 
 /**
  * Variables for a write: one per bound argument, the input nested under the envelope field when
- * the argument is a one-field wrapper, and everything encoded on the way out (LocalDate /
- * LocalDateTime structs become wire strings) — every caller goes through here, so no write path
- * can skip the encoding.
+ * the argument is a one-field wrapper (each input of a batch write on its own), and everything
+ * encoded on the way out (LocalDate / LocalDateTime structs become wire strings) — every caller
+ * goes through here, so no write path can skip the encoding.
  */
 export function createSourceMutationVariables(
   binding: SourceMutationBinding,
@@ -68,8 +68,15 @@ export function createSourceMutationVariables(
   const variables: Record<string, unknown> = {};
 
   for (const argument of binding.arguments) {
-    variables[argument.name] =
-      argument.from === 'id' ? values.id : (argument.envelope ? { [argument.envelope]: values.input } : values.input);
+    const wrapInput = (input: unknown) => (argument.envelope ? { [argument.envelope]: input } : input);
+
+    if (argument.from === 'id') {
+      variables[argument.name] = values.id;
+    } else if (argument.each === true) {
+      variables[argument.name] = (values.input as unknown[]).map((input) => wrapInput(input));
+    } else {
+      variables[argument.name] = wrapInput(values.input);
+    }
   }
 
   return transformVariables(variables);

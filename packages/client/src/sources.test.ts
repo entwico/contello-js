@@ -1,19 +1,26 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, expectTypeOf, test } from 'vitest';
 
-import { createSources } from './sources';
+import type { OperationOptions } from './deadline';
+import { type SourceTransport, createSources } from './sources';
 import type { SourceAccessors, SourceCardinality, SourceDef, SourceMap } from './types';
 
-type AnySubscribe = (query: string, variables?: Record<string, unknown> | undefined) => AsyncIterable<unknown>;
+type AnySubscribe = (
+  query: string,
+  variables: Record<string, unknown> | undefined,
+  options: OperationOptions | undefined,
+) => AsyncIterable<unknown>;
 
-type AnyCollect = (query: string, variables?: Record<string, unknown> | undefined) => Promise<unknown[]>;
+// what the client answers with on a connection that stays up: every message, or the first one
+function collectOf(subscribe: AnySubscribe): SourceTransport['readAll'] {
+  return ((query, variables, options) => Array.fromAsync(subscribe(query, variables, options))) as SourceTransport['readAll'];
+}
 
-// what the client's collect() answers with on a connection that stays up
-function collectOf(subscribe: AnySubscribe): AnyCollect {
-  return async (query, variables) => {
-    const messages: unknown[] = await Array.fromAsync(subscribe(query, variables));
+function firstOf(subscribe: AnySubscribe): SourceTransport['write'] {
+  return (async (query, variables, options) => {
+    const messages = await Array.fromAsync(subscribe(query, variables, options));
 
-    return messages;
-  };
+    return messages[0];
+  }) as SourceTransport['write'];
 }
 
 function unusedTransport(): never {
@@ -22,9 +29,9 @@ function unusedTransport(): never {
 
 function sourcesOf<TSources extends SourceMap>(sources: TSources, subscribe: unknown): SourceAccessors<TSources> {
   return createSources(sources, {
-    write: subscribe as never,
-    readOne: subscribe as never,
-    readAll: collectOf(subscribe as AnySubscribe) as never,
+    write: firstOf(subscribe as AnySubscribe),
+    readOne: firstOf(subscribe as AnySubscribe),
+    readAll: collectOf(subscribe as AnySubscribe),
   });
 }
 
@@ -171,7 +178,7 @@ describe('createSources write accessors', () => {
 
   test('writes through the transport that is not sent again', async () => {
     const accessors = createSources({ x: writableSource }, {
-      write: resultSubscribe({ id: '1' }) as never,
+      write: firstOf(resultSubscribe({ id: '1' })),
       readOne: unusedTransport,
       readAll: unusedTransport,
     });
@@ -184,7 +191,7 @@ describe('createSources transport', () => {
   test('reads a singleton through the transport that is sent again', async () => {
     const accessors = createSources({ x: minimalSource('singleton') }, {
       write: unusedTransport,
-      readOne: valueSubscribe({ id: '1' }) as never,
+      readOne: firstOf(valueSubscribe({ id: '1' })),
       readAll: unusedTransport,
     });
 
@@ -195,9 +202,206 @@ describe('createSources transport', () => {
     const accessors = createSources({ x: minimalSource('entity') }, {
       write: unusedTransport,
       readOne: unusedTransport,
-      readAll: collectOf(batchedSubscribe([[1], [2]])) as never,
+      readAll: collectOf(batchedSubscribe([[1], [2]])),
     });
 
     await expect(accessors.x.fetch()).resolves.toEqual([1, 2]);
+  });
+});
+
+describe('createSources batch writes', () => {
+  const requests = (type: string) => ({ name: 'requests', type, from: 'input', each: true, envelope: 'entity' }) as const;
+
+  const batchSource: SourceDef<string, 'entity', unknown> = {
+    document: 'fragment X on XEntity { id name }',
+    fragment: 'X',
+    subscription: 'xBatch',
+    mutations: {
+      createMany: { field: 'createXs', arguments: [requests('[CreateXRequestInput!]')], result: 'entity' },
+      updateMany: { field: 'updateXs', arguments: [requests('[UpdateXRequestInput!]')], result: 'entity' },
+      deleteMany: {
+        field: 'deleteXs',
+        arguments: [{ name: 'request', type: 'DeleteEntitiesByIdsInput!', from: 'input' }],
+        result: 'idObject',
+      },
+    },
+    __model: 'x',
+    __cardinality: 'entity',
+  };
+
+  function recordingWrite(result: unknown) {
+    const calls: { query: string; variables: unknown; options: unknown }[] = [];
+
+    const accessors = createSources({ x: batchSource }, {
+      write: ((query: string, variables: unknown, options: unknown) => {
+        calls.push({ query, variables, options });
+
+        return Promise.resolve({ result });
+      }) as SourceTransport['write'],
+      readOne: unusedTransport,
+      readAll: unusedTransport,
+    }).x as any;
+
+    return { accessors, calls };
+  }
+
+  test('an updateMany sends every input in its own envelope, in one mutation', async () => {
+    const { accessors, calls } = recordingWrite([{ id: 'a' }, { id: 'b' }]);
+
+    await accessors.updateMany([
+      { id: 'a', attributes: { name: 'first' } },
+      { id: 'b', attributes: { name: 'second' } },
+    ]);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.query).toContain(
+      'mutation($requests: [UpdateXRequestInput!]) { result: updateXs(requests: $requests) { ...X } }',
+    );
+    expect(calls[0]!.variables).toEqual({
+      requests: [
+        { entity: { id: 'a', attributes: { name: 'first' } } },
+        { entity: { id: 'b', attributes: { name: 'second' } } },
+      ],
+    });
+  });
+
+  test('an updateMany encodes its inputs the way an update does', async () => {
+    const { accessors, calls } = recordingWrite([{ id: 'a' }]);
+    const checkedAt = { year: 2026, month: 5, day: 26, hour: 8, minute: 30, second: 0 };
+
+    await accessors.updateMany([{ id: 'a', attributes: { offers: [{ checkedAt }] } }]);
+
+    const [request] = (calls[0]!.variables as { requests: any[] }).requests;
+
+    expect(request.entity.attributes.offers[0].checkedAt).toBe('2026-05-26T08:30:00Z');
+  });
+
+  test('an updateMany answers in the order of its inputs, whatever order the server answers in', async () => {
+    const { accessors } = recordingWrite([{ id: 'c' }, { id: 'a' }, { id: 'b' }]);
+
+    await expect(accessors.updateMany([{ id: 'a' }, { id: 'b' }, { id: 'c' }])).resolves.toEqual([
+      { id: 'a' },
+      { id: 'b' },
+      { id: 'c' },
+    ]);
+  });
+
+  test('a createMany whose inputs carry no ids answers in the order of the server', async () => {
+    const { accessors } = recordingWrite([{ id: 'b' }, { id: 'a' }]);
+
+    await expect(
+      accessors.createMany([{ attributes: { name: 'first' } }, { attributes: { name: 'second' } }]),
+    ).resolves.toEqual([{ id: 'b' }, { id: 'a' }]);
+  });
+
+  test('a deleteMany sends its request as it is and answers with the ids it removed', async () => {
+    const { accessors, calls } = recordingWrite([{ id: 'a' }, { id: 'b' }]);
+
+    await expect(accessors.deleteMany({ ids: ['a', 'b'], force: true })).resolves.toEqual(['a', 'b']);
+    expect(calls[0]!.variables).toEqual({ request: { ids: ['a', 'b'], force: true } });
+  });
+
+  test('a batch write of nothing does not ask the server', async () => {
+    const { accessors, calls } = recordingWrite([]);
+
+    await expect(accessors.updateMany([])).resolves.toEqual([]);
+    await expect(accessors.createMany([])).resolves.toEqual([]);
+    await expect(accessors.deleteMany({ ids: [] })).resolves.toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  test('a failed batch write rejects as a whole', async () => {
+    const accessors = createSources({ x: batchSource }, {
+      write: () => Promise.reject(new Error('one entity was refused')),
+      readOne: unusedTransport,
+      readAll: unusedTransport,
+    }).x as any;
+
+    await expect(accessors.updateMany([{ id: 'a' }, { id: 'b' }])).rejects.toThrow('one entity was refused');
+  });
+});
+
+describe('createSources options', () => {
+  test('passes the signal of a read and of a write on to the transport', async () => {
+    const seen: unknown[] = [];
+    const { signal } = new AbortController();
+
+    const record = (answer: unknown) =>
+      ((_query: string, _variables: unknown, options: unknown) => {
+        seen.push(options);
+
+        return Promise.resolve(answer);
+      }) as never;
+
+    const sources = {
+      list: minimalSource('entity'),
+      one: minimalSource('singleton'),
+      written: {
+        ...minimalSource('entity'),
+        mutations: {
+          update: { field: 'updateX', arguments: [{ name: 'request', type: 'X!', from: 'input' }], result: 'entity' },
+        },
+      } as SourceDef<string, 'entity', unknown>,
+    };
+
+    const accessors = createSources(sources, {
+      write: record({ result: { id: '1' } }),
+      readOne: record({ source: { id: '1' } }),
+      readAll: record([{ source: [] }]),
+    }) as any;
+
+    await accessors.list.fetch({ ids: ['1'], signal });
+    await accessors.one.fetch({ signal });
+    await accessors.written.update({ id: '1' }, { signal });
+
+    expect(seen).toEqual([{ signal }, { signal }, { signal }]);
+  });
+
+  test('keeps the signal of a list read out of its variables', async () => {
+    let variables: unknown;
+
+    const accessors = createSources({ list: minimalSource('entity') }, {
+      write: unusedTransport,
+      readOne: unusedTransport,
+      readAll: ((_query: string, vars: unknown) => {
+        variables = vars;
+
+        return Promise.resolve([]);
+      }) as never,
+    });
+
+    await accessors.list.fetch({ ids: ['1'], signal: new AbortController().signal });
+
+    expect(variables).toEqual({ ids: ['1'] });
+  });
+});
+
+describe('SourceAccessors types', () => {
+  type Thing = { id: string; name: string };
+  type Update = { id: string; attributes: { name: string } };
+
+  type Sources = {
+    thing: SourceDef<'thing', 'entity', Thing, { update: Update; updateMany: Update; deleteMany: { ids: string[] } }>;
+    config: SourceDef<'config', 'singleton', Thing, { update: Update }>;
+  };
+
+  test('a source has the batch writes its model has a mutation for, and no others', () => {
+    type Accessors = SourceAccessors<Sources>;
+
+    expectTypeOf<Accessors['thing']['updateMany']>().toEqualTypeOf<
+      (inputs: readonly Update[], options?: OperationOptions | undefined) => Promise<Thing[]>
+    >();
+    expectTypeOf<Accessors['thing']['deleteMany']>().returns.toEqualTypeOf<Promise<string[]>>();
+    expectTypeOf<Accessors['thing']>().not.toHaveProperty('createMany');
+    expectTypeOf<Accessors['config']>().not.toHaveProperty('updateMany');
+  });
+
+  test('a read takes a signal: a list next to its filter, a singleton on its own', () => {
+    type Accessors = SourceAccessors<Sources>;
+    const { signal } = new AbortController();
+
+    expectTypeOf<Accessors['thing']['fetch']>().toBeCallableWith({ ids: ['1'], signal });
+    expectTypeOf<Accessors['thing']['fetch']>().toBeCallableWith();
+    expectTypeOf<Accessors['config']['fetch']>().toBeCallableWith({ signal });
   });
 });

@@ -1,22 +1,25 @@
 import { graphqlOperationAttributes } from '@contello/opentelemetry';
-import { firstAsync } from '@entwico/dash/async';
+import type { OperationOptions } from './deadline';
 import { wrap } from './telemetry';
 import { transformVariables } from './transform-variables';
 import type { OperationMap, Rpc } from './types';
 
-type Subscribe = <TData>(query: string, variables?: Record<string, unknown> | undefined) => AsyncIterable<TData>;
+type Variables = Record<string, unknown> | undefined;
+type Options = OperationOptions | undefined;
 
 export type RpcTransport = {
   /** Rejects when its connection is lost. */
-  subscribe: Subscribe;
+  subscribe: <TData>(query: string, variables: Variables, options: Options) => AsyncIterable<TData>;
   /** Is sent again on the next connection. */
-  subscribeWithRetry: Subscribe;
+  subscribeWithRetry: <TData>(query: string, variables: Variables, options: Options) => AsyncIterable<TData>;
+  /** The answer of a query or mutation; rejects when its connection is lost. */
+  first: <TData>(query: string, variables: Variables, options: Options) => Promise<TData>;
 };
 
 export const RETRY_SUFFIX = 'WithRetry';
 
 export function buildRpc<T extends OperationMap>(operations: T, transport: RpcTransport): Rpc<T> {
-  const { subscribe, subscribeWithRetry } = transport;
+  const { subscribe, subscribeWithRetry, first } = transport;
   const rpc = {} as Record<string, (...args: any[]) => any>;
 
   for (const [name, def] of Object.entries(operations)) {
@@ -29,20 +32,20 @@ export function buildRpc<T extends OperationMap>(operations: T, transport: RpcTr
         );
       }
 
-      rpc[name] = (variables?: Record<string, unknown>) =>
-        subscribe<unknown>(def.document, transformVariables(variables));
-      rpc[retryName] = (variables?: Record<string, unknown>) =>
-        subscribeWithRetry<unknown>(def.document, transformVariables(variables));
+      rpc[name] = (variables: Variables, options: Options) =>
+        subscribe<unknown>(def.document, transformVariables(variables), options);
+      rpc[retryName] = (variables: Variables, options: Options) =>
+        subscribeWithRetry<unknown>(def.document, transformVariables(variables), options);
 
       continue;
     }
 
-    rpc[name] = (variables?: Record<string, unknown>) => {
+    rpc[name] = (variables: Variables, options: Options) => {
       const vars = transformVariables(variables);
 
       return wrap(
         `rpc:${name}`,
-        () => firstAsync(subscribe<unknown>(def.document, vars)),
+        () => first<unknown>(def.document, vars, options),
         graphqlOperationAttributes(def.document, vars),
       );
     };

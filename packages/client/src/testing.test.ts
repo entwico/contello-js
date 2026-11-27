@@ -87,6 +87,24 @@ describe('a fake contello client', () => {
     expect(open()).toBe(0);
   });
 
+  test('ends a call with the reason of its signal, without waiting for the handler', async () => {
+    const { client } = createFakeContelloClient({ subscribe: () => new Promise(() => {}) });
+    const controller = new AbortController();
+    const options = { signal: controller.signal };
+
+    const calls = [
+      client.execute('{ greeting }', undefined, options),
+      client.collect('subscription { source }', undefined, options),
+      Array.fromAsync(client.subscribe('subscription { source }', undefined, options)),
+    ];
+
+    controller.abort(new Error('cancelled'));
+
+    for (const call of calls) {
+      await expect(call).rejects.toThrow('cancelled');
+    }
+  });
+
   test('answers execute with its own handler', async () => {
     const { client, calls } = createFakeContelloClient({ execute: (_query, variables) => ({ result: variables }) });
 

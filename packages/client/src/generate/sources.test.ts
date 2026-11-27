@@ -271,6 +271,11 @@ const mutationSdl = `
     updateCategory(request: UpdateCategoryRequestInput!): CategoryEntity
     deleteCategory(request: DeleteEntityByIdInput!): ContelloEntityDeleteResponse!
     createCategories(requests: [CreateCategoryRequestInput!]): [CategoryEntity!]
+    updateCategories(requests: [UpdateCategoryRequestInput!]): [CategoryEntity!]
+    deleteCategories(request: DeleteEntitiesByIdsInput!): [ContelloEntityDeleteResponse!]
+    createProducts(requests: [CreateCategoryRequestInput!]): [ProductEntity!]
+    updateProducts(requests: [UpdateCategoryRequestInput!]): [CategoryEntity!]
+    deleteProducts(ids: [ID!]): [ContelloEntityDeleteResponse!]
     updateConfig(request: UpdateConfigRequestInput!): ConfigEntity
     deleteConfig(request: DeleteEntityByIdInput!): ContelloEntityDeleteResponse!
     createProduct(request: CreateCategoryRequestInput!): SomeOther
@@ -286,6 +291,7 @@ const mutationSdl = `
   input CategoryAttributesInput { name: String }
   input ConfigAttributesInput { brandName: String }
   input DeleteEntityByIdInput { id: ID!, force: Boolean }
+  input DeleteEntitiesByIdsInput { ids: [ID!]!, force: Boolean }
 
   type CategoryEntity { id: ID!, name: String }
   type ConfigEntity { id: ID!, brandName: String }
@@ -321,7 +327,44 @@ describe('indexEntityMutations', () => {
         result: 'idObject',
         inputType: 'DeleteEntityByIdInput',
       },
+      createMany: {
+        field: 'createCategories',
+        arguments: [
+          { name: 'requests', type: '[CreateCategoryRequestInput!]', from: 'input', each: true, envelope: 'entity' },
+        ],
+        result: 'entity',
+        inputType: 'CreateCategoryEntityInput',
+      },
+      updateMany: {
+        field: 'updateCategories',
+        arguments: [
+          { name: 'requests', type: '[UpdateCategoryRequestInput!]', from: 'input', each: true, envelope: 'entity' },
+        ],
+        result: 'entity',
+        inputType: 'UpdateCategoryEntityInput',
+      },
+      deleteMany: {
+        field: 'deleteCategories',
+        arguments: [{ name: 'request', type: 'DeleteEntitiesByIdsInput!', from: 'input' }],
+        result: 'idObject',
+        inputType: 'DeleteEntitiesByIdsInput',
+      },
     });
+  });
+
+  test('binds no batch mutation for a singleton model', () => {
+    const config = indexEntityMutations(mutationSchema, indexEntitySources(mutationSchema)).get('config');
+
+    expect(Object.keys(config ?? {})).toEqual(['update', 'delete']);
+  });
+
+  test('skips a batch mutation that is not the list form of the single one', () => {
+    const product = indexEntityMutations(mutationSchema, indexEntitySources(mutationSchema)).get('product');
+
+    // no single create to be the list of, the entity of another model, no request object with ids
+    expect(product?.createMany).toBeUndefined();
+    expect(product?.updateMany).toBeUndefined();
+    expect(product?.deleteMany).toBeUndefined();
   });
 
   test('omits create for a singleton model, which the schema exposes no createX for', () => {
@@ -383,7 +426,9 @@ describe('source write emission', () => {
   test('carries the write input types as the fourth SourceDef argument', () => {
     expect(generateSourcesType([entry()])).toContain(
       'category: SourceDef<\'category\', \'entity\', CategoryFragment, ' +
-      '{ create: CreateCategoryEntityInput; update: UpdateCategoryEntityInput; delete: DeleteEntityByIdInput }>;',
+      '{ create: CreateCategoryEntityInput; update: UpdateCategoryEntityInput; delete: DeleteEntityByIdInput; ' +
+      'createMany: CreateCategoryEntityInput; updateMany: UpdateCategoryEntityInput; ' +
+      'deleteMany: DeleteEntitiesByIdsInput }>;',
     );
   });
 
@@ -398,6 +443,11 @@ describe('source write emission', () => {
     expect(out).toContain(
       'delete: { field: \'deleteCategory\', arguments: [{ name: \'request\', ' +
       'type: \'DeleteEntityByIdInput!\', from: \'input\' }], result: \'idObject\' },',
+    );
+    expect(out).toContain(
+      'updateMany: { field: \'updateCategories\', arguments: [{ name: \'requests\', ' +
+      'type: \'[UpdateCategoryRequestInput!]\', from: \'input\', envelope: \'entity\', each: true }], ' +
+      'result: \'entity\' },',
     );
   });
 
