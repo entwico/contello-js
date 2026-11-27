@@ -1,5 +1,12 @@
 # @contello/store
 
+## 5.1.0
+
+### Minor Changes
+
+- 48a0198: add `createMany`, `updateMany` and `deleteMany` to collections
+- 48a0198: add a `signal` to every write
+
 ## 5.0.0
 
 ### Major Changes

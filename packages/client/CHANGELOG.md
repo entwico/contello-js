@@ -1,5 +1,12 @@
 # @contello/client
 
+## 4.1.0
+
+### Minor Changes
+
+- 48a0198: add `createMany`, `updateMany` and `deleteMany` to sources (regenerate to get them)
+- 48a0198: add a `signal` to every call and the opt-in client option `operationTimeoutMs`
+
 ## 4.0.0
 
 ### Major Changes
