@@ -1,5 +1,25 @@
 # @contello/store
 
+## 5.0.0
+
+### Major Changes
+
+- d659669: require @contello/client 4; writes reject when their connection is lost
+
+### Patch Changes
+
+- d430c54: type lazy route and asset lookups as `MaybePromise`
+- d430c54: serve lazy route path lookups from the cache after a route update or refresh
+- d430c54: return plain route objects from lazy routes
+- d430c54: report route ids, not paths, in lazy routes refresh events
+- d659669: fix duplicate entities after a reconnect during a load
+- d430c54: find routes by path again after an update with `eviction: 'clear'`
+- Updated dependencies [d659669]
+- Updated dependencies [6e1f58a]
+- Updated dependencies [d659669]
+- Updated dependencies [d659669]
+  - @contello/client@4.0.0
+
 ## 4.5.1
 
 ### Patch Changes

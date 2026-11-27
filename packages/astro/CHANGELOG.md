@@ -1,5 +1,27 @@
 # @contello/astro
 
+## 7.0.0
+
+### Major Changes
+
+- d659669: require @contello/client 4 and @contello/store 5
+
+### Patch Changes
+
+- Updated dependencies [d659669]
+- Updated dependencies [6e1f58a]
+- Updated dependencies [d659669]
+- Updated dependencies [d659669]
+- Updated dependencies [d659669]
+- Updated dependencies [d430c54]
+- Updated dependencies [d430c54]
+- Updated dependencies [d430c54]
+- Updated dependencies [d430c54]
+- Updated dependencies [d659669]
+- Updated dependencies [d430c54]
+  - @contello/client@4.0.0
+  - @contello/store@5.0.0
+
 ## 6.0.1
 
 ### Patch Changes

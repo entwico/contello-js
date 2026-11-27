@@ -1,5 +1,20 @@
 # @contello/client
 
+## 4.0.0
+
+### Major Changes
+
+- d659669: reject operations whose connection is lost instead of sending them again; add `subscribeWithRetry()` and `collect()`
+
+### Minor Changes
+
+- d659669: add `rpc.<subscription>WithRetry()`
+
+### Patch Changes
+
+- 6e1f58a: update graphql, graphql-ws, undici and ws
+- d659669: keep a slow connection that still delivers data
+
 ## 3.5.0
 
 ### Minor Changes
