@@ -7,9 +7,10 @@ import {
   createSourceSubscription,
 } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
+import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
 
+import { collectSource } from './collect-source';
 import { type StoreRouteFragment, schema as storeSchema } from './generated/graphql';
 import type { ModelResolver } from './model-resolver';
 import { normalizeRoutePath } from './route-path';
@@ -87,12 +88,7 @@ export function createRoutesCollection(
   const writeBuffer = createWriteBuffer<StoreRouteFragment>();
 
   function fetchRoutes(ids: string[] | undefined): Promise<StoreRouteFragment[]> {
-    return concatAsync(
-      mapAsync(
-        client.subscribe<{ source: StoreRouteFragment[] }>(routesSourceDoc, { ids }),
-        (data) => data.source,
-      ),
-    );
+    return collectSource(client, routesSourceDoc, { ids });
   }
 
   async function fetchOrTakeWritten(ids: string[] | undefined): Promise<StoreRouteFragment[]> {

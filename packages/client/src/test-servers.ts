@@ -29,13 +29,55 @@ export async function until(condition: () => boolean, timeout = 5000): Promise<v
   }
 }
 
-export type Contello = { port: number; slowCalls: () => number; releaseSlow: () => void };
+export type Contello = {
+  port: number;
+  slowCalls: () => number;
+  releaseSlow: () => void;
+  /** How often the stream of `entities` was started. */
+  streamsStarted: () => number;
+  /** How many batches of `entities` left the server so far, over all of its streams. */
+  batchesSent: () => number;
+  /** Ends the open connections without a close frame, the way a restarted server or a cut path ends them. */
+  dropConnections: () => void;
+};
 
-/** A real graphql-ws server. `slow` holds its first answer back until released, later calls answer at once. */
-export async function startContello(): Promise<Contello> {
+export type ContelloOptions = {
+  /** How long a pong takes, the way it does on a slow path where it waits behind the data sent before it. */
+  pongDelay?: number | undefined;
+};
+
+export const ENTITY_BATCHES = 40;
+export const ENTITY_BATCH_SIZE = 5;
+export const ENTITY_COUNT = ENTITY_BATCHES * ENTITY_BATCH_SIZE;
+
+const ENTITY_BATCH_INTERVAL = 20;
+
+/**
+ * A real graphql-ws server. `slow` holds its first answer back until released, later calls answer at once.
+ * The subscription `entities` streams a collection in batches, every time from its start.
+ */
+export async function startContello(options?: ContelloOptions | undefined): Promise<Contello> {
   const wss = new WebSocketServer({ port: 0, host: '127.0.0.1' });
   const { promise: gate, resolve: releaseSlow } = Promise.withResolvers<void>();
+  const pongDelay = options?.pongDelay;
   let slowCalls = 0;
+  let batchesSent = 0;
+  let streamsStarted = 0;
+
+  async function* streamEntities(): AsyncGenerator<{ data: { entities: { id: string }[] } }> {
+    streamsStarted++;
+
+    for (let batch = 0; batch < ENTITY_BATCHES; batch++) {
+      await new Promise((resolve) => setTimeout(resolve, ENTITY_BATCH_INTERVAL));
+
+      const first = batch * ENTITY_BATCH_SIZE;
+      const entities = Array.from({ length: ENTITY_BATCH_SIZE }, (_, i) => ({ id: String(first + i) }));
+
+      batchesSent++;
+
+      yield { data: { entities } };
+    }
+  }
 
   const fields: Record<string, () => unknown> = {
     greeting: () => 'hello',
@@ -61,6 +103,8 @@ export async function startContello(): Promise<Contello> {
 
         return { data: { [field]: await fields[field]?.() } };
       },
+      subscribe: () => streamEntities(),
+      ...(pongDelay !== undefined && { onPing: () => new Promise<void>((resolve) => setTimeout(resolve, pongDelay)) }),
     },
     wss,
   );
@@ -72,7 +116,19 @@ export async function startContello(): Promise<Contello> {
     await server.dispose();
   });
 
-  return { port: (wss.address() as AddressInfo).port, slowCalls: () => slowCalls, releaseSlow };
+  return {
+    port: (wss.address() as AddressInfo).port,
+    slowCalls: () => slowCalls,
+    releaseSlow,
+    streamsStarted: () => streamsStarted,
+    batchesSent: () => batchesSent,
+
+    dropConnections() {
+      for (const socket of wss.clients) {
+        socket.terminate();
+      }
+    },
+  };
 }
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';

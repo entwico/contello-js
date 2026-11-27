@@ -218,7 +218,7 @@ export function createInternalWatcher(client: ContelloClient<any>, resolver: Mod
       wrap('watcher:start', () => {
         void (async () => {
           const source = keepalive(
-            () => client.subscribe<StoreWatchUpdatesSubscription>(storeWatchUpdatesDocument),
+            () => client.subscribeWithRetry<StoreWatchUpdatesSubscription>(storeWatchUpdatesDocument),
             { signal },
           );
 

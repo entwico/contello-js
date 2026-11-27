@@ -2,7 +2,7 @@ import { graphqlOperationAttributes } from '@contello/opentelemetry';
 import { firstAsync } from '@entwico/dash/async';
 import type { Agent } from 'undici';
 
-import { createConnection } from './connection';
+import { ContelloConnectionLostError, createConnection } from './connection';
 import {
   type DownloadResult,
   type HttpAgentOptions,
@@ -49,6 +49,138 @@ export type ContelloClientOptions<TSchema extends Schema | undefined = undefined
 };
 
 type PoolState = 'disconnected' | 'connected' | 'reconnecting';
+
+/**
+ * One subscription per iteration. `abort` rejects it when its connection is lost, `retry` leaves it to
+ * graphql-ws, which sends it again on the next connection.
+ */
+function openSubscription<TData>(
+  pool: ConnectionPool,
+  query: string,
+  variables: Record<string, unknown> | undefined,
+  onConnectionLoss: 'abort' | 'retry',
+): AsyncIterable<TData> {
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<TData> {
+      const wsClient = pool.get();
+      const queue: TData[] = [];
+      let pending: { resolve: (r: IteratorResult<TData>) => void; reject: (e: unknown) => void } | undefined;
+      let done = false;
+      let error: unknown;
+      let stopWatching = () => {};
+
+      const fail = (err: unknown) => {
+        stopWatching();
+        done = true;
+        error = err;
+
+        if (!pending) {
+          return;
+        }
+
+        const p = pending;
+
+        pending = undefined;
+        p.reject(err);
+      };
+
+      if (onConnectionLoss === 'abort') {
+        // a connection that was never up has lost nothing: the operation is sent on the first one
+        let sent = pool.isConnected(wsClient);
+
+        const offConnected = wsClient.on('connected', () => {
+          sent = true;
+        });
+
+        const offClosed = wsClient.on('closed', () => {
+          if (!sent || done) {
+            return;
+          }
+
+          fail(new ContelloConnectionLostError());
+          unsubscribe();
+        });
+
+        stopWatching = () => {
+          offConnected();
+          offClosed();
+        };
+      }
+
+      const unsubscribe = wsClient.subscribe<TData>(
+        { query, variables },
+        {
+          next(msg) {
+            const value = transformResponse(msg.data);
+
+            if (value === undefined || value === null) {
+              return;
+            }
+
+            if (pending) {
+              const p = pending;
+
+              pending = undefined;
+              p.resolve({ value: value as TData, done: false });
+            } else {
+              queue.push(value as TData);
+            }
+          },
+          error(err) {
+            if (!done) {
+              fail(err);
+            }
+          },
+          complete() {
+            stopWatching();
+            done = true;
+
+            if (!pending) {
+              return;
+            }
+
+            const p = pending;
+
+            pending = undefined;
+            p.resolve({ value: undefined as unknown as TData, done: true });
+          },
+        },
+      );
+
+      return {
+        next(): Promise<IteratorResult<TData>> {
+          if (queue.length > 0) {
+            return Promise.resolve({ value: queue.shift()!, done: false });
+          }
+
+          if (error !== undefined) {
+            return Promise.reject(error);
+          }
+
+          if (done) {
+            return Promise.resolve({ value: undefined as unknown as TData, done: true });
+          }
+
+          return new Promise<IteratorResult<TData>>((resolve, reject) => {
+            pending = { resolve, reject };
+          });
+        },
+        return(): Promise<IteratorResult<TData>> {
+          stopWatching();
+          unsubscribe();
+
+          return Promise.resolve({ value: undefined as unknown as TData, done: true });
+        },
+        throw(err): Promise<IteratorResult<TData>> {
+          stopWatching();
+          unsubscribe();
+
+          return Promise.reject(err);
+        },
+      };
+    },
+  };
+}
 
 export class ContelloClient<TSchema extends Schema | undefined = undefined> {
   private _pool: ConnectionPool;
@@ -121,11 +253,22 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
     }, connections);
 
     this._rpc = (
-      schema?.operations ? buildRpc(schema.operations, (q, v) => this.subscribe(q, v)) : undefined
+      schema?.operations
+        ? buildRpc(schema.operations, {
+            subscribe: (q, v) => this.subscribe(q, v),
+            subscribeWithRetry: (q, v) => this.subscribeWithRetry(q, v),
+          })
+        : undefined
     ) as typeof this._rpc;
 
     this._sources = (
-      schema?.sources ? createSources(schema.sources, (q, v) => this.subscribe(q, v)) : undefined
+      schema?.sources
+        ? createSources(schema.sources, {
+            write: (q, v) => this.subscribe(q, v),
+            readOne: (q, v) => this.subscribeWithRetry(q, v),
+            readAll: (q, v) => this.collect(q, v),
+          })
+        : undefined
     ) as typeof this._sources;
   }
 
@@ -177,96 +320,81 @@ export class ContelloClient<TSchema extends Schema | undefined = undefined> {
    * Open a subscription on the websocket. Each `[Symbol.asyncIterator]()` call (the implicit one
    * from `for await`, or via `rxjs.from(this)`) starts a fresh server subscription and tears it
    * down when the iterator is returned (`break`, error, or explicit stop).
+   *
+   * A subscription whose connection is lost is rejected with a `ContelloConnectionLostError` and
+   * is not sent again: what it delivered so far cannot be taken back, and the server would start
+   * it over. One that is opened while no connection is up waits for the next one.
    */
   subscribe<TData>(query: string, variables?: Record<string, unknown> | undefined): AsyncIterable<TData> {
-    const pool = this._pool;
+    return openSubscription(this._pool, query, variables, 'abort');
+  }
 
-    return {
-      [Symbol.asyncIterator](): AsyncIterator<TData> {
-        const wsClient = pool.get();
-        const queue: TData[] = [];
-        let pending: { resolve: (r: IteratorResult<TData>) => void; reject: (e: unknown) => void } | undefined;
-        let done = false;
-        let error: unknown;
+  /**
+   * A subscription that outlives its connection: on the next one it is sent again, and its
+   * messages go on. For a stream of events that stays open. The server starts a subscription that
+   * is sent again from its beginning, so a stream that ends, such as the batches of a source,
+   * repeats what it delivered before: read that one with `collect()`.
+   */
+  subscribeWithRetry<TData>(query: string, variables?: Record<string, unknown> | undefined): AsyncIterable<TData> {
+    return openSubscription(this._pool, query, variables, 'retry');
+  }
 
-        const unsubscribe = wsClient.subscribe<TData>(
-          { query, variables },
-          {
-            next(msg) {
-              const value = transformResponse(msg.data);
+  /**
+   * Reads a subscription that ends, such as the batches of a source, and answers with all of its
+   * messages. When the connection is lost on the way the subscription starts over on the next one,
+   * and so does the answer: it never holds messages of an attempt that did not finish. A read that
+   * the end of the client cuts off is rejected.
+   */
+  collect<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData[]> {
+    const wsClient = this._pool.get();
 
-              if (value === undefined || value === null) {
-                return;
-              }
+    return new Promise((resolve, reject) => {
+      let messages: TData[] = [];
+      let interrupted = false;
 
-              if (pending) {
-                const p = pending;
+      const offClosed = wsClient.on('closed', () => {
+        messages = [];
+        interrupted = true;
+      });
 
-                pending = undefined;
-                p.resolve({ value: value as TData, done: false });
-              } else {
-                queue.push(value as TData);
-              }
-            },
-            error(err) {
-              done = true;
-              error = err;
+      const offConnected = wsClient.on('connected', () => {
+        interrupted = false;
+      });
 
-              if (!pending) {
-                return;
-              }
+      const off = () => {
+        offClosed();
+        offConnected();
+      };
 
-              const p = pending;
+      wsClient.subscribe<TData>(
+        { query, variables },
+        {
+          next(msg) {
+            const value = transformResponse(msg.data);
 
-              pending = undefined;
-              p.reject(err);
-            },
-            complete() {
-              done = true;
-
-              if (!pending) {
-                return;
-              }
-
-              const p = pending;
-
-              pending = undefined;
-              p.resolve({ value: undefined as unknown as TData, done: true });
-            },
+            if (value !== undefined && value !== null) {
+              messages.push(value as TData);
+            }
           },
-        );
+          error(err) {
+            off();
+            reject(err);
+          },
+          complete() {
+            off();
 
-        return {
-          next(): Promise<IteratorResult<TData>> {
-            if (queue.length > 0) {
-              return Promise.resolve({ value: queue.shift()!, done: false });
+            // the server ends a subscription on a connection that is up; without one the client was destroyed
+            if (interrupted) {
+              reject(new Error('@contello/client: the client was destroyed before the read finished'));
+
+              return;
             }
 
-            if (error !== undefined) {
-              return Promise.reject(error);
-            }
-
-            if (done) {
-              return Promise.resolve({ value: undefined as unknown as TData, done: true });
-            }
-
-            return new Promise<IteratorResult<TData>>((resolve, reject) => {
-              pending = { resolve, reject };
-            });
+            resolve(messages);
           },
-          return(): Promise<IteratorResult<TData>> {
-            unsubscribe();
-
-            return Promise.resolve({ value: undefined as unknown as TData, done: true });
-          },
-          throw(err): Promise<IteratorResult<TData>> {
-            unsubscribe();
-
-            return Promise.reject(err);
-          },
-        };
-      },
-    };
+        },
+      );
+    });
   }
 
   download(fileId: string): Promise<DownloadResult> {

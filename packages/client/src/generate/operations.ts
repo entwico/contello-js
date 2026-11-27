@@ -1,9 +1,26 @@
 import type { OperationDefinitionNode } from 'graphql';
 
+import { RETRY_SUFFIX } from '../rpc';
 import { pascalCase, uncapitalize } from './utils';
+
+function assertNoRetryNameCollision(operations: OperationDefinitionNode[]): void {
+  const names = new Set(operations.map((op) => uncapitalize(op.name!.value)));
+
+  for (const op of operations) {
+    const name = uncapitalize(op.name!.value);
+
+    if (op.operation === 'subscription' && names.has(name + RETRY_SUFFIX)) {
+      throw new Error(
+        `operation "${name}${RETRY_SUFFIX}" collides with the retrying rpc method of subscription "${name}" — rename it`,
+      );
+    }
+  }
+}
 
 /** Emits `export type Operations = { ... }`. */
 export function generateOperationsType(operations: OperationDefinitionNode[]): string {
+  assertNoRetryNameCollision(operations);
+
   const lines: string[] = ['export type Operations = {'];
 
   for (const op of operations) {

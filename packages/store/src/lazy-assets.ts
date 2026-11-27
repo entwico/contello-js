@@ -8,8 +8,9 @@ import {
   createSourceSubscription,
 } from '@contello/client';
 import type { ReadonlyDeep } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
+import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedLazyMap } from '@entwico/projected';
+import { collectSource } from './collect-source';
 import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
 import { createLruCache } from './lru';
 import { wrap } from './telemetry';
@@ -88,9 +89,7 @@ export function createLazyAssetsCollection(
     key: (asset) => asset.id,
     values: (ids) =>
       wrap('assets', async () => {
-        const rawItems = await concatAsync(
-          mapAsync(client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }), (data) => data.source),
-        );
+        const rawItems = await collectSource<StoreAssetFragment>(client, assetsSourceDoc, { ids });
 
         return rawItems.map((item) => mapAsset(item));
       }),

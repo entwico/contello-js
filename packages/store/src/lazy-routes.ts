@@ -1,7 +1,8 @@
 import { type ContelloClient, createSourceSubscription } from '@contello/client';
 import type { ReadonlyDeep } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
+import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedLazyMap } from '@entwico/projected';
+import { collectSource } from './collect-source';
 import { type StoreRouteFragment, schema as storeSchema } from './generated/graphql';
 import { type LruCache, createLruCache } from './lru';
 import type { ModelResolver } from './model-resolver';
@@ -149,9 +150,7 @@ export function createLazyRoutesCollection(
   const routesSourceDoc = createSourceSubscription(storeSchema.sources.storeRoute);
 
   function fetchRoutes(vars: { ids?: string[]; paths?: string[] }): Promise<StoreRouteFragment[]> {
-    return concatAsync(
-      mapAsync(client.subscribe<{ source: StoreRouteFragment[] }>(routesSourceDoc, vars), (data) => data.source),
-    );
+    return collectSource(client, routesSourceDoc, vars);
   }
 
   const projected = new ProjectedLazyMap<string, StoreRoute>({

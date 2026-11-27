@@ -6,6 +6,7 @@ export type ReplyWatchdog = {
   connected(): void;
   ping(received: boolean): void;
   pong(received: boolean): void;
+  message(): void;
   closed(): void;
 };
 
@@ -13,6 +14,9 @@ export type ReplyWatchdog = {
  * Gives up a connection whose server stopped answering: a new one that is not acknowledged, or an
  * established one that sends no pong to a ping. A connection that died without a close frame looks
  * open forever, and every operation on it waits.
+ *
+ * While the pong is awaited, anything the server sends restarts the wait: on a slow path the pong
+ * arrives behind the data that was sent before it, and a connection that still delivers is alive.
  *
  * `terminate` has to drop the connection without waiting for it (graphql-ws `client.terminate()`):
  * closing a socket whose peer is gone waits for that same peer.
@@ -45,6 +49,13 @@ export function createReplyWatchdog(terminate: () => void, timeout = REPLY_TIMEO
     pong(received) {
       if (received) {
         disarm();
+      }
+    },
+
+    message() {
+      // a restart, not an end of the wait: graphql-ws sends its next ping only after this pong
+      if (timer !== undefined) {
+        arm();
       }
     },
 

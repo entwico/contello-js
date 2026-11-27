@@ -6,26 +6,37 @@ import { ContelloClient } from './client';
 const emitted = vi.hoisted(() => ({ data: undefined as unknown }));
 
 vi.mock('graphql-ws', () => ({
-  createClient: () => ({
-    on: (event: string, cb: () => void) => {
-      // resolve init()/destroy() immediately
-      if (event === 'connected' || event === 'closed') {
-        queueMicrotask(cb);
-      }
+  createClient: () => {
+    const onClosed = new Set<() => void>();
 
-      return () => {};
-    },
-    subscribe: (_payload: unknown, sink: { next: (m: { data: unknown }) => void; complete: () => void }) => {
-      queueMicrotask(() => {
-        sink.next({ data: emitted.data });
-        sink.complete();
-      });
+    return {
+      on: (event: string, cb: () => void) => {
+        // resolve init() immediately
+        if (event === 'connected') {
+          queueMicrotask(cb);
+        } else if (event === 'closed') {
+          onClosed.add(cb);
+        }
 
-      return () => {};
-    },
-    dispose: () => {},
-    terminate: () => {},
-  }),
+        return () => void onClosed.delete(cb);
+      },
+      subscribe: (_payload: unknown, sink: { next: (m: { data: unknown }) => void; complete: () => void }) => {
+        queueMicrotask(() => {
+          sink.next({ data: emitted.data });
+          sink.complete();
+        });
+
+        return () => {};
+      },
+      // a connection closes when it is disposed, not before
+      dispose: () => {
+        for (const cb of onClosed) {
+          cb();
+        }
+      },
+      terminate: () => {},
+    };
+  },
 }));
 
 function createClient(): ContelloClient {

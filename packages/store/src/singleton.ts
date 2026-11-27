@@ -62,7 +62,7 @@ export function createSingleton<
         () => maybeThen(
           firstAsync(
             mapAsync(
-              client.subscribe<{ source: ExtractSourceResult<TSource> }>(createSourceSubscription(source)),
+              client.subscribeWithRetry<{ source: ExtractSourceResult<TSource> }>(createSourceSubscription(source)),
               (r) => r.source,
             ),
           ),

@@ -13,9 +13,10 @@ import {
   createSourceSubscription,
 } from '@contello/client';
 import type { MaybePromise, ReadonlyDeep } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
+import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
 
+import { collectSource } from './collect-source';
 import { type StoreAssetFragment, type StoreFileFragment, schema as storeSchema } from './generated/graphql';
 import type { StoreAsset, StoreFile } from './lazy-assets';
 import { wrap } from './telemetry';
@@ -104,12 +105,7 @@ export function createAssetsCollection(
   const writeBuffer = createWriteBuffer<StoreAssetFragment>();
 
   function fetchAssets(ids: string[] | undefined): Promise<StoreAssetFragment[]> {
-    return concatAsync(
-      mapAsync(
-        client.subscribe<{ source: StoreAssetFragment[] }>(assetsSourceDoc, { ids }),
-        (data) => data.source,
-      ),
-    );
+    return collectSource(client, assetsSourceDoc, { ids });
   }
 
   async function fetchOrTakeWritten(ids: string[] | undefined): Promise<StoreAssetFragment[]> {

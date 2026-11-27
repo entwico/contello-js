@@ -26,8 +26,14 @@ export type RpcMethod<T extends OperationDef> = T['kind'] extends 'subscription'
     ? () => Promise<InferResult<T>>
     : (variables: InferVariables<T>) => Promise<InferResult<T>>;
 
+/**
+ * One method per operation. A subscription has a second one, `<name>WithRetry`: the plain method
+ * rejects when its connection is lost, this one is sent again on the next connection and goes on.
+ */
 export type Rpc<T extends OperationMap> = {
   [K in keyof T]: RpcMethod<T[K]>;
+} & {
+  [K in keyof T as T[K]['kind'] extends 'subscription' ? `${K & string}WithRetry` : never]: RpcMethod<T[K]>;
 };
 
 /**

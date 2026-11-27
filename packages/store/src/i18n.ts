@@ -1,7 +1,8 @@
 import { type ContelloClient, createSourceSubscription } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeThen } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
+import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
+import { collectSource } from './collect-source';
 import {
   type ContelloI18nMessageInput,
   type StoreI18nMessageFragment,
@@ -100,15 +101,10 @@ export function createI18nMessagesCollection(
     key: (msg) => msg.id,
     values: (ids) =>
       wrap(`i18n:${def.collection}`, async () => {
-        const msgs = await concatAsync(
-          mapAsync(
-            client.subscribe<{ source: StoreI18nMessageFragment[] }>(i18nSourceDoc, {
-              collection: def.collection,
-              ids,
-            }),
-            (data) => data.source,
-          ),
-        );
+        const msgs = await collectSource<StoreI18nMessageFragment>(client, i18nSourceDoc, {
+          collection: def.collection,
+          ids,
+        });
         const items: I18nMessage[] = msgs.map((msg) => ({
           id: msg.id,
           token: msg.token,

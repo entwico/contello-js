@@ -85,6 +85,11 @@ export class ConnectionPool {
     return client;
   }
 
+  /** Whether the socket of a client the pool handed out is up right now. */
+  isConnected(client: Client): boolean {
+    return this._connected[this._clients.indexOf(client)] === true;
+  }
+
   async disconnect() {
     const closed = this._clients.map(
       (client, index) =>

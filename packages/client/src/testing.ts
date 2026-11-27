@@ -24,11 +24,11 @@ export type FakeContelloHandlers = {
 
 export type FakeContelloClient = {
   /**
-   * Stands in for a `ContelloClient`: `subscribe`, `execute`, `init`, `destroy` and `ping` work,
-   * nothing else is there.
+   * Stands in for a `ContelloClient`: `subscribe`, `subscribeWithRetry`, `collect`, `execute`, `init`,
+   * `destroy` and `ping` work, nothing else is there.
    */
   client: ContelloClient<any>;
-  /** Every subscription that was iterated and every `execute`, in order. */
+  /** Every subscription that was iterated or collected and every `execute`, in order. */
   calls: FakeCall[];
   /** The subscriptions that are open right now: iterated, and neither finished nor closed. */
   open(): number;
@@ -151,8 +151,17 @@ export function createFakeContelloClient(handlers?: FakeContelloHandlers | undef
     }
   }
 
+  async function collect<TData>(query: string, variables?: Record<string, unknown> | undefined): Promise<TData[]> {
+    const messages: TData[] = await Array.fromAsync(subscribe<TData>(query, variables));
+
+    return messages;
+  }
+
   const client = {
     subscribe,
+    // there is no connection to lose
+    subscribeWithRetry: subscribe,
+    collect,
     execute,
     init: () => Promise.resolve(),
     destroy: () => Promise.resolve(),

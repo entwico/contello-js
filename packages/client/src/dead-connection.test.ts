@@ -1,8 +1,9 @@
-import { closeTestServers, startProxy } from '@entwico/dash/testing/node';
+import { closeTestServers, onCloseTestServers, startProxy } from '@entwico/dash/testing/node';
 import { afterEach, describe, expect, test } from 'vitest';
 
 import { ContelloClient } from './client';
-import { connectTo, query, startContello, startSilentServer, until } from './test-servers';
+import { ContelloConnectionLostError } from './connection';
+import { ENTITY_BATCHES, ENTITY_COUNT, connectTo, query, startContello, startSilentServer, until } from './test-servers';
 
 afterEach(closeTestServers);
 
@@ -20,6 +21,31 @@ describe('a connection to a live server', () => {
     await expect(query(client, '{ greeting }')).resolves.toEqual({ greeting: 'hello' });
     expect(count('connecting')).toBe(1);
     expect(proxy.accepted()).toBe(1);
+  });
+});
+
+describe('a connection on a slow path, where a pong waits behind the data', () => {
+  test('stays on one socket while a stream keeps arriving', async () => {
+    const contello = await startContello({ pongDelay: 600 });
+    const { client, count } = connectTo(contello.port);
+    const ids: string[] = [];
+
+    const completed = new Promise<void>((resolve, reject) => {
+      client.subscribe<{ entities: { id: string }[] }>(
+        { query: 'subscription { entities }' },
+        {
+          next: (message) => void ids.push(...(message.data?.entities ?? []).map((it) => it.id)),
+          error: reject,
+          complete: resolve,
+        },
+      );
+    });
+
+    // a connection that is given up while it streams starts the stream over, every time
+    await Promise.race([completed, until(() => count('connecting') > 1)]);
+
+    expect(count('connecting')).toBe(1);
+    expect(ids).toHaveLength(ENTITY_COUNT);
   });
 });
 
@@ -108,6 +134,89 @@ describe.each([
   });
 });
 
+type Entities = { entities: { id: string }[] };
+
+async function connectClient(port: number, onReconnecting?: (() => void) | undefined): Promise<ContelloClient> {
+  const client = new ContelloClient({ url: `http://127.0.0.1:${port}`, project: 'test', token: 'token', onReconnecting });
+
+  onCloseTestServers(() => client.destroy());
+  await client.init();
+
+  return client;
+}
+
+describe('a ContelloClient whose connection is lost', () => {
+  test('rejects a subscription and does not send it again', async () => {
+    const contello = await startContello();
+    const client = await connectClient(contello.port);
+    const ids: string[] = [];
+
+    const read = (async () => {
+      for await (const batch of client.subscribe<Entities>('subscription { entities }')) {
+        ids.push(...batch.entities.map((it) => it.id));
+      }
+    })();
+
+    await until(() => contello.batchesSent() >= 10);
+    contello.dropConnections();
+
+    await expect(read).rejects.toBeInstanceOf(ContelloConnectionLostError);
+
+    // the next connection is up, and carries nothing of the subscription
+    await expect(client.execute('{ greeting }')).resolves.toEqual({ greeting: 'hello' });
+    expect(contello.streamsStarted()).toBe(1);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  test('sends a subscription with retry again, and it goes on', async () => {
+    const contello = await startContello();
+    const client = await connectClient(contello.port);
+    let batches = 0;
+
+    const read = (async () => {
+      for await (const _batch of client.subscribeWithRetry<Entities>('subscription { entities }')) {
+        batches++;
+      }
+    })();
+
+    await until(() => contello.batchesSent() >= 10);
+    contello.dropConnections();
+    await read;
+
+    expect(contello.streamsStarted()).toBe(2);
+    expect(batches).toBeGreaterThan(ENTITY_BATCHES);
+  }, 15_000);
+
+  test('rejects an execute that was in flight and does not send it again', async () => {
+    const contello = await startContello();
+    const client = await connectClient(contello.port);
+
+    const answer = client.execute('{ slow }');
+
+    await until(() => contello.slowCalls() === 1);
+    contello.dropConnections();
+
+    await expect(answer).rejects.toBeInstanceOf(ContelloConnectionLostError);
+
+    await expect(client.execute('{ greeting }')).resolves.toEqual({ greeting: 'hello' });
+    expect(contello.slowCalls()).toBe(1);
+  });
+
+  test('answers an execute that was sent while no connection was up', async () => {
+    const contello = await startContello();
+    let reconnecting = false;
+
+    const client = await connectClient(contello.port, () => {
+      reconnecting = true;
+    });
+
+    contello.dropConnections();
+    await until(() => reconnecting);
+
+    await expect(client.execute('{ greeting }')).resolves.toEqual({ greeting: 'hello' });
+  });
+});
+
 describe('ContelloClient over a real socket', () => {
   test('connects, answers and disconnects', async () => {
     const contello = await startContello();
@@ -120,6 +229,39 @@ describe('ContelloClient over a real socket', () => {
 
     await client.destroy();
     await until(() => proxy.open() === 0);
+  });
+
+  test('reads every entity of a collection once when the connection drops while it streams', async () => {
+    const contello = await startContello();
+    const client = new ContelloClient({ url: `http://127.0.0.1:${contello.port}`, project: 'test', token: 'token' });
+
+    await client.init();
+
+    const read = client.collect<{ entities: { id: string }[] }>('subscription { entities }');
+
+    await until(() => contello.batchesSent() >= 10);
+    contello.dropConnections();
+
+    const batches = await read;
+    const ids = batches.flatMap((batch) => batch.entities.map((it) => it.id));
+
+    await client.destroy();
+
+    expect(new Set(ids).size).toBe(ENTITY_COUNT);
+    expect(ids).toHaveLength(ENTITY_COUNT);
+  }, 15_000);
+
+  test('rejects the read of a collection that the end of the client cuts off', async () => {
+    const contello = await startContello();
+    const client = new ContelloClient({ url: `http://127.0.0.1:${contello.port}`, project: 'test', token: 'token' });
+
+    await client.init();
+
+    const read = client.collect('subscription { entities }');
+
+    await until(() => contello.batchesSent() >= 5);
+
+    await Promise.all([expect(read).rejects.toThrow('destroyed before the read finished'), client.destroy()]);
   });
 
   test('disconnects from a server that never acknowledged it', async () => {

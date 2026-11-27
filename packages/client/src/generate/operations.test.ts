@@ -5,6 +5,15 @@ import { collectOperations } from './documents';
 import { generateOperationsConst, generateOperationsType } from './operations';
 
 describe('generateOperationsType', () => {
+  test('refuses an operation named like the retrying rpc method of a subscription', () => {
+    const doc = parse(`
+      subscription OnUpdate { updates { id } }
+      query OnUpdateWithRetry { updates { id } }
+    `);
+
+    expect(() => generateOperationsType(collectOperations([doc]))).toThrow('onUpdateWithRetry');
+  });
+
   test('generates Operations type with phantom result + variables fields per operation', () => {
     const doc = parse(`query GetUsers { users { id } }`);
     const ops = collectOperations([doc]);

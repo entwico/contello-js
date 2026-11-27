@@ -94,6 +94,42 @@ describe('createReplyWatchdog', () => {
     expect(terminate).toHaveBeenCalledOnce();
   });
 
+  test('keeps a connection that still delivers while its pong is late', () => {
+    const terminate = vi.fn();
+    const watchdog = createReplyWatchdog(terminate);
+
+    watchdog.ping(false);
+
+    for (let i = 0; i < 5; i++) {
+      vi.advanceTimersByTime(REPLY_TIMEOUT - 1);
+      watchdog.message();
+    }
+
+    expect(terminate).not.toHaveBeenCalled();
+  });
+
+  test('terminates when the messages stop before the pong came', () => {
+    const terminate = vi.fn();
+    const watchdog = createReplyWatchdog(terminate);
+
+    watchdog.ping(false);
+    vi.advanceTimersByTime(REPLY_TIMEOUT - 1);
+    watchdog.message();
+
+    vi.advanceTimersByTime(REPLY_TIMEOUT);
+    expect(terminate).toHaveBeenCalledOnce();
+  });
+
+  test('a message starts no wait', () => {
+    const terminate = vi.fn();
+    const watchdog = createReplyWatchdog(terminate);
+
+    watchdog.message();
+
+    vi.advanceTimersByTime(REPLY_TIMEOUT);
+    expect(terminate).not.toHaveBeenCalled();
+  });
+
   test('a closed connection is not terminated', () => {
     const terminate = vi.fn();
     const watchdog = createReplyWatchdog(terminate);

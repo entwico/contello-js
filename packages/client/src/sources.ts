@@ -1,5 +1,5 @@
 import { graphqlOperationAttributes } from '@contello/opentelemetry';
-import { concatAsync, firstAsync, mapAsync } from '@entwico/dash/async';
+import { firstAsync, mapAsync } from '@entwico/dash/async';
 import {
   type SourceMutationKind,
   createSourceMutation,
@@ -12,22 +12,41 @@ import { transformVariables } from './transform-variables';
 import type { SourceAccessors, SourceDef, SourceMap } from './types';
 
 type Subscribe = <TData>(query: string, variables?: Record<string, unknown> | undefined) => AsyncIterable<TData>;
+type Collect = <TData>(query: string, variables?: Record<string, unknown> | undefined) => Promise<TData[]>;
+
+/**
+ * How the sources reach Contello. A read is sent again when its connection is lost; a write is
+ * not, the first attempt may have arrived.
+ */
+export type SourceTransport = {
+  write: Subscribe;
+  /** The first message of a subscription. */
+  readOne: Subscribe;
+  /** Every message of a subscription that ends. */
+  readAll: Collect;
+};
+
+async function collectSource(collect: Collect, doc: string, variables: Record<string, unknown>): Promise<unknown[]> {
+  const batches = await collect<{ source: unknown[] }>(doc, variables);
+
+  return batches.flatMap((batch) => batch.source);
+}
 
 const WRITE_KINDS: SourceMutationKind[] = ['create', 'update', 'delete'];
 
 export function createSources<TSources extends SourceMap>(
   sources: TSources,
-  subscribe: Subscribe,
+  transport: SourceTransport,
 ): SourceAccessors<TSources> {
   const out = {} as Record<string, Record<string, (...args: any[]) => Promise<unknown>>>;
 
   for (const [name, source] of Object.entries(sources)) {
     const def = source as SourceDef;
     const doc = createSourceSubscription(def);
-    const accessor = createSourceAccessor(name, def, doc, subscribe);
+    const accessor = createSourceAccessor(name, def, doc, transport);
 
     if (accessor) {
-      out[name] = { ...accessor, ...createSourceWriters(name, def, subscribe) };
+      out[name] = { ...accessor, ...createSourceWriters(name, def, transport.write) };
     }
   }
 
@@ -85,7 +104,7 @@ function createSourceAccessor(
   name: string,
   def: SourceDef,
   doc: string,
-  subscribe: Subscribe,
+  transport: SourceTransport,
 ): { fetch: (...args: any[]) => Promise<unknown> } | undefined {
   switch (def.__cardinality) {
     case 'singleton': {
@@ -93,7 +112,7 @@ function createSourceAccessor(
         fetch: () =>
           wrap(
             `source:${name}`,
-            () => firstAsync(mapAsync(subscribe<{ source: unknown }>(doc), (r) => r.source)),
+            () => firstAsync(mapAsync(transport.readOne<{ source: unknown }>(doc), (r) => r.source)),
             graphqlOperationAttributes(doc),
           ),
       };
@@ -105,7 +124,7 @@ function createSourceAccessor(
 
           return wrap(
             `source:${name}`,
-            () => concatAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            () => collectSource(transport.readAll, doc, variables),
             graphqlOperationAttributes(doc, variables),
           );
         },
@@ -118,7 +137,7 @@ function createSourceAccessor(
 
           return wrap(
             `source:${name}`,
-            () => concatAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            () => collectSource(transport.readAll, doc, variables),
             graphqlOperationAttributes(doc, variables),
           );
         },
@@ -131,7 +150,7 @@ function createSourceAccessor(
 
           return wrap(
             `source:${name}`,
-            () => concatAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            () => collectSource(transport.readAll, doc, variables),
             graphqlOperationAttributes(doc, variables),
           );
         },
@@ -144,7 +163,7 @@ function createSourceAccessor(
 
           return wrap(
             `source:${name}`,
-            () => concatAsync(mapAsync(subscribe<{ source: unknown[] }>(doc, variables), (r) => r.source)),
+            () => collectSource(transport.readAll, doc, variables),
             graphqlOperationAttributes(doc, variables),
           );
         },

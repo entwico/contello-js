@@ -6,12 +6,38 @@ import type { OperationMap, Rpc } from './types';
 
 type Subscribe = <TData>(query: string, variables?: Record<string, unknown> | undefined) => AsyncIterable<TData>;
 
-export function buildRpc<T extends OperationMap>(operations: T, subscribe: Subscribe): Rpc<T> {
+export type RpcTransport = {
+  /** Rejects when its connection is lost. */
+  subscribe: Subscribe;
+  /** Is sent again on the next connection. */
+  subscribeWithRetry: Subscribe;
+};
+
+export const RETRY_SUFFIX = 'WithRetry';
+
+export function buildRpc<T extends OperationMap>(operations: T, transport: RpcTransport): Rpc<T> {
+  const { subscribe, subscribeWithRetry } = transport;
   const rpc = {} as Record<string, (...args: any[]) => any>;
 
   for (const [name, def] of Object.entries(operations)) {
-    rpc[name] = def.kind === 'subscription' ? (variables?: Record<string, unknown>) =>
-      subscribe<unknown>(def.document, transformVariables(variables)) : (variables?: Record<string, unknown>) => {
+    if (def.kind === 'subscription') {
+      const retryName = name + RETRY_SUFFIX;
+
+      if (Object.hasOwn(operations, retryName)) {
+        throw new Error(
+          `@contello/client: operation "${retryName}" collides with the retrying method of subscription "${name}"`,
+        );
+      }
+
+      rpc[name] = (variables?: Record<string, unknown>) =>
+        subscribe<unknown>(def.document, transformVariables(variables));
+      rpc[retryName] = (variables?: Record<string, unknown>) =>
+        subscribeWithRetry<unknown>(def.document, transformVariables(variables));
+
+      continue;
+    }
+
+    rpc[name] = (variables?: Record<string, unknown>) => {
       const vars = transformVariables(variables);
 
       return wrap(

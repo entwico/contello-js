@@ -74,6 +74,19 @@ describe('a fake contello client', () => {
     expect(open()).toBe(0);
   });
 
+  test('collects every message of a subscription that ends', async () => {
+    async function* batches() {
+      yield { source: [1, 2] };
+      yield { source: [3] };
+    }
+
+    const { client, calls, open } = createFakeContelloClient({ subscribe: () => batches() });
+
+    await expect(client.collect('subscription { source }')).resolves.toEqual([{ source: [1, 2] }, { source: [3] }]);
+    expect(calls).toEqual([{ kind: 'subscribe', query: 'subscription { source }', variables: undefined }]);
+    expect(open()).toBe(0);
+  });
+
   test('answers execute with its own handler', async () => {
     const { client, calls } = createFakeContelloClient({ execute: (_query, variables) => ({ result: variables }) });
 

@@ -7,6 +7,15 @@ import { createWebSocketClass } from './websocket';
 
 const KEEP_ALIVE_INTERVAL = 30_000;
 
+/** What an operation is rejected with when its connection was lost after the operation was sent. */
+export class ContelloConnectionLostError extends Error {
+  override name = 'ContelloConnectionLostError';
+
+  constructor() {
+    super('@contello/client: the connection was lost before the operation finished');
+  }
+}
+
 export type ConnectionOptions = {
   url: string;
   token: string;
@@ -60,6 +69,7 @@ export function createConnection(options: ConnectionOptions): Client {
       },
       ping: (received) => watchdog.ping(received),
       pong: (received) => watchdog.pong(received),
+      message: () => watchdog.message(),
       closed: () => {
         watchdog.closed();
         options.onClosed?.();

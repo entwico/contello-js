@@ -8,8 +8,9 @@ import {
   createSourceSubscription,
 } from '@contello/client';
 import { type MaybePromise, type ReadonlyDeep, maybeAll, maybeThen } from '@entwico/dash';
-import { type AsyncIterableSubject, concatAsync, mapAsync } from '@entwico/dash/async';
+import type { AsyncIterableSubject } from '@entwico/dash/async';
 import { ProjectedMap } from '@entwico/projected';
+import { collectSource } from './collect-source';
 import { DependencyCollector } from './dependency-collector';
 import type { ModelResolver } from './model-resolver';
 import { wrap } from './telemetry';
@@ -34,12 +35,7 @@ function fetchCollection<S extends SourceDef<string, 'entity'>>(
   client: ContelloClient<any>,
   ids: string[] | undefined,
 ): Promise<ExtractSourceResult<S>[]> {
-  return concatAsync(
-    mapAsync(
-      client.subscribe<{ source: ExtractSourceResult<S>[] }>(createSourceSubscription(source), { ids }),
-      (r) => r.source,
-    ),
-  );
+  return collectSource(client, createSourceSubscription(source), { ids });
 }
 
 /**
