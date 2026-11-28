@@ -145,12 +145,30 @@ describe('store connection', () => {
       onReconnecting,
       onError,
       connectionEvents,
+      operationTimeoutMs: 30_000,
     });
 
     expect(created.options).toEqual([
-      { ...connection, schema, connections: 3, onConnected, onReconnecting, onError, connectionEvents },
+      {
+        ...connection,
+        schema,
+        connections: 3,
+        onConnected,
+        onReconnecting,
+        onError,
+        connectionEvents,
+        operationTimeoutMs: 30_000,
+      },
     ] satisfies ContelloClientOptions<typeof schema>[]);
     expect(store.client).toBe(created.client);
+  });
+
+  test('gives its client no operation timeout unless it is asked for one', () => {
+    created.client = createFakeContelloClient().client;
+
+    createStore({ ...connection, schema });
+
+    expect(created.options).toEqual([expect.objectContaining({ operationTimeoutMs: undefined })]);
   });
 
   test('init() connects the client and starts watching for updates', async () => {

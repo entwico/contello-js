@@ -49,6 +49,14 @@ export type CreateStoreOptions<TSchema extends Schema | undefined = undefined> =
   onReconnecting?: (() => void) | undefined;
   onError?: ((error: unknown) => void) | undefined;
   connectionEvents?: ConnectionEvents | undefined;
+  /**
+   * How long an operation of the store's client may take; without it an operation waits for as
+   * long as its connection lives. The load of a collection, of routes, assets or i18n messages is
+   * given this time for each batch it receives, a singleton read and a write for the whole of it
+   * (a write that passes a `signal` is left to that). A load that runs out of it is rejected, the
+   * first `load()` included; the watcher has no deadline.
+   */
+  operationTimeoutMs?: number | undefined;
 };
 
 // ---------------------------------------------------------------------------

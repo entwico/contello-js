@@ -94,6 +94,7 @@ export class Store<TSchema extends Schema | undefined = undefined> {
       onReconnecting: options.onReconnecting,
       onError: options.onError,
       connectionEvents: options.connectionEvents,
+      operationTimeoutMs: options.operationTimeoutMs,
     });
 
     this._resolver = new ModelResolver(schema?.models);
