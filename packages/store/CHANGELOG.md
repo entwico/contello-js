@@ -1,5 +1,11 @@
 # @contello/store
 
+## 5.2.0
+
+### Minor Changes
+
+- 96030f6: add the opt-in store option `operationTimeoutMs`
+
 ## 5.1.0
 
 ### Minor Changes
